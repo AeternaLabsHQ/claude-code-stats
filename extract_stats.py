@@ -1505,6 +1505,12 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
         </table>
       </div>
     </div>
+    <div class="chart-grid">
+      <div class="chart-box" id="cacheEfficiency">
+        <h3>__L_costs_cache_efficiency__</h3>
+        <div class="kpi-grid" id="cacheKpi"></div>
+      </div>
+    </div>
   </div>
 
   <div class="tab-content" id="tab-activity">
@@ -1941,6 +1947,23 @@ function renderCosts() {
     });
     tbody.appendChild(tr);
   });
+
+  // Cache Efficiency
+  const ct = F.cost_by_token_type;
+  const cacheKpi = document.getElementById('cacheKpi');
+  if (cacheKpi && ct) {
+    const cacheRead = F.model_summary.reduce((s,m) => s + m.cache_read_tokens, 0);
+    const cacheWrite = F.model_summary.reduce((s,m) => s + m.cache_write_tokens, 0);
+    cacheKpi.innerHTML = [
+      '<div class="kpi-card"><div class="label">Cache Read Tokens</div>',
+      '<div class="value" style="color:var(--cyan)">' + fmtTokens(cacheRead) + '</div></div>',
+      '<div class="kpi-card"><div class="label">Cache Write Tokens</div>',
+      '<div class="value" style="color:var(--blue)">' + fmtTokens(cacheWrite) + '</div></div>',
+      '<div class="kpi-card savings"><div class="label">Estimated Cache Savings</div>',
+      '<div class="value" style="color:var(--green)">' + fmtUSD(ct.cache_savings || 0) + '</div>',
+      '<div class="sub">vs. full input pricing</div></div>'
+    ].join('');
+  }
 }
 
 // ── Tab 2: Activity ────────────────────────────────────────────────────

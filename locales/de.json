@@ -36,7 +36,8 @@
     "th_output": "Output",
     "th_input": "Input",
     "th_cache_read": "Cache Read",
-    "th_api_calls": "API Calls"
+    "th_api_calls": "API Calls",
+    "costs_cache_efficiency": "Cache-Effizienz"
   },
   "activity": {
     "daily_messages": "Nachrichten pro Tag",

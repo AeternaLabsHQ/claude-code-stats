@@ -1050,6 +1050,23 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
 
     cost_by_type = {k: round(v, 2) for k, v in cost_by_type.items()}
 
+    # Cache efficiency: what would cache_read tokens have cost at full input price?
+    cache_savings = 0.0
+    for mname_display, mdata in model_totals.items():
+        model_id = None
+        for mid, mp in PRICING.items():
+            if mp["display"] == mname_display:
+                model_id = mid
+                break
+        if not model_id:
+            model_id = list(PRICING.keys())[0]
+        p = PRICING[model_id]
+        full_price = mdata["cache_read_tokens"] * p["input"] / 1_000_000
+        cache_price = mdata["cache_read_tokens"] * p["cache_read"] / 1_000_000
+        cache_savings += full_price - cache_price
+
+    cost_by_type["cache_savings"] = round(cache_savings, 2)
+
     # ── Global Tool Aggregation ───────────────────────────────────────────
     global_tools = defaultdict(int)
     for s in session_list:

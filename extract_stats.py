@@ -1674,6 +1674,7 @@ def _get_html_template():
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Claude Code Dashboard</title>
+<link rel="icon" type="image/png" href="favicon.png">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
@@ -3385,6 +3386,7 @@ def _get_session_html_template():
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Session Detail</title>
+<link rel="icon" type="image/png" href="../favicon.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
 <style>
@@ -3796,6 +3798,7 @@ def _get_project_html_template():
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Project Detail</title>
+<link rel="icon" type="image/png" href="../favicon.png">
 <style>
 :root { --bg:#0f1117; --bg2:#1a1d27; --bg3:#242836; --border:#2d3348; --text:#e2e8f0; --text2:#94a3b8; --accent:#6366f1; --accent2:#818cf8; --green:#22c55e; --orange:#f59e0b; --red:#ef4444; --blue:#3b82f6; --purple:#a855f7; --cyan:#06b6d4; --amber:#f59e0b; }
 * { margin:0; padding:0; box-sizing:border-box; }

@@ -14,12 +14,27 @@ A comprehensive analytics dashboard for [Claude Code](https://docs.anthropic.com
 - **KPI Dashboard** -- Total API-equivalent cost, messages, sessions, output tokens
 - **Token & API Value** -- Daily costs, cumulative costs, model distribution
 - **Activity** -- Message patterns, hourly distribution, weekday distribution
-- **Projects** -- Top projects by cost, detailed project metrics
-- **Sessions** -- Filterable/searchable session details with expandable metadata
+- **Agents** -- Subagent type distribution, error breakdown by category and tool, task management
+- **Projects** -- Top projects by cost, detailed project pages with memories and workflow timeline
+- **Sessions** -- Filterable/searchable session details with chat replay and subagent prompt viewer
 - **Plan & Billing** -- Cost savings analysis vs. your subscription plan
-- **Insights** -- Tool usage, storage breakdown, plugins, todos, file snapshots
+- **Insights** -- Tool usage, storage breakdown, git ops, telemetry, performance metrics
+- **Privacy** -- F2 anonymization mode, configurable display name, empty session filter
 
-![Dashboard Screenshot](docs/images/claude-code-stats-01.png)
+<table>
+  <tr>
+    <td><a href="docs/images/claude-code-stats-01.jpeg"><img src="docs/images/claude-code-stats-01.jpeg" width="280" alt="KPI Dashboard"></a></td>
+    <td><a href="docs/images/claude-code-stats-02.jpeg"><img src="docs/images/claude-code-stats-02.jpeg" width="280" alt="Token & API Value"></a></td>
+    <td><a href="docs/images/claude-code-stats-03.jpeg"><img src="docs/images/claude-code-stats-03.jpeg" width="280" alt="Activity"></a></td>
+    <td><a href="docs/images/claude-code-stats-04.jpeg"><img src="docs/images/claude-code-stats-04.jpeg" width="280" alt="Agents"></a></td>
+  </tr>
+  <tr>
+    <td><a href="docs/images/claude-code-stats-05.jpeg"><img src="docs/images/claude-code-stats-05.jpeg" width="280" alt="Projects"></a></td>
+    <td><a href="docs/images/claude-code-stats-06.jpeg"><img src="docs/images/claude-code-stats-06.jpeg" width="280" alt="Sessions"></a></td>
+    <td><a href="docs/images/claude-code-stats-07.jpeg"><img src="docs/images/claude-code-stats-07.jpeg" width="280" alt="Insights"></a></td>
+    <td></td>
+  </tr>
+</table>
 
 ## Quick Start
 

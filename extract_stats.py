@@ -73,9 +73,11 @@ else:
     MIGRATION_STATS_CACHE = None
     MIGRATION_HISTORY_JSONL = None
 
+VERSION = "0.2.0"
+
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
-DASHBOARD_HTML = OUTPUT_DIR / "dashboard.html"
+DASHBOARD_HTML = OUTPUT_DIR / "index.html"
 TEMPLATE_HTML = Path(__file__).parent / "dashboard_template.html"
 
 # ── Plan Configuration (from config.json) ────────────────────────────────
@@ -1069,6 +1071,7 @@ def build_inline_html(data_json):
     html = _get_html_template()
     html = _inject_locale(html, LOCALE)
     html = html.replace('"__DATA_PLACEHOLDER__"', data_json)
+    html = html.replace('__VERSION__', VERSION)
     return html
 
 
@@ -1106,6 +1109,10 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .header h1 { font-size:20px; font-weight:600; }
 .header h1 span { color:var(--accent2); }
 .header .meta { color:var(--text2); font-size:13px; }
+.time-filter { display:flex; gap:4px; }
+.time-filter button { background:var(--bg3); border:1px solid var(--border); color:var(--text2); padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
+.time-filter button:hover { color:var(--text); background:var(--bg3); border-color:var(--accent); }
+.time-filter button.active { background:var(--accent); color:white; border-color:var(--accent); }
 .container { max-width:1400px; margin:0 auto; padding:20px; }
 
 /* KPI Cards */
@@ -1221,6 +1228,7 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 
 <div class="header">
   <h1><span>__L_header_title_prefix__</span> __L_header_title_suffix__</h1>
+  <div class="time-filter" id="timeFilter"></div>
   <div class="meta" id="headerMeta"></div>
 </div>
 
@@ -1398,9 +1406,171 @@ const scaleDefaults = {
   y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
 };
 
+// ── Filtered Data & Time Filter ────────────────────────────────────────
+let F = {};
+const charts = {};
+
+function filterData(days) {
+  let cutoff = '';
+  if (days > 0) {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    cutoff = d.toISOString().slice(0, 10);
+  }
+
+  // Filter date-indexed arrays
+  F.daily_costs = days === 0 ? D.daily_costs : D.daily_costs.filter(r => r.date >= cutoff);
+  F.daily_messages = days === 0 ? D.daily_messages : D.daily_messages.filter(r => r.date >= cutoff);
+
+  // Recalculate cumulative costs from filtered daily costs
+  let cum = 0;
+  F.cumulative_costs = F.daily_costs.map(r => { cum += r.total; return {date: r.date, cost: cum}; });
+
+  // Filter sessions
+  F.sessions = days === 0 ? D.sessions : D.sessions.filter(s => s.date >= cutoff);
+
+  // Recalculate model_summary from filtered sessions
+  const modelMap = {};
+  F.sessions.forEach(s => {
+    Object.entries(s.model_breakdown || {}).forEach(([model, d]) => {
+      if (!modelMap[model]) modelMap[model] = {model, cost:0, input_tokens:0, output_tokens:0, cache_read_tokens:0, calls:0};
+      modelMap[model].cost += d.cost || 0;
+      modelMap[model].input_tokens += d.input_tokens || 0;
+      modelMap[model].output_tokens += d.output_tokens || 0;
+      modelMap[model].cache_read_tokens += d.cache_read_tokens || 0;
+      modelMap[model].calls += d.calls || 0;
+    });
+  });
+  F.model_summary = Object.values(modelMap).sort((a, b) => b.cost - a.cost);
+
+  // cost_by_token_type: scale by ratio of filtered cost to original cost
+  const filteredTotalCost = F.model_summary.reduce((s, m) => s + m.cost, 0);
+  const ratio = D.kpi.total_cost > 0 ? filteredTotalCost / D.kpi.total_cost : 0;
+  F.cost_by_token_type = {
+    input: D.cost_by_token_type.input * ratio,
+    output: D.cost_by_token_type.output * ratio,
+    cache_read: D.cost_by_token_type.cache_read * ratio,
+    cache_write: D.cost_by_token_type.cache_write * ratio,
+  };
+
+  // Recalculate projects from filtered sessions
+  const projMap = {};
+  F.sessions.forEach(s => {
+    if (!projMap[s.project]) projMap[s.project] = {name: s.project, sessions:0, messages:0, cost:0, output_tokens:0, file_size_mb: 0};
+    const p = projMap[s.project];
+    p.sessions++;
+    p.messages += s.messages || 0;
+    p.cost += s.cost || 0;
+    p.output_tokens += s.output_tokens || 0;
+    p.file_size_mb = Math.max(p.file_size_mb, s.file_size_mb || 0);
+  });
+  F.projects = Object.values(projMap).sort((a, b) => b.cost - a.cost);
+
+  // Recalculate hourly_distribution
+  const hourly = Array.from({length:24}, (_, i) => ({hour: i, messages: 0}));
+  F.sessions.forEach(s => {
+    if (s.start) {
+      const h = new Date(s.start).getHours();
+      hourly[h].messages += s.messages || 0;
+    }
+  });
+  F.hourly_distribution = hourly;
+
+  // Recalculate weekday_distribution
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const weekday = [0,0,0,0,0,0,0];
+  F.sessions.forEach(s => {
+    if (s.start) {
+      const d = new Date(s.start).getDay();
+      weekday[d] += s.messages || 0;
+    }
+  });
+  // Reorder to Mon-Sun
+  F.weekday_distribution = [1,2,3,4,5,6,0].map(i => ({day: dayNames[i], messages: weekday[i]}));
+
+  // Recalculate tool_summary
+  const toolMap = {};
+  F.sessions.forEach(s => {
+    Object.entries(s.tools || {}).forEach(([name, count]) => {
+      toolMap[name] = (toolMap[name] || 0) + count;
+    });
+  });
+  F.tool_summary = Object.entries(toolMap).map(([name, count]) => ({name, count})).sort((a, b) => b.count - a.count);
+
+  // Recalculate KPI
+  const totalCost = filteredTotalCost;
+  const totalSessions = F.sessions.length;
+  const totalMessages = F.sessions.reduce((s, x) => s + (x.messages || 0), 0);
+  const totalOutputTokens = F.sessions.reduce((s, x) => s + (x.output_tokens || 0), 0);
+  const totalInputTokens = F.sessions.reduce((s, x) => s + (x.input_tokens || 0), 0);
+  const dates = F.sessions.map(s => s.date).filter(Boolean).sort();
+  F.kpi = {
+    total_cost: totalCost,
+    actual_plan_cost: D.kpi.actual_plan_cost,
+    total_sessions: totalSessions,
+    total_messages: totalMessages,
+    total_output_tokens: totalOutputTokens,
+    total_input_tokens: totalInputTokens,
+    first_session: dates.length > 0 ? dates[0] : D.kpi.first_session,
+    last_session: dates.length > 0 ? dates[dates.length - 1] : D.kpi.last_session,
+  };
+}
+
+function initTimeFilter() {
+  const container = document.getElementById('timeFilter');
+  const options = [{label:'All', days:0},{label:'7D', days:7},{label:'30D', days:30},{label:'90D', days:90},{label:'1Y', days:365}];
+  options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = opt.label;
+    if (i === 0) btn.classList.add('active');
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyFilter(opt.days);
+    });
+    container.appendChild(btn);
+  });
+}
+
+function applyFilter(days) {
+  filterData(days);
+
+  // Destroy all existing Chart.js instances
+  Object.keys(charts).forEach(k => { if (charts[k]) { charts[k].destroy(); delete charts[k]; } });
+
+  // Clear dynamic DOM containers
+  document.getElementById('kpiGrid').textContent = '';
+  document.getElementById('modelTableBody').textContent = '';
+  document.getElementById('projectTableBody').textContent = '';
+
+  // Re-render (but NOT renderPlan)
+  renderKPI();
+  renderCosts();
+  renderActivity();
+  renderProjects();
+  renderSessions();
+  renderToolUsageChart();
+}
+
+function renderToolUsageChart() {
+  const tools = (F.tool_summary || []).slice(0, 20);
+  if (tools.length > 0) {
+    charts.toolUsage = new Chart(document.getElementById('chartToolUsage'), {
+      type: 'bar',
+      data: { labels: tools.map(t => t.name),
+        datasets: [{ label: D.locale.insights.tool_calls, data: tools.map(t => t.count),
+          backgroundColor: tools.map((_, i) => 'hsl(' + (i * 18) + ',60%,55%)'), borderRadius: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: { x: { ...scaleDefaults.x, title: { display: true, text: D.locale.insights.tool_calls, color: '#64748b' } },
+          y: { ...scaleDefaults.y, ticks: { font: { size: 11 } } } } }
+    });
+  }
+}
+
 // ── KPI Cards ──────────────────────────────────────────────────────────
 function renderKPI() {
-  const k = D.kpi;
+  const k = F.kpi;
   document.getElementById('headerMeta').textContent =
     D.account.name + ' | ' + k.first_session + ' \u2013 ' + k.last_session +
     ' | ' + D.locale.header.generated + ': ' + new Date(D.generated_at).toLocaleString(D.locale.locale_code);
@@ -1453,16 +1623,16 @@ function switchTab(name, btn) {
 
 // ── Tab 1: Costs ───────────────────────────────────────────────────────
 function renderCosts() {
-  const dates = D.daily_costs.map(d => d.date);
+  const dates = F.daily_costs.map(d => d.date);
   const models = D.models;
 
-  new Chart(document.getElementById('chartDailyCost'), {
+  charts.dailyCost = new Chart(document.getElementById('chartDailyCost'), {
     type: 'bar',
     data: {
       labels: dates,
       datasets: models.map(m => ({
         label: m,
-        data: D.daily_costs.map(d => d[m] || 0),
+        data: F.daily_costs.map(d => d[m] || 0),
         backgroundColor: MODEL_COLORS[m] || '#6b7280',
         borderRadius: 2,
       }))
@@ -1474,11 +1644,11 @@ function renderCosts() {
     }
   });
 
-  new Chart(document.getElementById('chartCumCost'), {
+  charts.cumCost = new Chart(document.getElementById('chartCumCost'), {
     type: 'line',
     data: {
-      labels: D.cumulative_costs.map(d => d.date),
-      datasets: [{ label: D.locale.costs.cumulative_label, data: D.cumulative_costs.map(d => d.cost),
+      labels: F.cumulative_costs.map(d => d.date),
+      datasets: [{ label: D.locale.costs.cumulative_label, data: F.cumulative_costs.map(d => d.cost),
         borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
@@ -1486,20 +1656,20 @@ function renderCosts() {
       scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: 'USD', color: '#64748b' } } } }
   });
 
-  new Chart(document.getElementById('chartModelDist'), {
+  charts.modelDist = new Chart(document.getElementById('chartModelDist'), {
     type: 'doughnut',
     data: {
-      labels: D.model_summary.map(m => m.model),
-      datasets: [{ data: D.model_summary.map(m => m.cost),
-        backgroundColor: D.model_summary.map(m => MODEL_COLORS[m.model] || '#6b7280'), borderWidth: 0 }]
+      labels: F.model_summary.map(m => m.model),
+      datasets: [{ data: F.model_summary.map(m => m.cost),
+        backgroundColor: F.model_summary.map(m => MODEL_COLORS[m.model] || '#6b7280'), borderWidth: 0 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16 } },
-        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtUSD(ctx.raw) + ' (' + (ctx.raw / D.kpi.total_cost * 100).toFixed(1) + '%)' } } } }
+        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtUSD(ctx.raw) + ' (' + (F.kpi.total_cost > 0 ? (ctx.raw / F.kpi.total_cost * 100).toFixed(1) : '0.0') + '%)' } } } }
   });
 
-  const cbt = D.cost_by_token_type;
-  new Chart(document.getElementById('chartTokenType'), {
+  const cbt = F.cost_by_token_type;
+  charts.tokenType = new Chart(document.getElementById('chartTokenType'), {
     type: 'bar',
     data: {
       labels: ['Input', 'Output', 'Cache Read', 'Cache Write'],
@@ -1513,7 +1683,7 @@ function renderCosts() {
 
   // Model table
   const tbody = document.getElementById('modelTableBody');
-  D.model_summary.forEach(m => {
+  F.model_summary.forEach(m => {
     const tr = document.createElement('tr');
     const cells = [m.model, fmtUSD(m.cost), fmtTokens(m.output_tokens), fmtTokens(m.input_tokens), fmtTokens(m.cache_read_tokens), fmt(m.calls)];
     cells.forEach((val, i) => {
@@ -1528,39 +1698,39 @@ function renderCosts() {
 
 // ── Tab 2: Activity ────────────────────────────────────────────────────
 function renderActivity() {
-  new Chart(document.getElementById('chartDailyMsgs'), {
+  charts.dailyMsgs = new Chart(document.getElementById('chartDailyMsgs'), {
     type: 'bar',
-    data: { labels: D.daily_messages.map(d => d.date),
-      datasets: [{ label: D.locale.activity.messages_label, data: D.daily_messages.map(d => d.messages), backgroundColor: '#6366f1', borderRadius: 3 }] },
+    data: { labels: F.daily_messages.map(d => d.date),
+      datasets: [{ label: D.locale.activity.messages_label, data: F.daily_messages.map(d => d.messages), backgroundColor: '#6366f1', borderRadius: 3 }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: scaleDefaults }
   });
 
-  const maxHourly = Math.max(...D.hourly_distribution.map(x => x.messages || 1));
-  new Chart(document.getElementById('chartHourly'), {
+  const maxHourly = Math.max(...F.hourly_distribution.map(x => x.messages || 1));
+  charts.hourly = new Chart(document.getElementById('chartHourly'), {
     type: 'polarArea',
-    data: { labels: D.hourly_distribution.map(h => h.hour + ':00'),
-      datasets: [{ data: D.hourly_distribution.map(h => h.messages),
-        backgroundColor: D.hourly_distribution.map(h => 'rgba(99,102,241,' + (0.3 + 0.7 * (h.messages / maxHourly)) + ')'),
+    data: { labels: F.hourly_distribution.map(h => h.hour + ':00'),
+      datasets: [{ data: F.hourly_distribution.map(h => h.messages),
+        backgroundColor: F.hourly_distribution.map(h => 'rgba(99,102,241,' + (0.3 + 0.7 * (h.messages / maxHourly)) + ')'),
         borderWidth: 1, borderColor: '#2d3348' }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: { r: { ticks: { color: '#64748b', backdropColor: 'transparent' }, grid: { color: '#1e293b' } } } }
   });
 
-  new Chart(document.getElementById('chartWeekday'), {
+  charts.weekday = new Chart(document.getElementById('chartWeekday'), {
     type: 'bar',
-    data: { labels: D.weekday_distribution.map(d => d.day),
-      datasets: [{ label: D.locale.activity.messages_label, data: D.weekday_distribution.map(d => d.messages),
-        backgroundColor: D.weekday_distribution.map((d, i) => i >= 5 ? '#f59e0b' : '#6366f1'), borderRadius: 4 }] },
+    data: { labels: F.weekday_distribution.map(d => d.day),
+      datasets: [{ label: D.locale.activity.messages_label, data: F.weekday_distribution.map(d => d.messages),
+        backgroundColor: F.weekday_distribution.map((d, i) => i >= 5 ? '#f59e0b' : '#6366f1'), borderRadius: 4 }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } }, scales: scaleDefaults }
   });
 
-  new Chart(document.getElementById('chartDailySessions'), {
+  charts.dailySessions = new Chart(document.getElementById('chartDailySessions'), {
     type: 'bar',
-    data: { labels: D.daily_messages.map(d => d.date),
-      datasets: [{ label: D.locale.activity.sessions_label, data: D.daily_messages.map(d => d.sessions), backgroundColor: '#06b6d4', borderRadius: 3 }] },
+    data: { labels: F.daily_messages.map(d => d.date),
+      datasets: [{ label: D.locale.activity.sessions_label, data: F.daily_messages.map(d => d.sessions), backgroundColor: '#06b6d4', borderRadius: 3 }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: scaleDefaults }
   });
@@ -1568,8 +1738,8 @@ function renderActivity() {
 
 // ── Tab 3: Projects ────────────────────────────────────────────────────
 function renderProjects() {
-  const top = D.projects.slice(0, 15);
-  new Chart(document.getElementById('chartProjectCost'), {
+  const top = F.projects.slice(0, 15);
+  charts.projectCost = new Chart(document.getElementById('chartProjectCost'), {
     type: 'bar',
     data: { labels: top.map(p => p.name.split('/').pop()),
       datasets: [{ label: D.locale.projects.top15_label, data: top.map(p => p.cost), backgroundColor: '#6366f1', borderRadius: 4 }] },
@@ -1582,7 +1752,7 @@ function renderProjects() {
 }
 
 function renderProjectTable(sortKey, sortDir) {
-  const sorted = [...D.projects].sort((a, b) => {
+  const sorted = [...F.projects].sort((a, b) => {
     const va = a[sortKey], vb = b[sortKey];
     if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     return sortDir === 'asc' ? va - vb : vb - va;
@@ -1614,7 +1784,7 @@ let sessionPage = 0;
 const SESSION_PER_PAGE = 20;
 
 function getFilteredSessions() {
-  let list = [...D.sessions];
+  let list = [...F.sessions];
   const proj = document.getElementById('filterProject').value;
   const search = document.getElementById('filterSearch').value.toLowerCase();
   const sort = document.getElementById('filterSort').value;
@@ -1636,14 +1806,18 @@ function getFilteredSessions() {
 
 function renderSessions() {
   const sel = document.getElementById('filterProject');
-  if (sel.options.length <= 1) {
-    const projects = [...new Set(D.sessions.map(s => s.project))].sort();
-    projects.forEach(p => {
-      const o = document.createElement('option');
-      o.value = p; o.textContent = p;
-      sel.appendChild(o);
-    });
-  }
+  const currentVal = sel.value;
+  // Clear and rebuild options from filtered sessions
+  while (sel.options.length > 1) sel.remove(1);
+  const projects = [...new Set(F.sessions.map(s => s.project))].sort();
+  projects.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p; o.textContent = p;
+    sel.appendChild(o);
+  });
+  // Restore selection if still valid
+  if (projects.includes(currentVal)) sel.value = currentVal;
+  sessionPage = 0;
   renderSessionList();
 }
 
@@ -1947,19 +2121,7 @@ function renderInsights() {
   if (!ins) return;
 
   // Tool usage chart
-  const tools = (D.tool_summary || []).slice(0, 20);
-  if (tools.length > 0) {
-    new Chart(document.getElementById('chartToolUsage'), {
-      type: 'bar',
-      data: { labels: tools.map(t => t.name),
-        datasets: [{ label: D.locale.insights.tool_calls, data: tools.map(t => t.count),
-          backgroundColor: tools.map((_, i) => 'hsl(' + (i * 18) + ',60%,55%)'), borderRadius: 4 }] },
-      options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
-        plugins: { legend: { display: false } },
-        scales: { x: { ...scaleDefaults.x, title: { display: true, text: D.locale.insights.tool_calls, color: '#64748b' } },
-          y: { ...scaleDefaults.y, ticks: { font: { size: 11 } } } } }
-    });
-  }
+  renderToolUsageChart();
 
   // Storage chart
   const storage = ins.storage || {};
@@ -2094,6 +2256,8 @@ document.getElementById('filterSort').addEventListener('change', () => { session
 document.getElementById('filterSearch').addEventListener('input', () => { sessionPage = 0; renderSessionList(); });
 
 // ── Init ───────────────────────────────────────────────────────────────
+filterData(0);
+initTimeFilter();
 initTabs();
 renderKPI();
 renderCosts();
@@ -2103,6 +2267,7 @@ renderSessions();
 renderPlan();
 renderInsights();
 </script>
+<div style="text-align:center;padding:24px 0 12px;color:#475569;font-size:11px;">v__VERSION__</div>
 </body>
 </html>'''
 

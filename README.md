@@ -4,6 +4,10 @@ A comprehensive analytics dashboard for [Claude Code](https://docs.anthropic.com
 
 ***Disclaimer:*** *This is an unofficial, community-built tool. Not affiliated with or endorsed by Anthropic.*
 
+> **PRIVACY WARNING**
+>
+> This dashboard may contain **sensitive data**: source code snippets, file paths, API keys, project memories, conversation history, and internal notes. **Do NOT publish the generated output to the public internet or any unsecured location.** Use authentication or keep it local. Use `--no-memories` to exclude project memory content. Press `F2` in the dashboard to toggle anonymization mode for screenshots.
+
 ## Features
 
 - **Time Range Filter** -- Global pill buttons (All / 7D / 30D / 90D / 1Y) to filter the entire dashboard by time period

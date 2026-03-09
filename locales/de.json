@@ -4,7 +4,9 @@
   "header": {
     "title_prefix": "Claude Code",
     "title_suffix": "Nutzungsstatistik",
-    "generated": "Generiert"
+    "generated": "Generiert",
+    "hide_empty": "Leere Sessions ausblenden",
+    "hide_empty_hint": "Sessions ohne Nachrichten und ohne Token-Verbrauch ausblenden"
   },
   "kpi": {
     "api_equivalent": "API-\u00c4quivalent",
@@ -22,7 +24,8 @@
     "projects": "Projekte",
     "sessions": "Sessions",
     "plan": "Plan & Abrechnung",
-    "insights": "Insights"
+    "insights": "Insights",
+    "agents": "Agenten"
   },
   "costs": {
     "daily_cost": "API-Wert pro Tag nach Modell",
@@ -151,6 +154,45 @@
     "todos_completed": "Todos erledigt",
     "completion_rate": "Completion Rate",
     "skills": "Verwendete Skills",
-    "hooks": "Ausgeführte Hooks"
+    "hooks": "Ausgeführte Hooks",
+    "system_info": "System-Info",
+    "performance": "Performance",
+    "peak_memory": "Spitzen-Speicher (RSS)",
+    "peak_cpu": "Spitzen-CPU",
+    "memory_per_session": "Speicher pro Session",
+    "error_rate_over_time": "Fehlerrate im Zeitverlauf",
+    "git_ops": "Git-Operationen",
+    "commits": "Commits",
+    "pushes": "Pushes",
+    "pull_requests": "Pull Requests"
+  },
+  "agents": {
+    "subagent_types": "Subagent-Typen",
+    "top_descriptions": "Top Agent-Aufgaben",
+    "dispatches": "Dispatches",
+    "total_tasks": "Tasks gesamt",
+    "task_overview": "Task-Management",
+    "task_completion": "Abschlussrate",
+    "error_overview": "Fehler-\u00dcbersicht",
+    "errors_by_category": "Fehler nach Kategorie",
+    "errors_by_tool": "Fehler nach Tool",
+    "error_rate": "Fehlerrate",
+    "top_errors": "Top-Fehler",
+    "th_type": "Typ",
+    "th_description": "Beschreibung",
+    "th_count": "Anzahl",
+    "th_error": "Fehlermeldung"
+  },
+  "project_detail": {
+    "overview": "\u00dcbersicht",
+    "workflow": "Workflow",
+    "memory": "Projekt-Memory",
+    "top_files": "Top-Dateien",
+    "subagents_used": "Verwendete Subagents",
+    "git_operations": "Git-Operationen",
+    "th_file": "Datei",
+    "th_reads": "Reads",
+    "th_edits": "Edits",
+    "th_writes": "Writes"
   }
 }

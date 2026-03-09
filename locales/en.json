@@ -4,7 +4,9 @@
   "header": {
     "title_prefix": "Claude Code",
     "title_suffix": "Usage Statistics",
-    "generated": "Generated"
+    "generated": "Generated",
+    "hide_empty": "Hide empty sessions",
+    "hide_empty_hint": "Hide sessions with no messages and no token usage"
   },
   "kpi": {
     "api_equivalent": "API Equivalent",
@@ -22,7 +24,8 @@
     "projects": "Projects",
     "sessions": "Sessions",
     "plan": "Plan & Billing",
-    "insights": "Insights"
+    "insights": "Insights",
+    "agents": "Agents"
   },
   "costs": {
     "daily_cost": "API Value per Day by Model",
@@ -151,6 +154,45 @@
     "todos_completed": "Todos Completed",
     "completion_rate": "Completion Rate",
     "skills": "Skills Used",
-    "hooks": "Hooks Fired"
+    "hooks": "Hooks Fired",
+    "system_info": "System Info",
+    "performance": "Performance",
+    "peak_memory": "Peak Memory (RSS)",
+    "peak_cpu": "Peak CPU",
+    "memory_per_session": "Memory per Session",
+    "error_rate_over_time": "Error Rate over Time",
+    "git_ops": "Git Operations",
+    "commits": "Commits",
+    "pushes": "Pushes",
+    "pull_requests": "Pull Requests"
+  },
+  "agents": {
+    "subagent_types": "Subagent Types",
+    "top_descriptions": "Top Agent Tasks",
+    "dispatches": "Dispatches",
+    "total_tasks": "Total Tasks",
+    "task_overview": "Task Management",
+    "task_completion": "Completion Rate",
+    "error_overview": "Error Overview",
+    "errors_by_category": "Errors by Category",
+    "errors_by_tool": "Errors by Tool",
+    "error_rate": "Error Rate",
+    "top_errors": "Top Errors",
+    "th_type": "Type",
+    "th_description": "Description",
+    "th_count": "Count",
+    "th_error": "Error Message"
+  },
+  "project_detail": {
+    "overview": "Overview",
+    "workflow": "Workflow",
+    "memory": "Project Memory",
+    "top_files": "Top Files",
+    "subagents_used": "Subagents Used",
+    "git_operations": "Git Operations",
+    "th_file": "File",
+    "th_reads": "Reads",
+    "th_edits": "Edits",
+    "th_writes": "Writes"
   }
 }

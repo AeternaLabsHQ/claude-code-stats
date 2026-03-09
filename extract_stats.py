@@ -73,7 +73,7 @@ else:
     MIGRATION_STATS_CACHE = None
     MIGRATION_HISTORY_JSONL = None
 
-VERSION = "0.3.1"
+VERSION = "0.5.0"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
@@ -508,6 +508,193 @@ def calc_storage():
     }
 
 
+def load_telemetry():
+    """Load telemetry data from ~/.claude/telemetry/."""
+    per_session = defaultdict(lambda: {
+        "peak_rss_mb": 0, "peak_heap_mb": 0, "max_cpu_pct": 0,
+        "max_uptime_s": 0, "event_count": 0,
+    })
+    env_info = {}
+
+    sources = []
+    if MIGRATION_ENABLED:
+        sources.append(MIGRATION_CLAUDE_DIR)
+    sources.append(CLAUDE_DIR)
+
+    for claude_dir in sources:
+        tel_dir = claude_dir / "telemetry"
+        if not tel_dir.exists():
+            continue
+        for tf in sorted(tel_dir.glob("*.json")):
+            try:
+                with open(tf, "r", encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            evt = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        ed = evt.get("event_data", {})
+                        sid = ed.get("session_id", "")
+                        if not sid:
+                            continue
+
+                        # Extract env info (take latest)
+                        env = ed.get("env", {})
+                        if env and not env_info:
+                            env_info = {
+                                "platform": env.get("platform", ""),
+                                "node_version": env.get("node_version", ""),
+                                "terminal": env.get("terminal", ""),
+                                "arch": env.get("arch", ""),
+                                "claude_version": env.get("version", ""),
+                            }
+
+                        proc_str = ed.get("process", "")
+                        if not proc_str:
+                            continue
+                        try:
+                            proc = json.loads(proc_str) if isinstance(proc_str, str) else proc_str
+                        except (json.JSONDecodeError, TypeError):
+                            continue
+
+                        ps = per_session[sid]
+                        ps["event_count"] += 1
+                        rss_mb = round(proc.get("rss", 0) / 1_048_576, 1)
+                        heap_mb = round(proc.get("heapUsed", 0) / 1_048_576, 1)
+                        cpu_pct = round(proc.get("cpuPercent", 0), 1)
+                        uptime_s = round(proc.get("uptime", 0))
+
+                        if rss_mb > ps["peak_rss_mb"]:
+                            ps["peak_rss_mb"] = rss_mb
+                        if heap_mb > ps["peak_heap_mb"]:
+                            ps["peak_heap_mb"] = heap_mb
+                        if cpu_pct > ps["max_cpu_pct"]:
+                            ps["max_cpu_pct"] = cpu_pct
+                        if uptime_s > ps["max_uptime_s"]:
+                            ps["max_uptime_s"] = uptime_s
+            except Exception:
+                continue
+
+    return {
+        "per_session": dict(per_session),
+        "env_info": env_info,
+        "total_events": sum(s["event_count"] for s in per_session.values()),
+    }
+
+
+def load_project_memories(skip_memories=False):
+    """Load MEMORY.md files per project."""
+    if skip_memories:
+        return {}
+
+    memories = {}
+    sources = []
+    if MIGRATION_ENABLED and MIGRATION_CLAUDE_DIR:
+        proj_dir = MIGRATION_CLAUDE_DIR / "projects"
+        if proj_dir.exists():
+            sources.append(proj_dir)
+    if PROJECTS_DIR.exists():
+        sources.append(PROJECTS_DIR)
+
+    for projects_dir in sources:
+        for memory_file in projects_dir.rglob("memory/MEMORY.md"):
+            project_dir_name = memory_file.parent.parent.name
+            if project_dir_name in memories:
+                continue
+            try:
+                content = memory_file.read_text(encoding="utf-8", errors="replace")
+                memories[project_dir_name] = {
+                    "content": content,
+                    "size_kb": round(memory_file.stat().st_size / 1024, 1),
+                    "lines": len(content.splitlines()),
+                }
+            except Exception:
+                continue
+    return memories
+
+
+def load_tasks():
+    """Load task management data from ~/.claude/tasks/."""
+    all_tasks = []
+    session_count = 0
+    seen_sessions = set()
+
+    sources = []
+    if MIGRATION_ENABLED:
+        sources.append(MIGRATION_CLAUDE_DIR)
+    sources.append(CLAUDE_DIR)
+
+    for claude_dir in sources:
+        tasks_dir = claude_dir / "tasks"
+        if not tasks_dir.exists():
+            continue
+        for sess_dir in sorted(tasks_dir.iterdir()):
+            if not sess_dir.is_dir() or sess_dir.name in seen_sessions:
+                continue
+            seen_sessions.add(sess_dir.name)
+            task_files = sorted(
+                [f for f in sess_dir.glob("*.json") if f.stem.isdigit()],
+                key=lambda f: int(f.stem)
+            )
+            if not task_files:
+                continue
+            session_count += 1
+            for tf in task_files:
+                try:
+                    task = json.loads(tf.read_text(encoding="utf-8", errors="replace"))
+                    task["_session_id"] = sess_dir.name
+                    all_tasks.append(task)
+                except Exception:
+                    continue
+
+    status_counts = defaultdict(int)
+    for t in all_tasks:
+        status_counts[t.get("status", "unknown")] += 1
+
+    return {
+        "tasks": [{"subject": t.get("subject", ""), "status": t.get("status", ""), "session_id": t.get("_session_id", "")} for t in all_tasks],
+        "session_count": session_count,
+        "total": len(all_tasks),
+        "status_counts": dict(status_counts),
+        "completed": status_counts.get("completed", 0),
+        "pending": status_counts.get("pending", 0),
+        "in_progress": status_counts.get("in_progress", 0),
+    }
+
+
+def _categorize_error(msg: str, tool_name: str) -> str:
+    """Categorize an error message into a human-readable category."""
+    msg_lower = msg.lower()
+    if "rejected" in msg_lower or "doesn't want to proceed" in msg_lower:
+        return "rejected"
+    if "does not exist" in msg_lower or "not found" in msg_lower or "no such file" in msg_lower:
+        return "file_not_found"
+    if "not unique" in msg_lower or "multiple occurrences" in msg_lower:
+        return "edit_not_unique"
+    if "no replacement was performed" in msg_lower or "old_string not found" in msg_lower:
+        return "edit_no_match"
+    if "permission" in msg_lower or "denied" in msg_lower:
+        return "permission_denied"
+    if "timeout" in msg_lower or "timed out" in msg_lower:
+        return "timeout"
+    if "command not found" in msg_lower:
+        return "command_not_found"
+    if "exit code" in msg_lower or "returned non-zero" in msg_lower:
+        return "exit_code"
+    if "syntaxerror" in msg_lower or "syntax error" in msg_lower:
+        return "syntax_error"
+    if "importerror" in msg_lower or "modulenotfounderror" in msg_lower:
+        return "import_error"
+    if "hook error" in msg_lower or "hook_error" in msg_lower:
+        return "hook_error"
+    if tool_name == "Edit":
+        return "edit_failed"
+    return "other"
+
+
 def parse_session_transcripts():
     """Parse all session JSONL transcripts from current + optional migration backup."""
     sessions = {}  # session_id -> session_data
@@ -546,6 +733,12 @@ def parse_session_transcripts():
                 file_session_id = jsonl_file.stem
                 file_size = jsonl_file.stat().st_size
 
+                # Detect subagent sessions
+                is_subagent = "/subagents/" in str(jsonl_file)
+                parent_id = ""
+                if is_subagent:
+                    parent_id = jsonl_file.parent.parent.name
+
                 # Skip if this session was already fully parsed from migration
                 if file_session_id in sessions and source_label == "current":
                     # Same session file in both sources — skip duplicate
@@ -564,7 +757,9 @@ def parse_session_transcripts():
                                 continue
 
                             msg_type = obj.get("type")
-                            session_id = obj.get("sessionId", file_session_id)
+                            # For subagent files, use the file stem as session_id
+                            # (the sessionId field points to the parent)
+                            session_id = file_session_id if is_subagent else obj.get("sessionId", file_session_id)
                             timestamp = obj.get("timestamp")
 
                             if session_id not in sessions:
@@ -595,9 +790,22 @@ def parse_session_transcripts():
                                     "file_size": file_size,
                                     "slug": obj.get("slug", ""),
                                     "source": source_label,
+                                    "agent_dispatches": [],
+                                    "subagents": [],
+                                    "is_subagent": False,
+                                    "parent_session_id": "",
+                                    "error_count": 0,
+                                    "errors": [],
+                                    "file_ops": [],
+                                    "git_ops": [],
                                 }
 
                             sess = sessions[session_id]
+
+                            # Mark subagent status (may be set multiple times, that's fine)
+                            if is_subagent:
+                                sess["is_subagent"] = True
+                                sess["parent_session_id"] = parent_id
 
                             if obj.get("cwd") and not sess["project_path"]:
                                 sess["project_path"] = obj["cwd"]
@@ -621,6 +829,27 @@ def parse_session_transcripts():
                             if msg_type == "user":
                                 sess["message_count"] += 1
                                 sess["user_message_count"] += 1
+
+                                # Extract errors from tool results
+                                message = obj.get("message", {})
+                                content = message.get("content", "")
+                                if isinstance(content, list):
+                                    for block in content:
+                                        if isinstance(block, dict) and block.get("is_error"):
+                                            sess["error_count"] += 1
+                                            error_msg = str(block.get("content", ""))
+                                            if "<tool_use_error>" in error_msg:
+                                                error_msg = error_msg.split("<tool_use_error>")[-1].split("</tool_use_error>")[0]
+                                            tid = block.get("tool_use_id", "")
+                                            tool_name = sess.get("_tool_id_map", {}).get(tid, "unknown")
+                                            category = _categorize_error(error_msg, tool_name)
+                                            sess["errors"].append({
+                                                "message": error_msg[:200],
+                                                "tool": tool_name,
+                                                "category": category,
+                                                "tool_use_id": tid,
+                                                "timestamp": timestamp or "",
+                                            })
 
                                 if not sess["first_prompt"]:
                                     message = obj.get("message", {})
@@ -669,11 +898,49 @@ def parse_session_transcripts():
                                 for block in message.get("content", []):
                                     if isinstance(block, dict) and block.get("type") == "tool_use":
                                         tool_name = block.get("name", "unknown")
+                                        # Map tool_use_id -> tool_name for error attribution
+                                        tool_id = block.get("id", "")
+                                        if tool_id:
+                                            sess.setdefault("_tool_id_map", {})[tool_id] = tool_name
                                         sess["tools"][tool_name] += 1
                                         # Track skills specifically
                                         if tool_name == "Skill":
                                             skill_name = block.get("input", {}).get("skill", "unknown")
                                             sess["skills"][skill_name] += 1
+
+                                        # Track agent dispatches
+                                        if tool_name == "Agent":
+                                            agent_input = block.get("input", {})
+                                            sess["agent_dispatches"].append({
+                                                "type": agent_input.get("subagent_type", "general-purpose"),
+                                                "description": agent_input.get("description", ""),
+                                            })
+
+                                        # File operations
+                                        if tool_name in ("Read", "Edit", "Write"):
+                                            tool_input = block.get("input", {})
+                                            file_path = tool_input.get("file_path", "")
+                                            if file_path:
+                                                sess["file_ops"].append({
+                                                    "op": tool_name.lower(),
+                                                    "path": file_path,
+                                                    "timestamp": timestamp or "",
+                                                })
+
+                                        # Git operations from Bash
+                                        if tool_name == "Bash":
+                                            cmd = block.get("input", {}).get("command", "")
+                                            if "git commit" in cmd:
+                                                msg = ""
+                                                if '-m "' in cmd:
+                                                    msg = cmd.split('-m "')[1].split('"')[0]
+                                                elif "-m '" in cmd:
+                                                    msg = cmd.split("-m '")[1].split("'")[0]
+                                                sess["git_ops"].append({"type": "commit", "message": msg[:200], "timestamp": timestamp or ""})
+                                            elif "git push" in cmd:
+                                                sess["git_ops"].append({"type": "push", "message": cmd[:200], "timestamp": timestamp or ""})
+                                            elif "gh pr create" in cmd:
+                                                sess["git_ops"].append({"type": "pr", "message": cmd[:200], "timestamp": timestamp or ""})
 
                             elif msg_type == "progress":
                                 data_obj = obj.get("data", {})
@@ -697,6 +964,24 @@ def parse_session_transcripts():
 
                 except Exception as e:
                     print(f"      ERROR reading {jsonl_file.name}: {e}")
+
+    # Link subagents to parent sessions and remove from top-level
+    subagent_ids = [sid for sid, s in sessions.items() if s.get("is_subagent")]
+    for sub_id in subagent_ids:
+        sub = sessions[sub_id]
+        parent_id = sub.get("parent_session_id", "")
+        if parent_id and parent_id in sessions:
+            # Calculate subagent totals
+            sub_tokens = sum(m["input_tokens"] + m["output_tokens"] for m in sub["models"].values())
+            sub_cost = sum(m["cost"] for m in sub["models"].values())
+            sessions[parent_id]["subagents"].append({
+                "agent_id": sub["session_id"],
+                "tokens": sub_tokens,
+                "cost": round(sub_cost, 4),
+                "messages": sub["message_count"],
+                "tools": dict(sub["tools"]),
+            })
+        del sessions[sub_id]
 
     migration_count = sum(1 for s in sessions.values() if s.get("source") == "migration")
     current_count = sum(1 for s in sessions.values() if s.get("source") == "current")
@@ -798,6 +1083,8 @@ def extract_session_messages(session_id, project_dir_name):
                                 tool_info["detail"] = tool_input.get("skill", "")
                             elif tool_name == "Agent":
                                 tool_info["detail"] = tool_input.get("description", "")[:100]
+                                tool_info["agent_type"] = tool_input.get("subagent_type", "general-purpose")
+                                tool_info["agent_prompt"] = tool_input.get("prompt", "")[:2000]
                             tools.append(tool_info)
 
                 text = "\n".join(text_parts)
@@ -963,7 +1250,8 @@ def build_plan_analysis(daily_cost_series, session_list):
 
 def build_dashboard_data(sessions, stats_cache, dot_claude, history,
                          plans=None, plugins=None, todos=None,
-                         file_history=None, storage=None):
+                         file_history=None, storage=None,
+                         telemetry=None, tasks=None, memories=None):
     """Aggregate all data into the dashboard data structure."""
 
     session_list = []
@@ -1099,6 +1387,12 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "first_prompt": sess["first_prompt"],
             "slug": sess["slug"],
             "file_size_mb": round(sess["file_size"] / 1_048_576, 2),
+            "agent_dispatches": sess.get("agent_dispatches", []),
+            "subagents": sess.get("subagents", []),
+            "error_count": sess.get("error_count", 0),
+            "errors": [{"message": e["message"], "tool": e.get("tool", "unknown"), "category": e.get("category", "other"), "timestamp": e.get("timestamp", "")} for e in sess.get("errors", [])],
+            "file_ops_count": len(sess.get("file_ops", [])),
+            "git_ops": sess.get("git_ops", []),
         })
 
     session_list.sort(key=lambda s: s["start"])
@@ -1224,6 +1518,34 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     hook_ranking = sorted(global_hooks.items(), key=lambda x: -x[1])
     hook_summary = [{"name": n, "count": c} for n, c in hook_ranking]
 
+    # Global Agent/Subagent Aggregation
+    global_agent_types = defaultdict(int)
+    global_agent_descriptions = defaultdict(int)
+    total_agent_dispatches = 0
+    for s in session_list:
+        for ad in s.get("agent_dispatches", []):
+            global_agent_types[ad.get("type", "general-purpose")] += 1
+            global_agent_descriptions[ad.get("description", "")] += 1
+            total_agent_dispatches += 1
+    agent_type_summary = sorted(global_agent_types.items(), key=lambda x: -x[1])
+    agent_desc_summary = sorted(global_agent_descriptions.items(), key=lambda x: -x[1])[:10]
+
+    # Global Error Aggregation
+    total_errors = 0
+    errors_by_tool = defaultdict(int)
+    errors_by_category = defaultdict(int)
+    for s in session_list:
+        total_errors += s.get("error_count", 0)
+        for e in s.get("errors", []):
+            errors_by_tool[e.get("tool", "unknown")] += 1
+            errors_by_category[e.get("category", "other")] += 1
+    total_tool_calls = sum(s.get("api_calls", 0) for s in session_list)
+
+    # Global Git Ops
+    total_commits = sum(len([g for g in s.get("git_ops", []) if g.get("type") == "commit"]) for s in session_list)
+    total_pushes = sum(len([g for g in s.get("git_ops", []) if g.get("type") == "push"]) for s in session_list)
+    total_prs = sum(len([g for g in s.get("git_ops", []) if g.get("type") == "pr"]) for s in session_list)
+
     dc = dot_claude
     account = dc.get("oauthAccount", {})
 
@@ -1237,7 +1559,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "locale": LOCALE,
         "account": {
-            "name": account.get("displayName", ""),
+            "name": CONFIG.get("display_name") or account.get("displayName", ""),
             "email": account.get("emailAddress", ""),
         },
         "kpi": {
@@ -1265,13 +1587,35 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         "tool_summary": tool_summary,
         "skill_summary": skill_summary,
         "hook_summary": hook_summary,
+        "agent_summary": {
+            "total_dispatches": total_agent_dispatches,
+            "type_distribution": [{"type": t, "count": c} for t, c in agent_type_summary],
+            "top_descriptions": [{"desc": d, "count": c} for d, c in agent_desc_summary],
+        },
+        "error_summary": {
+            "total_errors": total_errors,
+            "total_tool_calls": total_tool_calls,
+            "error_rate": round(total_errors / max(total_tool_calls, 1) * 100, 2),
+            "by_tool": sorted([{"tool": t, "count": c} for t, c in errors_by_tool.items()], key=lambda x: -x["count"]),
+            "by_category": sorted([{"category": c, "count": n} for c, n in errors_by_category.items()], key=lambda x: -x["count"]),
+        },
+        "git_summary": {
+            "commits": total_commits,
+            "pushes": total_pushes,
+            "prs": total_prs,
+        },
         "insights": {
             "plans": plans or [],
             "plugins": plugins or {},
             "todos": todos or {},
             "file_history": file_history or {},
             "storage": storage or {},
+            "tasks": tasks or {},
+            "telemetry": telemetry or {},
+            "memories_count": len(memories) if memories else 0,
         },
+        "_memories": memories or {},
+        "_file_ops_by_session": {sid: sess.get("file_ops", []) for sid, sess in sessions.items()},
     }
 
     return data
@@ -1479,6 +1823,8 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .heatmap-months { display:flex; font-size:10px; color:var(--text2); margin-bottom:2px; }
 .heatmap-months span { text-align:center; }
 
+.tag { display:inline-block; padding:3px 10px; border-radius:6px; font-size:12px; font-weight:600; }
+
 @media (max-width:900px) {
   .chart-grid { grid-template-columns:1fr; }
   .kpi-grid { grid-template-columns:repeat(2,1fr); }
@@ -1490,6 +1836,10 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 <div class="header">
   <h1><span>__L_header_title_prefix__</span> __L_header_title_suffix__</h1>
   <div class="time-filter" id="timeFilter"></div>
+  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none" title="__L_header_hide_empty_hint__">
+    <input type="checkbox" id="hideEmptySessions" checked style="accent-color:var(--accent);cursor:pointer" />
+    __L_header_hide_empty__
+  </label>
   <input type="text" id="projectFilter" placeholder="Filter projects..." style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:12px;width:180px;outline:none;" />
   <div class="meta" id="headerMeta"></div>
 </div>
@@ -1667,6 +2017,30 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
         <div id="hooksList"></div>
       </div>
     </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_insights_system_info__</h3><div id="systemInfo"></div></div>
+      <div class="chart-box"><h3>__L_insights_git_ops__</h3><div id="gitOpsInfo"></div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_insights_memory_per_session__</h3><canvas id="memoryChart" height="200"></canvas></div>
+      <div class="chart-box"><h3>__L_insights_error_rate_over_time__</h3><canvas id="errorRateChart" height="200"></canvas></div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-agents">
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_agents_subagent_types__</h3><canvas id="agentTypesChart" height="250"></canvas></div>
+      <div class="chart-box"><h3>__L_agents_top_descriptions__</h3><canvas id="agentDescsChart" height="250"></canvas></div>
+    </div>
+    <div class="kpi-grid" id="agentKpis"></div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_agents_task_overview__</h3><div id="taskOverview"></div></div>
+      <div class="chart-box"><h3>__L_agents_error_overview__</h3><div id="errorOverview"></div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_agents_errors_by_category__</h3><canvas id="errorByCategoryChart" height="250"></canvas></div>
+      <div class="chart-box"><h3>__L_agents_errors_by_tool__</h3><canvas id="errorByToolChart" height="250"></canvas></div>
+    </div>
   </div>
 </div>
 
@@ -1707,6 +2081,9 @@ const scaleDefaults = {
 let F = {};
 const charts = {};
 let currentDays = 0;
+let anonMode = false;
+let agentTypesChartInstance, agentDescsChartInstance, errorByCatChartInstance, errorByToolChartInstance;
+const chartColors = ['#6366f1','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#ec4899','#3b82f6','#f97316','#14b8a6'];
 let currentProjectFilter = '';
 
 function filterData(days, projectFilter) {
@@ -1723,7 +2100,9 @@ function filterData(days, projectFilter) {
   const pf = currentProjectFilter.toLowerCase().trim();
 
   // Filter sessions by date AND project
+  const hideEmpty = document.getElementById('hideEmptySessions')?.checked;
   let filteredSessions = D.sessions;
+  if (hideEmpty) filteredSessions = filteredSessions.filter(s => s.messages > 0 || s.output_tokens > 0);
   if (cutoff) filteredSessions = filteredSessions.filter(s => s.date >= cutoff);
   if (pf) filteredSessions = filteredSessions.filter(s => (s.project || '').toLowerCase().includes(pf));
   F.sessions = filteredSessions;
@@ -1836,6 +2215,48 @@ function filterData(days, projectFilter) {
     first_session: dates.length > 0 ? dates[0] : D.kpi.first_session,
     last_session: dates.length > 0 ? dates[dates.length - 1] : D.kpi.last_session,
   };
+
+  // Recalculate agent_summary from filtered sessions
+  const agentTypeMap = {};
+  const agentDescMap = {};
+  let totalDispatches = 0;
+  F.sessions.forEach(s => {
+    (s.agent_dispatches || []).forEach(ad => {
+      totalDispatches++;
+      const t = ad.type || 'unknown';
+      agentTypeMap[t] = (agentTypeMap[t] || 0) + 1;
+      const d = ad.description || ad.desc || '';
+      if (d) agentDescMap[d] = (agentDescMap[d] || 0) + 1;
+    });
+    (s.subagents || []).forEach(sa => {
+      totalDispatches++;
+      const t = sa.type || 'unknown';
+      agentTypeMap[t] = (agentTypeMap[t] || 0) + 1;
+    });
+  });
+  F.agent_summary = {
+    total_dispatches: totalDispatches,
+    type_distribution: Object.entries(agentTypeMap).map(([type, count]) => ({type, count})).sort((a,b) => b.count - a.count),
+    top_descriptions: Object.entries(agentDescMap).map(([desc, count]) => ({desc, count})).sort((a,b) => b.count - a.count).slice(0, 10),
+  };
+
+  // Recalculate error_summary from filtered sessions
+  const fErrors = F.sessions.reduce((s, x) => s + (x.error_count || 0), 0);
+  const fToolCalls = F.sessions.reduce((s, x) => s + (x.api_calls || 0), 0);
+  const fErrByTool = {}, fErrByCat = {};
+  F.sessions.forEach(s => {
+    (s.errors || []).forEach(e => {
+      fErrByTool[e.tool || 'unknown'] = (fErrByTool[e.tool || 'unknown'] || 0) + 1;
+      fErrByCat[e.category || 'other'] = (fErrByCat[e.category || 'other'] || 0) + 1;
+    });
+  });
+  F.error_summary = {
+    total_errors: fErrors,
+    total_tool_calls: fToolCalls,
+    error_rate: fToolCalls > 0 ? +(fErrors / fToolCalls * 100).toFixed(2) : 0,
+    by_tool: Object.entries(fErrByTool).map(([tool, count]) => ({tool, count})).sort((a,b) => b.count - a.count),
+    by_category: Object.entries(fErrByCat).map(([category, count]) => ({category, count})).sort((a,b) => b.count - a.count),
+  };
 }
 
 function initTimeFilter() {
@@ -1872,6 +2293,7 @@ function applyFilter(days, projectFilter) {
   renderProjects();
   renderSessions();
   renderToolUsageChart();
+  renderAgentsTab();
 }
 
 function renderToolUsageChart() {
@@ -1893,8 +2315,9 @@ function renderToolUsageChart() {
 // ── KPI Cards ──────────────────────────────────────────────────────────
 function renderKPI() {
   const k = F.kpi;
+  const dispName = anonMode ? 'Anonymous' : D.account.name;
   document.getElementById('headerMeta').textContent =
-    D.account.name + ' | ' + k.first_session + ' \u2013 ' + k.last_session +
+    dispName + ' | ' + k.first_session + ' \u2013 ' + k.last_session +
     ' | ' + D.locale.header.generated + ': ' + new Date(D.generated_at).toLocaleString(D.locale.locale_code);
 
   const grid = document.getElementById('kpiGrid');
@@ -1923,6 +2346,7 @@ const TAB_NAMES = [
   {id:'sessions', label:D.locale.tabs.sessions},
   {id:'plan', label:D.locale.tabs.plan},
   {id:'insights', label:D.locale.tabs.insights},
+  {id:'agents', label:D.locale.tabs.agents},
 ];
 
 function initTabs() {
@@ -2135,7 +2559,7 @@ function renderProjects() {
   const top = F.projects.slice(0, 15);
   charts.projectCost = new Chart(document.getElementById('chartProjectCost'), {
     type: 'bar',
-    data: { labels: top.map(p => p.name.split('/').pop()),
+    data: { labels: top.map(p => anonMode ? anonName(p.name) : p.name.split('/').pop()),
       datasets: [{ label: D.locale.projects.top15_label, data: top.map(p => p.cost), backgroundColor: '#6366f1', borderRadius: 4 }] },
     options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
       plugins: { legend: { display: false } },
@@ -2156,7 +2580,8 @@ function renderProjectTable(sortKey, sortDir) {
   sorted.forEach(p => {
     const tr = document.createElement('tr');
     const slug = D.project_slugs && D.project_slugs[p.name];
-    const nameCell = slug ? '<a href="projects/'+slug+'.html">'+escHtml(p.name)+'</a>' : escHtml(p.name);
+    const dispPName = anonMode ? anonName(p.name) : p.name;
+    const nameCell = (!anonMode && slug) ? '<a href="projects/'+slug+'.html">'+escHtml(dispPName)+'</a>' : escHtml(dispPName);
     const cells = [
       {html: nameCell, cls: ''},
       {val: p.sessions, cls: 'num'},
@@ -2208,7 +2633,7 @@ function renderSessions() {
   const projects = [...new Set(F.sessions.map(s => s.project))].sort();
   projects.forEach(p => {
     const o = document.createElement('option');
-    o.value = p; o.textContent = p;
+    o.value = p; o.textContent = anonMode ? anonName(p) : p;
     sel.appendChild(o);
   });
   // Restore selection if still valid
@@ -2227,13 +2652,16 @@ function buildSessionCard(s) {
 
   // Top row
   const top = document.createElement('div'); top.className = 'top';
-  const projSpan = document.createElement('span'); projSpan.className = 'project'; projSpan.textContent = s.project;
+  const projSpan = document.createElement('span'); projSpan.className = 'project'; projSpan.textContent = anonMode ? anonName(s.project) : s.project;
   const costSpan = document.createElement('span'); costSpan.className = 'cost'; costSpan.textContent = fmtUSD(s.cost);
   const rightGroup = document.createElement('span'); rightGroup.style.display = 'flex'; rightGroup.style.alignItems = 'center';
-  const chatLink = document.createElement('a'); chatLink.href = 'sessions/' + s.session_id + '.html';
-  chatLink.textContent = 'Chat'; chatLink.addEventListener('click', function(e) { e.stopPropagation(); });
-  chatLink.style.cssText = 'color:var(--accent2);font-size:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:6px;margin-right:8px;text-decoration:none';
-  rightGroup.appendChild(chatLink); rightGroup.appendChild(costSpan);
+  if (!anonMode) {
+    const chatLink = document.createElement('a'); chatLink.href = 'sessions/' + s.session_id + '.html';
+    chatLink.textContent = 'Chat'; chatLink.addEventListener('click', function(e) { e.stopPropagation(); });
+    chatLink.style.cssText = 'color:var(--accent2);font-size:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:6px;margin-right:8px;text-decoration:none';
+    rightGroup.appendChild(chatLink);
+  }
+  rightGroup.appendChild(costSpan);
   top.appendChild(projSpan); top.appendChild(rightGroup);
   card.appendChild(top);
 
@@ -2256,7 +2684,7 @@ function buildSessionCard(s) {
   card.appendChild(info);
 
   // Prompt
-  if (s.first_prompt) {
+  if (s.first_prompt && !anonMode) {
     const prompt = document.createElement('div'); prompt.className = 'prompt';
     prompt.textContent = s.first_prompt;
     card.appendChild(prompt);
@@ -2670,6 +3098,180 @@ function renderInsights() {
   } else if (hooksEl) {
     hooksEl.innerHTML = '<p style="color:var(--text2);font-size:13px;padding:12px">No hooks fired yet</p>';
   }
+
+  // System info
+  const envInfo = D.insights?.telemetry?.env_info || {};
+  const sysEl = document.getElementById('systemInfo');
+  if (sysEl) {
+    sysEl.innerHTML =
+      '<div class="sidebar-row"><span class="label">Platform</span><span class="val">'+(envInfo.platform||'\\u2014')+'</span></div>' +
+      '<div class="sidebar-row"><span class="label">Node</span><span class="val">'+(envInfo.node_version||'\\u2014')+'</span></div>' +
+      '<div class="sidebar-row"><span class="label">Claude Code</span><span class="val">'+(envInfo.claude_version||'\\u2014')+'</span></div>' +
+      '<div class="sidebar-row"><span class="label">Terminal</span><span class="val">'+(envInfo.terminal||'\\u2014')+'</span></div>' +
+      '<div class="sidebar-row"><span class="label">Arch</span><span class="val">'+(envInfo.arch||'\\u2014')+'</span></div>';
+  }
+
+  // Git ops
+  const gs = D.git_summary || {};
+  const gitEl = document.getElementById('gitOpsInfo');
+  if (gitEl) {
+    gitEl.innerHTML =
+      '<div class="sidebar-row"><span class="label">__L_insights_commits__</span><span class="val" style="color:var(--green)">'+(gs.commits||0)+'</span></div>' +
+      '<div class="sidebar-row"><span class="label">__L_insights_pushes__</span><span class="val" style="color:var(--blue)">'+(gs.pushes||0)+'</span></div>' +
+      '<div class="sidebar-row"><span class="label">__L_insights_pull_requests__</span><span class="val" style="color:var(--purple)">'+(gs.prs||0)+'</span></div>';
+  }
+
+  // Memory per session chart
+  const telSessions = D.insights?.telemetry?.per_session || {};
+  const memData = D.sessions.filter(s => telSessions[s.session_id]).map(s => ({
+    date: s.date, rss: telSessions[s.session_id].peak_rss_mb
+  }));
+  if (memData.length > 0) {
+    new Chart(document.getElementById('memoryChart'), {
+      type: 'bar',
+      data: {
+        labels: memData.map(d => d.date),
+        datasets: [{ label: 'Peak RSS (MB)', data: memData.map(d => d.rss), backgroundColor: 'rgba(168,85,247,0.6)', borderRadius:3 }]
+      },
+      options: { responsive:true, plugins:{legend:{labels:{color:'#e2e8f0'}}}, scales:{ x:{ticks:{color:'#94a3b8',maxTicksLimit:15}}, y:{ticks:{color:'#94a3b8'}} } }
+    });
+  }
+
+  // Error rate over time chart
+  const dailyErrors = {};
+  D.sessions.forEach(s => {
+    if (!dailyErrors[s.date]) dailyErrors[s.date] = {errors:0, calls:0};
+    dailyErrors[s.date].errors += s.error_count || 0;
+    dailyErrors[s.date].calls += s.api_calls || 0;
+  });
+  const errDates = Object.keys(dailyErrors).sort();
+  const errRates = errDates.map(d => dailyErrors[d].calls > 0 ? +(dailyErrors[d].errors / dailyErrors[d].calls * 100).toFixed(1) : 0);
+  if (errDates.length > 0) {
+    new Chart(document.getElementById('errorRateChart'), {
+      type: 'line',
+      data: {
+        labels: errDates,
+        datasets: [{ label: 'Error Rate (%)', data: errRates, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill:true, tension:0.3 }]
+      },
+      options: { responsive:true, plugins:{legend:{labels:{color:'#e2e8f0'}}}, scales:{ x:{ticks:{color:'#94a3b8',maxTicksLimit:15}}, y:{ticks:{color:'#94a3b8'}, beginAtZero:true} } }
+    });
+  }
+}
+
+// ── Tab 7: Agents ──────────────────────────────────────────────────────
+
+function renderAgentsTab() {
+  const as = F.agent_summary || D.agent_summary || {};
+  const es = F.error_summary || D.error_summary || {};
+
+  // Subagent types donut
+  const atd = as.type_distribution || [];
+  if (agentTypesChartInstance) agentTypesChartInstance.destroy();
+  if (atd.length > 0) {
+    agentTypesChartInstance = new Chart(document.getElementById('agentTypesChart'), {
+      type: 'doughnut',
+      data: {
+        labels: atd.map(d => d.type),
+        datasets: [{ data: atd.map(d => d.count), backgroundColor: chartColors }]
+      },
+      options: { responsive:true, plugins:{ legend:{ position:'right', labels:{color:'#e2e8f0',font:{size:11}} } } }
+    });
+  }
+
+  // Top descriptions bar
+  const tds = as.top_descriptions || [];
+  if (agentDescsChartInstance) agentDescsChartInstance.destroy();
+  if (tds.length > 0) {
+    agentDescsChartInstance = new Chart(document.getElementById('agentDescsChart'), {
+      type: 'bar',
+      data: {
+        labels: tds.map(d => d.desc.length > 30 ? d.desc.slice(0,30)+'...' : d.desc),
+        datasets: [{ data: tds.map(d => d.count), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius:4 }]
+      },
+      options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#94a3b8'}}, y:{ticks:{color:'#94a3b8',font:{size:10}}} } }
+    });
+  }
+
+  // KPI cards
+  const kpiEl = document.getElementById('agentKpis');
+  kpiEl.innerHTML = '';
+  const agentKpis = [
+    {val: as.total_dispatches || 0, color:'var(--purple)', label:'__L_agents_dispatches__'},
+    {val: (F.insights?.tasks?.total || D.insights?.tasks?.total || 0), color:'var(--cyan)', label:'__L_agents_total_tasks__'},
+    {val: (es.error_rate || 0) + '%', color:'var(--red)', label:'__L_agents_error_rate__'},
+  ];
+  agentKpis.forEach(k => {
+    const div = document.createElement('div');
+    div.className = 'kpi-card';
+    div.innerHTML = '<div class="label">'+k.label+'</div><div class="value" style="color:'+k.color+'">'+k.val+'</div>';
+    kpiEl.appendChild(div);
+  });
+
+  // Task overview
+  const taskEl = document.getElementById('taskOverview');
+  const tasks = D.insights?.tasks || {};
+  if (tasks.total > 0) {
+    const pct = Math.round((tasks.completed / tasks.total) * 100);
+    taskEl.innerHTML =
+      '<div style="display:flex;gap:16px;align-items:center;margin-bottom:12px">' +
+        '<div style="width:80px;height:80px;position:relative"><canvas id="taskDonut"></canvas></div>' +
+        '<div><div style="font-size:24px;font-weight:700">'+pct+'%</div><div style="color:var(--text2);font-size:12px">__L_agents_task_completion__</div></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<span class="tag" style="background:rgba(34,197,94,0.15);color:var(--green)">\\u2713 '+tasks.completed+' completed</span>' +
+        '<span class="tag" style="background:rgba(99,102,241,0.15);color:var(--accent2)">\\u25B6 '+(tasks.in_progress||0)+' in progress</span>' +
+        '<span class="tag" style="background:rgba(148,163,184,0.15);color:var(--text2)">\\u25CB '+(tasks.pending||0)+' pending</span>' +
+      '</div>';
+    new Chart(document.getElementById('taskDonut'), {
+      type: 'doughnut',
+      data: { labels:['Completed','Pending','In Progress'], datasets:[{data:[tasks.completed,tasks.pending||0,tasks.in_progress||0], backgroundColor:['#22c55e','#94a3b8','#6366f1']}] },
+      options: { cutout:'70%', responsive:true, plugins:{legend:{display:false}} }
+    });
+  } else {
+    taskEl.innerHTML = '<div style="color:var(--text2)">No tasks found</div>';
+  }
+
+  // Error overview
+  const errEl = document.getElementById('errorOverview');
+  const catLabels = {'rejected':'Rejected','file_not_found':'File Not Found','edit_not_unique':'Edit Not Unique','edit_no_match':'Edit No Match','permission_denied':'Permission Denied','timeout':'Timeout','command_not_found':'Cmd Not Found','exit_code':'Exit Code Error','syntax_error':'Syntax Error','import_error':'Import Error','hook_error':'Hook Error','edit_failed':'Edit Failed','other':'Other'};
+  const topCats = (es.by_category || []).slice(0, 5);
+  errEl.innerHTML =
+    '<div style="margin-bottom:12px"><span style="font-size:20px;font-weight:700;color:var(--red)">'+(es.total_errors||0)+'</span> errors / <span style="font-weight:600">'+(es.total_tool_calls||0)+'</span> tool calls</div>' +
+    '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">__L_agents_error_rate__: '+(es.error_rate||0)+'%</div>' +
+    '<div style="margin-top:12px">' + topCats.map(c =>
+      '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">' +
+        '<span style="font-size:12px">'+(catLabels[c.category]||c.category)+'</span>' +
+        '<span style="font-size:12px;font-weight:600;color:var(--red)">'+c.count+'</span></div>'
+    ).join('') + '</div>';
+
+  // Error by category doughnut
+  const ebc = es.by_category || [];
+  if (errorByCatChartInstance) errorByCatChartInstance.destroy();
+  if (ebc.length > 0) {
+    const errColors = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#78716c','#84cc16','#14b8a6','#f43f5e'];
+    errorByCatChartInstance = new Chart(document.getElementById('errorByCategoryChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ebc.map(e => catLabels[e.category] || e.category),
+        datasets: [{ data: ebc.map(e => e.count), backgroundColor: errColors }]
+      },
+      options: { responsive:true, plugins:{ legend:{ position:'right', labels:{color:'#e2e8f0',font:{size:11}} } } }
+    });
+  }
+
+  // Error by tool bar chart
+  const ebt = (es.by_tool || []).slice(0, 10);
+  if (errorByToolChartInstance) errorByToolChartInstance.destroy();
+  if (ebt.length > 0) {
+    errorByToolChartInstance = new Chart(document.getElementById('errorByToolChart'), {
+      type: 'bar',
+      data: {
+        labels: ebt.map(e => e.tool),
+        datasets: [{ data: ebt.map(e => e.count), backgroundColor: 'rgba(239,68,68,0.7)', borderRadius:4 }]
+      },
+      options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#94a3b8'}}, y:{ticks:{color:'#94a3b8',font:{size:11}}} } }
+    });
+  }
 }
 
 // ── Sortable Tables ────────────────────────────────────────────────────
@@ -2689,6 +3291,7 @@ document.querySelectorAll('.sortable th[data-sort]').forEach(th => {
 document.getElementById('filterProject').addEventListener('change', () => { sessionPage = 0; renderSessionList(); });
 document.getElementById('filterSort').addEventListener('change', () => { sessionPage = 0; renderSessionList(); });
 document.getElementById('filterSearch').addEventListener('input', () => { sessionPage = 0; renderSessionList(); });
+document.getElementById('hideEmptySessions').addEventListener('change', () => { applyFilter(currentDays); });
 
 // ── Init ───────────────────────────────────────────────────────────────
 filterData(0, '');
@@ -2706,8 +3309,40 @@ renderProjects();
 renderSessions();
 renderPlan();
 renderInsights();
+renderAgentsTab();
+
+// F2 Anonymization mode
+const anonMap = {};
+let anonCounter = 0;
+function anonName(name) {
+  if (!anonMap[name]) { anonCounter++; anonMap[name] = 'Project ' + anonCounter; }
+  return anonMap[name];
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'F2') {
+    e.preventDefault();
+    anonMode = !anonMode;
+    document.body.classList.toggle('anon-mode', anonMode);
+    // Re-render everything via applyFilter (handles cleanup)
+    applyFilter(currentDays);
+    // Show/hide notification
+    let note = document.getElementById('anonNote');
+    if (!note) {
+      note = document.createElement('div');
+      note.id = 'anonNote';
+      note.style.cssText = 'position:fixed;top:12px;right:12px;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;z-index:9999;transition:opacity 0.3s;';
+      document.body.appendChild(note);
+    }
+    note.style.background = anonMode ? 'var(--green)' : 'var(--red)';
+    note.style.color = 'white';
+    note.textContent = anonMode ? 'Anonymization ON' : 'Anonymization OFF';
+    note.style.opacity = '1';
+    setTimeout(() => { note.style.opacity = '0'; }, 2000);
+  }
+});
 </script>
-<div style="text-align:center;padding:24px 0 12px;color:#475569;font-size:11px;">v__VERSION__</div>
+<div style="text-align:center;padding:24px 0 8px;color:#475569;font-size:11px;">v__VERSION__</div>
+<div style="text-align:center;padding:0 0 16px;color:#64748b;font-size:10px;">Contains private data &mdash; do not share publicly | Press F2 to toggle anonymization</div>
 </body>
 </html>'''
 
@@ -2805,6 +3440,10 @@ a:hover { text-decoration:underline; }
 .marker { padding:6px 16px; margin-bottom:8px; font-size:11px; border-radius:6px; display:flex; align-items:center; gap:8px; }
 .marker.hook { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:var(--amber); }
 .marker.compaction { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--red); }
+.marker.agent-dispatch { background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); color:var(--accent2); cursor:pointer; flex-wrap:wrap; }
+.marker.agent-dispatch .agent-prompt { display:none; width:100%; margin-top:8px; padding:8px 12px; background:var(--bg); border-radius:6px; font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-word; color:var(--text); max-height:400px; overflow-y:auto; }
+.marker.agent-dispatch.expanded .agent-prompt { display:block; }
+.agent-type-badge { display:inline-block; padding:1px 6px; border-radius:3px; font-size:10px; font-weight:600; background:rgba(99,102,241,0.25); color:var(--accent2); margin-left:6px; }
 .sidebar { padding:20px; max-height:calc(100vh - 180px); overflow-y:auto; }
 .sidebar-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px; }
 .sidebar-card h4 { font-size:13px; font-weight:600; margin-bottom:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; }
@@ -2833,6 +3472,7 @@ a:hover { text-decoration:underline; }
         <button class="filter-btn active" data-filter="all">All</button>
         <button class="filter-btn" data-filter="user">User</button>
         <button class="filter-btn" data-filter="assistant">Agent</button>
+        <button class="filter-btn" data-filter="agent-dispatch">Subagents</button>
       </div>
       <button class="copy-btn" id="copyBtn">&#128203; Copy</button>
     </div>
@@ -2885,9 +3525,21 @@ msgs.forEach((m,i) => {
   } else if (m.role==='compaction') {
     chatHtml += '<div class="marker compaction"><span>&#9889;</span> Context Compaction <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else {
+    // Check for Agent dispatches in tools
+    const agentTools = (m.tools || []).filter(t => t.name === 'Agent');
+    agentTools.forEach(at => {
+      chatHtml += '<div class="marker agent-dispatch agent-toggle">' +
+        '<span>&#129302;</span> Agent: <strong>'+escHtml(at.detail || 'unnamed')+'</strong>' +
+        '<span class="agent-type-badge">'+escHtml(at.agent_type || 'general-purpose')+'</span>' +
+        '<span style="margin-left:auto;font-size:11px;opacity:0.7">'+fmtTime(m.timestamp)+' &#9660; click to expand</span>' +
+        (at.agent_prompt ? '<div class="agent-prompt">'+escHtml(at.agent_prompt)+'</div>' : '') +
+      '</div>';
+    });
+
     const isLong = (m.content||'').length > 2000;
     const display = isLong ? m.content.slice(0,2000) : m.content;
-    chatHtml += '<div class="msg '+m.role+'">' +
+    const hasAgentDispatch = agentTools.length > 0;
+    chatHtml += '<div class="msg '+m.role+(hasAgentDispatch?' has-agent-dispatch':'')+'">' +
       '<div class="msg-header">' +
         '<div class="msg-role '+m.role+'">'+(m.role==='user'?'U':'A')+'</div>' +
         '<span class="msg-time">'+fmtTime(m.timestamp)+'</span>' +
@@ -2897,7 +3549,8 @@ msgs.forEach((m,i) => {
       '<div class="msg-content" id="mc'+i+'">'+renderMd(display)+'</div>' +
       (isLong ? '<div class="msg-expand" data-idx="'+i+'">Show full message ('+(m.content.length/1000).toFixed(1)+'K chars)</div>' : '') +
       (m.tools && m.tools.length>0 ? '<div class="msg-tools">'+m.tools.map(t =>
-        '<span class="tool-badge">'+escHtml(t.name)+(t.detail ? ' '+escHtml(t.detail) : '')+'</span>'
+        '<span class="tool-badge"'+(t.name==='Agent'?' style="background:rgba(99,102,241,0.15);color:var(--accent2);border-color:var(--accent)"':'')+'>'
+        +escHtml(t.name)+(t.detail ? ' '+escHtml(t.detail) : '')+'</span>'
       ).join('')+'</div>' : '') +
     '</div>';
   }
@@ -2913,6 +3566,11 @@ document.querySelectorAll('.msg-expand').forEach(el => {
   });
 });
 
+// Agent dispatch toggle
+document.querySelectorAll('.agent-toggle').forEach(el => {
+  el.addEventListener('click', function() { this.classList.toggle('expanded'); });
+});
+
 // Syntax highlighting
 document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
 
@@ -2925,6 +3583,12 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     activeFilter = this.getAttribute('data-filter');
     document.querySelectorAll('#chatPanel > .msg, #chatPanel > .marker').forEach(el => {
       if (activeFilter === 'all') { el.style.display = ''; return; }
+      if (activeFilter === 'agent-dispatch') {
+        // Show agent-dispatch markers and messages with agent dispatches
+        if (el.classList.contains('agent-dispatch')) { el.style.display = ''; return; }
+        if (el.classList.contains('has-agent-dispatch')) { el.style.display = ''; return; }
+        el.style.display = 'none'; return;
+      }
       if (el.classList.contains('marker')) { el.style.display = 'none'; return; }
       el.style.display = el.classList.contains(activeFilter) ? '' : 'none';
     });
@@ -3003,7 +3667,7 @@ sideEl.innerHTML = sideHtml;
 </html>'''
 
 
-def generate_project_pages(session_list):
+def generate_project_pages(session_list, data=None):
     """Generate individual HTML pages for each project."""
     projects_dir = OUTPUT_DIR / "projects"
     projects_dir.mkdir(exist_ok=True)
@@ -3030,6 +3694,66 @@ def generate_project_pages(session_list):
             for sk, c in s.get("skills", {}).items():
                 proj_skills[sk] += c
 
+        # Memory for this project
+        memory_content = ""
+        if data and data.get("_memories"):
+            proj_dir = proj_sessions[0].get("project_dir", "") if proj_sessions else ""
+            if proj_dir in data["_memories"]:
+                memory_content = data["_memories"][proj_dir].get("content", "")
+
+        # File ops aggregation
+        proj_file_ops = defaultdict(lambda: {"read": 0, "edit": 0, "write": 0})
+        workflow_events = []
+        file_ops_by_session = data.get("_file_ops_by_session", {}) if data else {}
+        for s in proj_sessions:
+            sid = s["session_id"]
+            ops = file_ops_by_session.get(sid, [])
+            for fo in ops:
+                proj_file_ops[fo["path"]][fo["op"]] += 1
+                workflow_events.append({
+                    "type": fo["op"],
+                    "path": fo["path"],
+                    "timestamp": fo["timestamp"],
+                    "session_id": sid,
+                })
+            # Add git ops to workflow
+            for go in s.get("git_ops", []):
+                workflow_events.append({
+                    "type": "git_" + go["type"],
+                    "message": go.get("message", ""),
+                    "timestamp": go["timestamp"],
+                    "session_id": sid,
+                })
+            # Add agent dispatches to workflow
+            for ad in s.get("agent_dispatches", []):
+                workflow_events.append({
+                    "type": "agent",
+                    "description": ad.get("description", ""),
+                    "agent_type": ad.get("type", ""),
+                    "timestamp": "",
+                    "session_id": sid,
+                })
+
+        # Sort workflow by timestamp (events without timestamps go to end)
+        workflow_events.sort(key=lambda e: e.get("timestamp", "") or "z")
+
+        # Top files
+        top_files = sorted(proj_file_ops.items(), key=lambda x: -(x[1]["edit"] + x[1]["write"] + x[1]["read"]))[:15]
+
+        # Subagent types
+        proj_agent_types = defaultdict(int)
+        for s in proj_sessions:
+            for ad in s.get("agent_dispatches", []):
+                proj_agent_types[ad.get("type", "general-purpose")] += 1
+
+        # Git ops counts
+        proj_commits = sum(len([g for g in s.get("git_ops", []) if g["type"] == "commit"]) for s in proj_sessions)
+        proj_pushes = sum(len([g for g in s.get("git_ops", []) if g["type"] == "push"]) for s in proj_sessions)
+        proj_prs = sum(len([g for g in s.get("git_ops", []) if g["type"] == "pr"]) for s in proj_sessions)
+
+        # Error count
+        proj_errors = sum(s.get("error_count", 0) for s in proj_sessions)
+
         slug = re.sub(r'[^a-zA-Z0-9_-]', '_', proj_name.replace('/', '_'))
         slug_map[proj_name] = slug
 
@@ -3044,6 +3768,12 @@ def generate_project_pages(session_list):
             },
             "tools": dict(sorted(proj_tools.items(), key=lambda x: -x[1])),
             "skills": dict(sorted(proj_skills.items(), key=lambda x: -x[1])),
+            "memory": memory_content,
+            "top_files": [{"path": p, "ops": o} for p, o in top_files],
+            "workflow": workflow_events[:500],
+            "agent_types": dict(sorted(proj_agent_types.items(), key=lambda x: -x[1])),
+            "git_ops": {"commits": proj_commits, "pushes": proj_pushes, "prs": proj_prs},
+            "error_count": proj_errors,
         }, ensure_ascii=False)
 
         html = _get_project_html_template()
@@ -3067,7 +3797,7 @@ def _get_project_html_template():
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Project Detail</title>
 <style>
-:root { --bg:#0f1117; --bg2:#1a1d27; --bg3:#242836; --border:#2d3348; --text:#e2e8f0; --text2:#94a3b8; --accent:#6366f1; --accent2:#818cf8; --green:#22c55e; --orange:#f59e0b; --blue:#3b82f6; --purple:#a855f7; --cyan:#06b6d4; --amber:#f59e0b; }
+:root { --bg:#0f1117; --bg2:#1a1d27; --bg3:#242836; --border:#2d3348; --text:#e2e8f0; --text2:#94a3b8; --accent:#6366f1; --accent2:#818cf8; --green:#22c55e; --orange:#f59e0b; --red:#ef4444; --blue:#3b82f6; --purple:#a855f7; --cyan:#06b6d4; --amber:#f59e0b; }
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,-apple-system,sans-serif; font-size:14px; }
 a { color:var(--accent2); text-decoration:none; }
@@ -3094,7 +3824,46 @@ a:hover { text-decoration:underline; }
 .model-badge.opus { background:rgba(168,85,247,0.2); color:var(--purple); }
 .model-badge.sonnet { background:rgba(59,130,246,0.2); color:var(--blue); }
 .model-badge.haiku { background:rgba(34,197,94,0.2); color:var(--green); }
-@media (max-width:900px) { .kpi-grid { grid-template-columns:repeat(2,1fr); } }
+.proj-tabs { display:flex; gap:0; margin-bottom:24px; border-bottom:2px solid var(--border); }
+.proj-tab { padding:10px 20px; font-size:14px; font-weight:600; border:none; background:transparent; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; }
+.proj-tab.active { color:var(--accent2); border-bottom-color:var(--accent); }
+.proj-tab-content { display:none; }
+.proj-tab-content.active { display:block; }
+.memory-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:24px; }
+.memory-card h3 { font-size:15px; margin-bottom:12px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+.memory-card h3::before { content:'\\25b6'; font-size:10px; transition:transform 0.2s; }
+.memory-card.expanded h3::before { transform:rotate(90deg); }
+.memory-content { display:none; font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-word; color:var(--text2); max-height:500px; overflow-y:auto; }
+.memory-card.expanded .memory-content { display:block; }
+.info-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
+.info-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:16px; }
+.info-card h4 { font-size:13px; color:var(--text2); text-transform:uppercase; margin-bottom:8px; }
+.info-row { display:flex; justify-content:space-between; padding:4px 0; font-size:13px; }
+.info-row .lbl { color:var(--text2); }
+.info-row .val { font-weight:600; }
+.file-table { width:100%; border-collapse:collapse; font-size:13px; }
+.file-table th { text-align:left; padding:8px; color:var(--text2); font-size:11px; text-transform:uppercase; border-bottom:1px solid var(--border); }
+.file-table td { padding:6px 8px; border-bottom:1px solid var(--border); }
+.file-table td:not(:first-child) { text-align:center; font-variant-numeric:tabular-nums; }
+.tag { display:inline-block; padding:3px 10px; border-radius:6px; font-size:12px; font-weight:600; margin:2px; }
+.workflow-timeline { position:relative; padding-left:24px; }
+.workflow-timeline::before { content:''; position:absolute; left:8px; top:0; bottom:0; width:2px; background:var(--border); }
+.wf-entry { position:relative; margin-bottom:6px; padding:4px 0 4px 16px; font-size:12px; }
+.wf-entry::before { content:''; position:absolute; left:-20px; top:8px; width:10px; height:10px; border-radius:50%; }
+.wf-entry.read::before { background:var(--blue); }
+.wf-entry.edit::before { background:var(--cyan); }
+.wf-entry.write::before { background:var(--green); }
+.wf-entry.git_commit::before { background:var(--orange); }
+.wf-entry.git_push::before { background:var(--amber); }
+.wf-entry.git_pr::before { background:var(--purple); }
+.wf-entry.agent::before { background:var(--accent); }
+.wf-entry .path { color:var(--text2); font-family:monospace; font-size:11px; }
+.wf-entry .msg { color:var(--text); }
+.wf-entry .ts { color:var(--text2); font-size:10px; margin-left:8px; }
+.wf-filters { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+.wf-filter { padding:4px 12px; font-size:11px; border:1px solid var(--border); background:var(--bg2); color:var(--text2); cursor:pointer; border-radius:4px; }
+.wf-filter.active { background:var(--accent); color:white; border-color:var(--accent); }
+@media (max-width:900px) { .kpi-grid { grid-template-columns:repeat(2,1fr); } .info-grid { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -3104,10 +3873,23 @@ a:hover { text-decoration:underline; }
 </div>
 <div class="container">
   <div class="kpi-grid" id="kpiGrid"></div>
-  <div class="tools-section" id="toolsSection"><h3>Top Tools</h3><div class="tool-pills" id="toolPills"></div></div>
-  <div id="skillsSection"></div>
-  <h3 style="margin-bottom:16px;font-size:15px">Sessions</h3>
-  <div id="sessionList"></div>
+  <div class="proj-tabs">
+    <button class="proj-tab active" data-tab="overview">Overview</button>
+    <button class="proj-tab" data-tab="workflow">Workflow</button>
+  </div>
+  <div class="proj-tab-content active" id="ptab-overview">
+    <div id="memorySection"></div>
+    <div class="info-grid" id="infoGrid"></div>
+    <div class="tools-section" id="toolsSection"><h3>Top Tools</h3><div class="tool-pills" id="toolPills"></div></div>
+    <div id="skillsSection"></div>
+    <div id="topFilesSection"></div>
+    <h3 style="margin:24px 0 16px;font-size:15px">Sessions</h3>
+    <div id="sessionList"></div>
+  </div>
+  <div class="proj-tab-content" id="ptab-workflow">
+    <div class="wf-filters" id="wfFilters"></div>
+    <div class="workflow-timeline" id="workflowTimeline"></div>
+  </div>
 </div>
 <script>
 const P = "__PROJECT_DATA__";
@@ -3136,6 +3918,61 @@ if (Object.keys(P.skills).length>0) {
     ).join('') + '</div></div>';
 }
 
+// Tab switching
+document.querySelectorAll('.proj-tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.proj-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.proj-tab-content').forEach(c => c.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('ptab-'+this.dataset.tab).classList.add('active');
+  });
+});
+
+// Memory
+if (P.memory) {
+  document.getElementById('memorySection').innerHTML =
+    '<div class="memory-card" id="memCard"><h3 onclick="document.getElementById(\\\'memCard\\\').classList.toggle(\\\'expanded\\\')">Project Memory</h3><div class="memory-content">'+escHtml(P.memory)+'</div></div>';
+}
+
+// Info grid (subagents, git ops, errors)
+let infoHtml = '';
+const agentTypes = Object.entries(P.agent_types || {});
+if (agentTypes.length > 0) {
+  infoHtml += '<div class="info-card"><h4>Subagents</h4>' +
+    agentTypes.map(([t,c]) => '<span class="tag" style="background:rgba(99,102,241,0.15);color:var(--accent2)">'+escHtml(t)+' '+c+'x</span>').join('') +
+    '</div>';
+}
+const go = P.git_ops || {};
+if ((go.commits||0) + (go.pushes||0) + (go.prs||0) > 0) {
+  infoHtml += '<div class="info-card"><h4>Git Operations</h4>' +
+    '<div class="info-row"><span class="lbl">Commits</span><span class="val" style="color:var(--green)">'+(go.commits||0)+'</span></div>' +
+    '<div class="info-row"><span class="lbl">Pushes</span><span class="val" style="color:var(--blue)">'+(go.pushes||0)+'</span></div>' +
+    '<div class="info-row"><span class="lbl">PRs</span><span class="val" style="color:var(--purple)">'+(go.prs||0)+'</span></div>' +
+    '</div>';
+}
+if (P.error_count > 0) {
+  infoHtml += '<div class="info-card"><h4>Errors</h4>' +
+    '<div style="font-size:24px;font-weight:700;color:var(--red)">'+P.error_count+'</div>' +
+    '<div style="color:var(--text2);font-size:12px">tool errors in this project</div></div>';
+}
+document.getElementById('infoGrid').innerHTML = infoHtml;
+
+// Top files table
+const tf = P.top_files || [];
+if (tf.length > 0) {
+  document.getElementById('topFilesSection').innerHTML =
+    '<div class="tools-section"><h3>Top Files</h3>' +
+    '<table class="file-table"><thead><tr><th>File</th><th>Reads</th><th>Edits</th><th>Writes</th></tr></thead><tbody>' +
+    tf.map(f => {
+      const short = f.path.split('/').slice(-2).join('/');
+      return '<tr><td title="'+escHtml(f.path)+'"><code style="font-size:11px">'+escHtml(short)+'</code></td>' +
+        '<td style="color:var(--blue)">'+(f.ops.read||0)+'</td>' +
+        '<td style="color:var(--cyan)">'+(f.ops.edit||0)+'</td>' +
+        '<td style="color:var(--green)">'+(f.ops.write||0)+'</td></tr>';
+    }).join('') +
+    '</tbody></table></div>';
+}
+
 document.getElementById('sessionList').innerHTML = P.sessions.map(s =>
   '<div class="session-card">' +
     '<div class="top">' +
@@ -3157,6 +3994,47 @@ document.getElementById('sessionList').innerHTML = P.sessions.map(s =>
     '</div>' +
   '</div>'
 ).join('');
+
+// Workflow timeline
+const wf = P.workflow || [];
+const wfTypes = ['read','edit','write','git_commit','git_push','git_pr','agent'];
+const wfLabels = {read:'Read',edit:'Edit',write:'Write',git_commit:'Commit',git_push:'Push',git_pr:'PR',agent:'Agent'};
+let activeWfFilters = new Set(wfTypes);
+
+function renderWorkflow() {
+  const filtered = wf.filter(e => activeWfFilters.has(e.type));
+  const el = document.getElementById('workflowTimeline');
+  if (filtered.length === 0) { el.innerHTML = '<div style="color:var(--text2);padding:20px">No workflow events</div>'; return; }
+  const shown = filtered.slice(0, 200);
+  el.innerHTML = shown.map(e => {
+    let label = '';
+    if (e.path) {
+      const short = e.path.split('/').slice(-2).join('/');
+      label = '<span class="path">'+escHtml(short)+'</span>';
+    } else if (e.message) {
+      label = '<span class="msg">'+escHtml(e.message.slice(0,80))+'</span>';
+    } else if (e.description) {
+      label = '<span class="msg">'+escHtml(e.description)+'</span>';
+    }
+    const ts = e.timestamp ? '<span class="ts">'+new Date(e.timestamp).toLocaleTimeString()+'</span>' : '';
+    return '<div class="wf-entry '+e.type+'">'+label+ts+'</div>';
+  }).join('') + (filtered.length > 200 ? '<div style="color:var(--text2);padding:8px;font-size:12px">...and '+(filtered.length-200)+' more</div>' : '');
+}
+
+document.getElementById('wfFilters').innerHTML = wfTypes.map(t =>
+  '<button class="wf-filter active" data-type="'+t+'">'+wfLabels[t]+'</button>'
+).join('');
+
+document.querySelectorAll('.wf-filter').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const type = this.dataset.type;
+    if (activeWfFilters.has(type)) { activeWfFilters.delete(type); this.classList.remove('active'); }
+    else { activeWfFilters.add(type); this.classList.add('active'); }
+    renderWorkflow();
+  });
+});
+
+renderWorkflow();
 </script>
 </body>
 </html>'''
@@ -3174,40 +4052,51 @@ def main():
 
     t0 = time.time()
 
-    print("\n[1/8] Loading stats-cache.json...")
+    print("\n[1/10] Loading stats-cache.json...")
     stats_cache = load_stats_cache()
     print(f"  Total sessions (from cache): {stats_cache.get('totalSessions', '?')}")
     print(f"  Total messages (from cache): {stats_cache.get('totalMessages', '?')}")
 
-    print("\n[2/8] Loading .claude.json...")
+    print("\n[2/10] Loading .claude.json...")
     dot_claude = load_dot_claude()
     projects = dot_claude.get("projects", {})
     print(f"  Projects with metadata: {len(projects)}")
 
-    print("\n[3/8] Loading history.jsonl...")
+    print("\n[3/10] Loading history.jsonl...")
     history = load_history()
     print(f"  User prompts: {len(history)}")
 
-    print("\n[4/8] Parsing session transcripts...")
+    print("\n[4/10] Parsing session transcripts...")
     sessions = parse_session_transcripts()
 
-    print("\n[5/8] Loading plans...")
+    print("\n[5/10] Loading plans...")
     plans = load_plans()
     print(f"  Plan files: {len(plans)}")
 
-    print("\n[6/8] Loading plugins...")
+    print("\n[6/10] Loading plugins...")
     plugins = load_plugins()
     print(f"  Installed plugins: {len(plugins['installed'])}")
 
-    print("\n[7/8] Loading todos & file history...")
+    print("\n[7/10] Loading todos & file history...")
     todos = load_todos()
     file_history = load_file_history_stats()
     print(f"  Todos: {todos['total']} ({todos['completed']} completed)")
     print(f"  File history: {file_history['total_files']} snapshots in {file_history['total_sessions']} sessions")
 
-    print("\n[8/8] Calculating storage...")
+    print("\n[8/10] Calculating storage...")
     storage = calc_storage()
     print(f"  Total ~/.claude size: {storage['total_mb']} MB")
+
+    print("\n[9/10] Loading telemetry...")
+    telemetry = load_telemetry()
+    print(f"  Events: {telemetry['total_events']}, Sessions: {len(telemetry['per_session'])}")
+
+    skip_memories = "--no-memories" in sys.argv
+    print("\n[10/10] Loading memories & tasks...")
+    memories = load_project_memories(skip_memories)
+    tasks = load_tasks()
+    print(f"  Memories: {len(memories)} projects")
+    print(f"  Tasks: {tasks['total']} ({tasks['completed']} completed)")
 
     OUTPUT_DIR.mkdir(exist_ok=True)
 
@@ -3216,6 +4105,7 @@ def main():
         sessions, stats_cache, dot_claude, history,
         plans=plans, plugins=plugins, todos=todos,
         file_history=file_history, storage=storage,
+        telemetry=telemetry, tasks=tasks, memories=memories,
     )
 
     print(f"\nWriting {DASHBOARD_DATA}...")
@@ -3231,7 +4121,7 @@ def main():
     generate_session_pages(sessions, data["sessions"])
 
     print(f"\nGenerating project pages...")
-    project_slugs = generate_project_pages(data["sessions"])
+    project_slugs = generate_project_pages(data["sessions"], data=data)
     data["project_slugs"] = project_slugs
     # Re-generate dashboard with project slug mapping
     generate_dashboard(data)
@@ -3244,6 +4134,7 @@ def main():
     print(f"  API-Aequivalent: ${data['kpi']['total_cost']:.2f}")
     print(f"  Projects: {data['kpi']['total_projects']}")
     print(f"  Models: {', '.join(data['models'])}")
+    print("\n  \u26a0  Output may contain sensitive data. Do not publish without access control.")
 
 
 if __name__ == "__main__":

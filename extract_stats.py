@@ -508,6 +508,163 @@ def calc_storage():
     }
 
 
+def load_telemetry():
+    """Load telemetry data from ~/.claude/telemetry/."""
+    per_session = defaultdict(lambda: {
+        "peak_rss_mb": 0, "peak_heap_mb": 0, "max_cpu_pct": 0,
+        "max_uptime_s": 0, "event_count": 0,
+    })
+    env_info = {}
+
+    sources = []
+    if MIGRATION_ENABLED:
+        sources.append(MIGRATION_CLAUDE_DIR)
+    sources.append(CLAUDE_DIR)
+
+    for claude_dir in sources:
+        tel_dir = claude_dir / "telemetry"
+        if not tel_dir.exists():
+            continue
+        for tf in sorted(tel_dir.glob("*.json")):
+            try:
+                with open(tf, "r", encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            evt = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        ed = evt.get("event_data", {})
+                        sid = ed.get("session_id", "")
+                        if not sid:
+                            continue
+
+                        # Extract env info (take latest)
+                        env = ed.get("env", {})
+                        if env and not env_info:
+                            env_info = {
+                                "platform": env.get("platform", ""),
+                                "node_version": env.get("node_version", ""),
+                                "terminal": env.get("terminal", ""),
+                                "arch": env.get("arch", ""),
+                                "claude_version": env.get("version", ""),
+                            }
+
+                        proc_str = ed.get("process", "")
+                        if not proc_str:
+                            continue
+                        try:
+                            proc = json.loads(proc_str) if isinstance(proc_str, str) else proc_str
+                        except (json.JSONDecodeError, TypeError):
+                            continue
+
+                        ps = per_session[sid]
+                        ps["event_count"] += 1
+                        rss_mb = round(proc.get("rss", 0) / 1_048_576, 1)
+                        heap_mb = round(proc.get("heapUsed", 0) / 1_048_576, 1)
+                        cpu_pct = round(proc.get("cpuPercent", 0), 1)
+                        uptime_s = round(proc.get("uptime", 0))
+
+                        if rss_mb > ps["peak_rss_mb"]:
+                            ps["peak_rss_mb"] = rss_mb
+                        if heap_mb > ps["peak_heap_mb"]:
+                            ps["peak_heap_mb"] = heap_mb
+                        if cpu_pct > ps["max_cpu_pct"]:
+                            ps["max_cpu_pct"] = cpu_pct
+                        if uptime_s > ps["max_uptime_s"]:
+                            ps["max_uptime_s"] = uptime_s
+            except Exception:
+                continue
+
+    return {
+        "per_session": dict(per_session),
+        "env_info": env_info,
+        "total_events": sum(s["event_count"] for s in per_session.values()),
+    }
+
+
+def load_project_memories(skip_memories=False):
+    """Load MEMORY.md files per project."""
+    if skip_memories:
+        return {}
+
+    memories = {}
+    sources = []
+    if MIGRATION_ENABLED and MIGRATION_CLAUDE_DIR:
+        proj_dir = MIGRATION_CLAUDE_DIR / "projects"
+        if proj_dir.exists():
+            sources.append(proj_dir)
+    if PROJECTS_DIR.exists():
+        sources.append(PROJECTS_DIR)
+
+    for projects_dir in sources:
+        for memory_file in projects_dir.rglob("memory/MEMORY.md"):
+            project_dir_name = memory_file.parent.parent.name
+            if project_dir_name in memories:
+                continue
+            try:
+                content = memory_file.read_text(encoding="utf-8", errors="replace")
+                memories[project_dir_name] = {
+                    "content": content,
+                    "size_kb": round(memory_file.stat().st_size / 1024, 1),
+                    "lines": len(content.splitlines()),
+                }
+            except Exception:
+                continue
+    return memories
+
+
+def load_tasks():
+    """Load task management data from ~/.claude/tasks/."""
+    all_tasks = []
+    session_count = 0
+    seen_sessions = set()
+
+    sources = []
+    if MIGRATION_ENABLED:
+        sources.append(MIGRATION_CLAUDE_DIR)
+    sources.append(CLAUDE_DIR)
+
+    for claude_dir in sources:
+        tasks_dir = claude_dir / "tasks"
+        if not tasks_dir.exists():
+            continue
+        for sess_dir in sorted(tasks_dir.iterdir()):
+            if not sess_dir.is_dir() or sess_dir.name in seen_sessions:
+                continue
+            seen_sessions.add(sess_dir.name)
+            task_files = sorted(
+                [f for f in sess_dir.glob("*.json") if f.stem.isdigit()],
+                key=lambda f: int(f.stem)
+            )
+            if not task_files:
+                continue
+            session_count += 1
+            for tf in task_files:
+                try:
+                    task = json.loads(tf.read_text(encoding="utf-8", errors="replace"))
+                    task["_session_id"] = sess_dir.name
+                    all_tasks.append(task)
+                except Exception:
+                    continue
+
+    status_counts = defaultdict(int)
+    for t in all_tasks:
+        status_counts[t.get("status", "unknown")] += 1
+
+    return {
+        "tasks": [{"subject": t.get("subject", ""), "status": t.get("status", ""), "session_id": t.get("_session_id", "")} for t in all_tasks],
+        "session_count": session_count,
+        "total": len(all_tasks),
+        "status_counts": dict(status_counts),
+        "completed": status_counts.get("completed", 0),
+        "pending": status_counts.get("pending", 0),
+        "in_progress": status_counts.get("in_progress", 0),
+    }
+
+
 def parse_session_transcripts():
     """Parse all session JSONL transcripts from current + optional migration backup."""
     sessions = {}  # session_id -> session_data
@@ -1050,7 +1207,8 @@ def build_plan_analysis(daily_cost_series, session_list):
 
 def build_dashboard_data(sessions, stats_cache, dot_claude, history,
                          plans=None, plugins=None, todos=None,
-                         file_history=None, storage=None):
+                         file_history=None, storage=None,
+                         telemetry=None, tasks=None, memories=None):
     """Aggregate all data into the dashboard data structure."""
 
     session_list = []
@@ -3261,40 +3419,51 @@ def main():
 
     t0 = time.time()
 
-    print("\n[1/8] Loading stats-cache.json...")
+    print("\n[1/10] Loading stats-cache.json...")
     stats_cache = load_stats_cache()
     print(f"  Total sessions (from cache): {stats_cache.get('totalSessions', '?')}")
     print(f"  Total messages (from cache): {stats_cache.get('totalMessages', '?')}")
 
-    print("\n[2/8] Loading .claude.json...")
+    print("\n[2/10] Loading .claude.json...")
     dot_claude = load_dot_claude()
     projects = dot_claude.get("projects", {})
     print(f"  Projects with metadata: {len(projects)}")
 
-    print("\n[3/8] Loading history.jsonl...")
+    print("\n[3/10] Loading history.jsonl...")
     history = load_history()
     print(f"  User prompts: {len(history)}")
 
-    print("\n[4/8] Parsing session transcripts...")
+    print("\n[4/10] Parsing session transcripts...")
     sessions = parse_session_transcripts()
 
-    print("\n[5/8] Loading plans...")
+    print("\n[5/10] Loading plans...")
     plans = load_plans()
     print(f"  Plan files: {len(plans)}")
 
-    print("\n[6/8] Loading plugins...")
+    print("\n[6/10] Loading plugins...")
     plugins = load_plugins()
     print(f"  Installed plugins: {len(plugins['installed'])}")
 
-    print("\n[7/8] Loading todos & file history...")
+    print("\n[7/10] Loading todos & file history...")
     todos = load_todos()
     file_history = load_file_history_stats()
     print(f"  Todos: {todos['total']} ({todos['completed']} completed)")
     print(f"  File history: {file_history['total_files']} snapshots in {file_history['total_sessions']} sessions")
 
-    print("\n[8/8] Calculating storage...")
+    print("\n[8/10] Calculating storage...")
     storage = calc_storage()
     print(f"  Total ~/.claude size: {storage['total_mb']} MB")
+
+    print("\n[9/10] Loading telemetry...")
+    telemetry = load_telemetry()
+    print(f"  Events: {telemetry['total_events']}, Sessions: {len(telemetry['per_session'])}")
+
+    skip_memories = "--no-memories" in sys.argv
+    print("\n[10/10] Loading memories & tasks...")
+    memories = load_project_memories(skip_memories)
+    tasks = load_tasks()
+    print(f"  Memories: {len(memories)} projects")
+    print(f"  Tasks: {tasks['total']} ({tasks['completed']} completed)")
 
     OUTPUT_DIR.mkdir(exist_ok=True)
 
@@ -3303,6 +3472,7 @@ def main():
         sessions, stats_cache, dot_claude, history,
         plans=plans, plugins=plugins, todos=todos,
         file_history=file_history, storage=storage,
+        telemetry=telemetry, tasks=tasks, memories=memories,
     )
 
     print(f"\nWriting {DASHBOARD_DATA}...")
@@ -3331,6 +3501,7 @@ def main():
     print(f"  API-Aequivalent: ${data['kpi']['total_cost']:.2f}")
     print(f"  Projects: {data['kpi']['total_projects']}")
     print(f"  Models: {', '.join(data['models'])}")
+    print("\n  \u26a0  Output may contain sensitive data. Do not publish without access control.")
 
 
 if __name__ == "__main__":

@@ -586,6 +586,8 @@ def parse_session_transcripts():
                                     "tools": defaultdict(int),
                                     "skills": defaultdict(int),
                                     "hooks": defaultdict(int),
+                                    "compactions": 0,
+                                    "compaction_events": [],
                                     "message_count": 0,
                                     "user_message_count": 0,
                                     "assistant_message_count": 0,
@@ -679,6 +681,19 @@ def parse_session_transcripts():
                                     hook_name = data_obj.get("hookName", "")
                                     if hook_name:
                                         sess["hooks"][hook_name] += 1
+
+                            elif msg_type == "summary":
+                                sess["compactions"] += 1
+                                ts_str = ""
+                                if timestamp:
+                                    if isinstance(timestamp, str):
+                                        ts_str = timestamp
+                                    elif isinstance(timestamp, (int, float)):
+                                        try:
+                                            ts_str = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc).isoformat()
+                                        except (ValueError, OSError):
+                                            ts_str = str(timestamp)
+                                sess["compaction_events"].append({"timestamp": ts_str})
 
                 except Exception as e:
                     print(f"      ERROR reading {jsonl_file.name}: {e}")
@@ -946,6 +961,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "tools": dict(sess["tools"]),
             "skills": dict(sess["skills"]),
             "hooks": dict(sess["hooks"]),
+            "compactions": sess["compactions"],
+            "compaction_events": sess["compaction_events"],
             "first_prompt": sess["first_prompt"],
             "slug": sess["slug"],
             "file_size_mb": round(sess["file_size"] / 1_048_576, 2),

@@ -546,6 +546,12 @@ def parse_session_transcripts():
                 file_session_id = jsonl_file.stem
                 file_size = jsonl_file.stat().st_size
 
+                # Detect subagent sessions
+                is_subagent = "/subagents/" in str(jsonl_file)
+                parent_id = ""
+                if is_subagent:
+                    parent_id = jsonl_file.parent.parent.name
+
                 # Skip if this session was already fully parsed from migration
                 if file_session_id in sessions and source_label == "current":
                     # Same session file in both sources — skip duplicate
@@ -595,9 +601,22 @@ def parse_session_transcripts():
                                     "file_size": file_size,
                                     "slug": obj.get("slug", ""),
                                     "source": source_label,
+                                    "agent_dispatches": [],
+                                    "subagents": [],
+                                    "is_subagent": False,
+                                    "parent_session_id": "",
+                                    "error_count": 0,
+                                    "errors": [],
+                                    "file_ops": [],
+                                    "git_ops": [],
                                 }
 
                             sess = sessions[session_id]
+
+                            # Mark subagent status (may be set multiple times, that's fine)
+                            if is_subagent:
+                                sess["is_subagent"] = True
+                                sess["parent_session_id"] = parent_id
 
                             if obj.get("cwd") and not sess["project_path"]:
                                 sess["project_path"] = obj["cwd"]
@@ -621,6 +640,22 @@ def parse_session_transcripts():
                             if msg_type == "user":
                                 sess["message_count"] += 1
                                 sess["user_message_count"] += 1
+
+                                # Extract errors from tool results
+                                message = obj.get("message", {})
+                                content = message.get("content", "")
+                                if isinstance(content, list):
+                                    for block in content:
+                                        if isinstance(block, dict) and block.get("is_error"):
+                                            sess["error_count"] += 1
+                                            error_msg = str(block.get("content", ""))
+                                            if "<tool_use_error>" in error_msg:
+                                                error_msg = error_msg.split("<tool_use_error>")[-1].split("</tool_use_error>")[0]
+                                            sess["errors"].append({
+                                                "message": error_msg[:200],
+                                                "tool_use_id": block.get("tool_use_id", ""),
+                                                "timestamp": timestamp or "",
+                                            })
 
                                 if not sess["first_prompt"]:
                                     message = obj.get("message", {})
@@ -675,6 +710,40 @@ def parse_session_transcripts():
                                             skill_name = block.get("input", {}).get("skill", "unknown")
                                             sess["skills"][skill_name] += 1
 
+                                        # Track agent dispatches
+                                        if tool_name == "Agent":
+                                            agent_input = block.get("input", {})
+                                            sess["agent_dispatches"].append({
+                                                "type": agent_input.get("subagent_type", "general-purpose"),
+                                                "description": agent_input.get("description", ""),
+                                            })
+
+                                        # File operations
+                                        if tool_name in ("Read", "Edit", "Write"):
+                                            tool_input = block.get("input", {})
+                                            file_path = tool_input.get("file_path", "")
+                                            if file_path:
+                                                sess["file_ops"].append({
+                                                    "op": tool_name.lower(),
+                                                    "path": file_path,
+                                                    "timestamp": timestamp or "",
+                                                })
+
+                                        # Git operations from Bash
+                                        if tool_name == "Bash":
+                                            cmd = block.get("input", {}).get("command", "")
+                                            if "git commit" in cmd:
+                                                msg = ""
+                                                if '-m "' in cmd:
+                                                    msg = cmd.split('-m "')[1].split('"')[0]
+                                                elif "-m '" in cmd:
+                                                    msg = cmd.split("-m '")[1].split("'")[0]
+                                                sess["git_ops"].append({"type": "commit", "message": msg[:200], "timestamp": timestamp or ""})
+                                            elif "git push" in cmd:
+                                                sess["git_ops"].append({"type": "push", "message": cmd[:200], "timestamp": timestamp or ""})
+                                            elif "gh pr create" in cmd:
+                                                sess["git_ops"].append({"type": "pr", "message": cmd[:200], "timestamp": timestamp or ""})
+
                             elif msg_type == "progress":
                                 data_obj = obj.get("data", {})
                                 if data_obj.get("type") == "hook_progress":
@@ -697,6 +766,24 @@ def parse_session_transcripts():
 
                 except Exception as e:
                     print(f"      ERROR reading {jsonl_file.name}: {e}")
+
+    # Link subagents to parent sessions and remove from top-level
+    subagent_ids = [sid for sid, s in sessions.items() if s.get("is_subagent")]
+    for sub_id in subagent_ids:
+        sub = sessions[sub_id]
+        parent_id = sub.get("parent_session_id", "")
+        if parent_id and parent_id in sessions:
+            # Calculate subagent totals
+            sub_tokens = sum(m["input_tokens"] + m["output_tokens"] for m in sub["models"].values())
+            sub_cost = sum(m["cost"] for m in sub["models"].values())
+            sessions[parent_id]["subagents"].append({
+                "agent_id": sub["session_id"],
+                "tokens": sub_tokens,
+                "cost": round(sub_cost, 4),
+                "messages": sub["message_count"],
+                "tools": dict(sub["tools"]),
+            })
+        del sessions[sub_id]
 
     migration_count = sum(1 for s in sessions.values() if s.get("source") == "migration")
     current_count = sum(1 for s in sessions.values() if s.get("source") == "current")

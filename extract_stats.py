@@ -2743,8 +2743,8 @@ a:hover { text-decoration:underline; }
 .main-layout { display:grid; grid-template-columns:2fr 1fr; gap:0; max-width:1600px; margin:0 auto; }
 .chat-panel { padding:20px 24px; max-height:calc(100vh - 180px); overflow-y:auto; border-right:1px solid var(--border); }
 .msg { margin-bottom:16px; padding:12px 16px; border-radius:10px; }
-.msg.user { background:var(--bg2); border:1px solid var(--border); }
-.msg.assistant { background:var(--bg3); border:1px solid var(--border); }
+.msg.user { background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.25); border-left:3px solid var(--accent); }
+.msg.assistant { background:var(--bg3); border:1px solid var(--border); border-left:3px solid var(--purple); }
 .msg-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:12px; }
 .msg-role { width:24px; height:24px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
 .msg-role.user { background:var(--accent); color:white; }

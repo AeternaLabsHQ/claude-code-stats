@@ -37,7 +37,7 @@
     "th_input": "Input",
     "th_cache_read": "Cache Read",
     "th_api_calls": "API Calls",
-    "costs_cache_efficiency": "Cache Efficiency"
+    "cache_efficiency": "Cache Efficiency"
   },
   "activity": {
     "daily_messages": "Messages per Day",
@@ -150,7 +150,7 @@
     "todos_total": "Todos Total",
     "todos_completed": "Todos Completed",
     "completion_rate": "Completion Rate",
-    "insights_skills": "Skills Used",
-    "insights_hooks": "Hooks Fired"
+    "skills": "Skills Used",
+    "hooks": "Hooks Fired"
   }
 }

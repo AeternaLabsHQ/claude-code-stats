@@ -4,7 +4,9 @@
   "header": {
     "title_prefix": "Claude Code",
     "title_suffix": "Usage Statistics",
-    "generated": "Generated"
+    "generated": "Generated",
+    "hide_empty": "Hide empty sessions",
+    "hide_empty_hint": "Hide sessions with no messages and no token usage"
   },
   "kpi": {
     "api_equivalent": "API Equivalent",
@@ -172,6 +174,8 @@
     "task_overview": "Task Management",
     "task_completion": "Completion Rate",
     "error_overview": "Error Overview",
+    "errors_by_category": "Errors by Category",
+    "errors_by_tool": "Errors by Tool",
     "error_rate": "Error Rate",
     "top_errors": "Top Errors",
     "th_type": "Type",

@@ -73,7 +73,7 @@ else:
     MIGRATION_STATS_CACHE = None
     MIGRATION_HISTORY_JSONL = None
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
@@ -665,6 +665,36 @@ def load_tasks():
     }
 
 
+def _categorize_error(msg: str, tool_name: str) -> str:
+    """Categorize an error message into a human-readable category."""
+    msg_lower = msg.lower()
+    if "rejected" in msg_lower or "doesn't want to proceed" in msg_lower:
+        return "rejected"
+    if "does not exist" in msg_lower or "not found" in msg_lower or "no such file" in msg_lower:
+        return "file_not_found"
+    if "not unique" in msg_lower or "multiple occurrences" in msg_lower:
+        return "edit_not_unique"
+    if "no replacement was performed" in msg_lower or "old_string not found" in msg_lower:
+        return "edit_no_match"
+    if "permission" in msg_lower or "denied" in msg_lower:
+        return "permission_denied"
+    if "timeout" in msg_lower or "timed out" in msg_lower:
+        return "timeout"
+    if "command not found" in msg_lower:
+        return "command_not_found"
+    if "exit code" in msg_lower or "returned non-zero" in msg_lower:
+        return "exit_code"
+    if "syntaxerror" in msg_lower or "syntax error" in msg_lower:
+        return "syntax_error"
+    if "importerror" in msg_lower or "modulenotfounderror" in msg_lower:
+        return "import_error"
+    if "hook error" in msg_lower or "hook_error" in msg_lower:
+        return "hook_error"
+    if tool_name == "Edit":
+        return "edit_failed"
+    return "other"
+
+
 def parse_session_transcripts():
     """Parse all session JSONL transcripts from current + optional migration backup."""
     sessions = {}  # session_id -> session_data
@@ -810,9 +840,14 @@ def parse_session_transcripts():
                                             error_msg = str(block.get("content", ""))
                                             if "<tool_use_error>" in error_msg:
                                                 error_msg = error_msg.split("<tool_use_error>")[-1].split("</tool_use_error>")[0]
+                                            tid = block.get("tool_use_id", "")
+                                            tool_name = sess.get("_tool_id_map", {}).get(tid, "unknown")
+                                            category = _categorize_error(error_msg, tool_name)
                                             sess["errors"].append({
                                                 "message": error_msg[:200],
-                                                "tool_use_id": block.get("tool_use_id", ""),
+                                                "tool": tool_name,
+                                                "category": category,
+                                                "tool_use_id": tid,
                                                 "timestamp": timestamp or "",
                                             })
 
@@ -863,6 +898,10 @@ def parse_session_transcripts():
                                 for block in message.get("content", []):
                                     if isinstance(block, dict) and block.get("type") == "tool_use":
                                         tool_name = block.get("name", "unknown")
+                                        # Map tool_use_id -> tool_name for error attribution
+                                        tool_id = block.get("id", "")
+                                        if tool_id:
+                                            sess.setdefault("_tool_id_map", {})[tool_id] = tool_name
                                         sess["tools"][tool_name] += 1
                                         # Track skills specifically
                                         if tool_name == "Skill":
@@ -1044,6 +1083,8 @@ def extract_session_messages(session_id, project_dir_name):
                                 tool_info["detail"] = tool_input.get("skill", "")
                             elif tool_name == "Agent":
                                 tool_info["detail"] = tool_input.get("description", "")[:100]
+                                tool_info["agent_type"] = tool_input.get("subagent_type", "general-purpose")
+                                tool_info["agent_prompt"] = tool_input.get("prompt", "")[:2000]
                             tools.append(tool_info)
 
                 text = "\n".join(text_parts)
@@ -1349,6 +1390,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "agent_dispatches": sess.get("agent_dispatches", []),
             "subagents": sess.get("subagents", []),
             "error_count": sess.get("error_count", 0),
+            "errors": [{"message": e["message"], "tool": e.get("tool", "unknown"), "category": e.get("category", "other"), "timestamp": e.get("timestamp", "")} for e in sess.get("errors", [])],
             "file_ops_count": len(sess.get("file_ops", [])),
             "git_ops": sess.get("git_ops", []),
         })
@@ -1490,8 +1532,13 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
 
     # Global Error Aggregation
     total_errors = 0
+    errors_by_tool = defaultdict(int)
+    errors_by_category = defaultdict(int)
     for s in session_list:
         total_errors += s.get("error_count", 0)
+        for e in s.get("errors", []):
+            errors_by_tool[e.get("tool", "unknown")] += 1
+            errors_by_category[e.get("category", "other")] += 1
     total_tool_calls = sum(s.get("api_calls", 0) for s in session_list)
 
     # Global Git Ops
@@ -1549,6 +1596,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "total_errors": total_errors,
             "total_tool_calls": total_tool_calls,
             "error_rate": round(total_errors / max(total_tool_calls, 1) * 100, 2),
+            "by_tool": sorted([{"tool": t, "count": c} for t, c in errors_by_tool.items()], key=lambda x: -x["count"]),
+            "by_category": sorted([{"category": c, "count": n} for c, n in errors_by_category.items()], key=lambda x: -x["count"]),
         },
         "git_summary": {
             "commits": total_commits,
@@ -1787,6 +1836,10 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 <div class="header">
   <h1><span>__L_header_title_prefix__</span> __L_header_title_suffix__</h1>
   <div class="time-filter" id="timeFilter"></div>
+  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none" title="__L_header_hide_empty_hint__">
+    <input type="checkbox" id="hideEmptySessions" checked style="accent-color:var(--accent);cursor:pointer" />
+    __L_header_hide_empty__
+  </label>
   <input type="text" id="projectFilter" placeholder="Filter projects..." style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:12px;width:180px;outline:none;" />
   <div class="meta" id="headerMeta"></div>
 </div>
@@ -1984,6 +2037,10 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
       <div class="chart-box"><h3>__L_agents_task_overview__</h3><div id="taskOverview"></div></div>
       <div class="chart-box"><h3>__L_agents_error_overview__</h3><div id="errorOverview"></div></div>
     </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_agents_errors_by_category__</h3><canvas id="errorByCategoryChart" height="250"></canvas></div>
+      <div class="chart-box"><h3>__L_agents_errors_by_tool__</h3><canvas id="errorByToolChart" height="250"></canvas></div>
+    </div>
   </div>
 </div>
 
@@ -2025,7 +2082,7 @@ let F = {};
 const charts = {};
 let currentDays = 0;
 let anonMode = false;
-let agentTypesChartInstance, agentDescsChartInstance;
+let agentTypesChartInstance, agentDescsChartInstance, errorByCatChartInstance, errorByToolChartInstance;
 const chartColors = ['#6366f1','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#ec4899','#3b82f6','#f97316','#14b8a6'];
 let currentProjectFilter = '';
 
@@ -2043,7 +2100,9 @@ function filterData(days, projectFilter) {
   const pf = currentProjectFilter.toLowerCase().trim();
 
   // Filter sessions by date AND project
+  const hideEmpty = document.getElementById('hideEmptySessions')?.checked;
   let filteredSessions = D.sessions;
+  if (hideEmpty) filteredSessions = filteredSessions.filter(s => s.messages > 0 || s.output_tokens > 0);
   if (cutoff) filteredSessions = filteredSessions.filter(s => s.date >= cutoff);
   if (pf) filteredSessions = filteredSessions.filter(s => (s.project || '').toLowerCase().includes(pf));
   F.sessions = filteredSessions;
@@ -2184,10 +2243,19 @@ function filterData(days, projectFilter) {
   // Recalculate error_summary from filtered sessions
   const fErrors = F.sessions.reduce((s, x) => s + (x.error_count || 0), 0);
   const fToolCalls = F.sessions.reduce((s, x) => s + (x.api_calls || 0), 0);
+  const fErrByTool = {}, fErrByCat = {};
+  F.sessions.forEach(s => {
+    (s.errors || []).forEach(e => {
+      fErrByTool[e.tool || 'unknown'] = (fErrByTool[e.tool || 'unknown'] || 0) + 1;
+      fErrByCat[e.category || 'other'] = (fErrByCat[e.category || 'other'] || 0) + 1;
+    });
+  });
   F.error_summary = {
     total_errors: fErrors,
     total_tool_calls: fToolCalls,
     error_rate: fToolCalls > 0 ? +(fErrors / fToolCalls * 100).toFixed(2) : 0,
+    by_tool: Object.entries(fErrByTool).map(([tool, count]) => ({tool, count})).sort((a,b) => b.count - a.count),
+    by_category: Object.entries(fErrByCat).map(([category, count]) => ({category, count})).sort((a,b) => b.count - a.count),
   };
 }
 
@@ -3165,9 +3233,45 @@ function renderAgentsTab() {
 
   // Error overview
   const errEl = document.getElementById('errorOverview');
+  const catLabels = {'rejected':'Rejected','file_not_found':'File Not Found','edit_not_unique':'Edit Not Unique','edit_no_match':'Edit No Match','permission_denied':'Permission Denied','timeout':'Timeout','command_not_found':'Cmd Not Found','exit_code':'Exit Code Error','syntax_error':'Syntax Error','import_error':'Import Error','hook_error':'Hook Error','edit_failed':'Edit Failed','other':'Other'};
+  const topCats = (es.by_category || []).slice(0, 5);
   errEl.innerHTML =
     '<div style="margin-bottom:12px"><span style="font-size:20px;font-weight:700;color:var(--red)">'+(es.total_errors||0)+'</span> errors / <span style="font-weight:600">'+(es.total_tool_calls||0)+'</span> tool calls</div>' +
-    '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">__L_agents_error_rate__: '+(es.error_rate||0)+'%</div>';
+    '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">__L_agents_error_rate__: '+(es.error_rate||0)+'%</div>' +
+    '<div style="margin-top:12px">' + topCats.map(c =>
+      '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">' +
+        '<span style="font-size:12px">'+(catLabels[c.category]||c.category)+'</span>' +
+        '<span style="font-size:12px;font-weight:600;color:var(--red)">'+c.count+'</span></div>'
+    ).join('') + '</div>';
+
+  // Error by category doughnut
+  const ebc = es.by_category || [];
+  if (errorByCatChartInstance) errorByCatChartInstance.destroy();
+  if (ebc.length > 0) {
+    const errColors = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#78716c','#84cc16','#14b8a6','#f43f5e'];
+    errorByCatChartInstance = new Chart(document.getElementById('errorByCategoryChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ebc.map(e => catLabels[e.category] || e.category),
+        datasets: [{ data: ebc.map(e => e.count), backgroundColor: errColors }]
+      },
+      options: { responsive:true, plugins:{ legend:{ position:'right', labels:{color:'#e2e8f0',font:{size:11}} } } }
+    });
+  }
+
+  // Error by tool bar chart
+  const ebt = (es.by_tool || []).slice(0, 10);
+  if (errorByToolChartInstance) errorByToolChartInstance.destroy();
+  if (ebt.length > 0) {
+    errorByToolChartInstance = new Chart(document.getElementById('errorByToolChart'), {
+      type: 'bar',
+      data: {
+        labels: ebt.map(e => e.tool),
+        datasets: [{ data: ebt.map(e => e.count), backgroundColor: 'rgba(239,68,68,0.7)', borderRadius:4 }]
+      },
+      options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#94a3b8'}}, y:{ticks:{color:'#94a3b8',font:{size:11}}} } }
+    });
+  }
 }
 
 // ── Sortable Tables ────────────────────────────────────────────────────
@@ -3187,6 +3291,7 @@ document.querySelectorAll('.sortable th[data-sort]').forEach(th => {
 document.getElementById('filterProject').addEventListener('change', () => { sessionPage = 0; renderSessionList(); });
 document.getElementById('filterSort').addEventListener('change', () => { sessionPage = 0; renderSessionList(); });
 document.getElementById('filterSearch').addEventListener('input', () => { sessionPage = 0; renderSessionList(); });
+document.getElementById('hideEmptySessions').addEventListener('change', () => { applyFilter(currentDays); });
 
 // ── Init ───────────────────────────────────────────────────────────────
 filterData(0, '');
@@ -3335,6 +3440,10 @@ a:hover { text-decoration:underline; }
 .marker { padding:6px 16px; margin-bottom:8px; font-size:11px; border-radius:6px; display:flex; align-items:center; gap:8px; }
 .marker.hook { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:var(--amber); }
 .marker.compaction { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--red); }
+.marker.agent-dispatch { background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); color:var(--accent2); cursor:pointer; flex-wrap:wrap; }
+.marker.agent-dispatch .agent-prompt { display:none; width:100%; margin-top:8px; padding:8px 12px; background:var(--bg); border-radius:6px; font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-word; color:var(--text); max-height:400px; overflow-y:auto; }
+.marker.agent-dispatch.expanded .agent-prompt { display:block; }
+.agent-type-badge { display:inline-block; padding:1px 6px; border-radius:3px; font-size:10px; font-weight:600; background:rgba(99,102,241,0.25); color:var(--accent2); margin-left:6px; }
 .sidebar { padding:20px; max-height:calc(100vh - 180px); overflow-y:auto; }
 .sidebar-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px; }
 .sidebar-card h4 { font-size:13px; font-weight:600; margin-bottom:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; }
@@ -3363,6 +3472,7 @@ a:hover { text-decoration:underline; }
         <button class="filter-btn active" data-filter="all">All</button>
         <button class="filter-btn" data-filter="user">User</button>
         <button class="filter-btn" data-filter="assistant">Agent</button>
+        <button class="filter-btn" data-filter="agent-dispatch">Subagents</button>
       </div>
       <button class="copy-btn" id="copyBtn">&#128203; Copy</button>
     </div>
@@ -3415,9 +3525,21 @@ msgs.forEach((m,i) => {
   } else if (m.role==='compaction') {
     chatHtml += '<div class="marker compaction"><span>&#9889;</span> Context Compaction <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else {
+    // Check for Agent dispatches in tools
+    const agentTools = (m.tools || []).filter(t => t.name === 'Agent');
+    agentTools.forEach(at => {
+      chatHtml += '<div class="marker agent-dispatch agent-toggle">' +
+        '<span>&#129302;</span> Agent: <strong>'+escHtml(at.detail || 'unnamed')+'</strong>' +
+        '<span class="agent-type-badge">'+escHtml(at.agent_type || 'general-purpose')+'</span>' +
+        '<span style="margin-left:auto;font-size:11px;opacity:0.7">'+fmtTime(m.timestamp)+' &#9660; click to expand</span>' +
+        (at.agent_prompt ? '<div class="agent-prompt">'+escHtml(at.agent_prompt)+'</div>' : '') +
+      '</div>';
+    });
+
     const isLong = (m.content||'').length > 2000;
     const display = isLong ? m.content.slice(0,2000) : m.content;
-    chatHtml += '<div class="msg '+m.role+'">' +
+    const hasAgentDispatch = agentTools.length > 0;
+    chatHtml += '<div class="msg '+m.role+(hasAgentDispatch?' has-agent-dispatch':'')+'">' +
       '<div class="msg-header">' +
         '<div class="msg-role '+m.role+'">'+(m.role==='user'?'U':'A')+'</div>' +
         '<span class="msg-time">'+fmtTime(m.timestamp)+'</span>' +
@@ -3427,7 +3549,8 @@ msgs.forEach((m,i) => {
       '<div class="msg-content" id="mc'+i+'">'+renderMd(display)+'</div>' +
       (isLong ? '<div class="msg-expand" data-idx="'+i+'">Show full message ('+(m.content.length/1000).toFixed(1)+'K chars)</div>' : '') +
       (m.tools && m.tools.length>0 ? '<div class="msg-tools">'+m.tools.map(t =>
-        '<span class="tool-badge">'+escHtml(t.name)+(t.detail ? ' '+escHtml(t.detail) : '')+'</span>'
+        '<span class="tool-badge"'+(t.name==='Agent'?' style="background:rgba(99,102,241,0.15);color:var(--accent2);border-color:var(--accent)"':'')+'>'
+        +escHtml(t.name)+(t.detail ? ' '+escHtml(t.detail) : '')+'</span>'
       ).join('')+'</div>' : '') +
     '</div>';
   }
@@ -3443,6 +3566,11 @@ document.querySelectorAll('.msg-expand').forEach(el => {
   });
 });
 
+// Agent dispatch toggle
+document.querySelectorAll('.agent-toggle').forEach(el => {
+  el.addEventListener('click', function() { this.classList.toggle('expanded'); });
+});
+
 // Syntax highlighting
 document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
 
@@ -3455,6 +3583,12 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     activeFilter = this.getAttribute('data-filter');
     document.querySelectorAll('#chatPanel > .msg, #chatPanel > .marker').forEach(el => {
       if (activeFilter === 'all') { el.style.display = ''; return; }
+      if (activeFilter === 'agent-dispatch') {
+        // Show agent-dispatch markers and messages with agent dispatches
+        if (el.classList.contains('agent-dispatch')) { el.style.display = ''; return; }
+        if (el.classList.contains('has-agent-dispatch')) { el.style.display = ''; return; }
+        el.style.display = 'none'; return;
+      }
       if (el.classList.contains('marker')) { el.style.display = 'none'; return; }
       el.style.display = el.classList.contains(activeFilter) ? '' : 'none';
     });

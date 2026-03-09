@@ -73,7 +73,7 @@ else:
     MIGRATION_STATS_CACHE = None
     MIGRATION_HISTORY_JSONL = None
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"

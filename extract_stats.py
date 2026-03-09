@@ -584,6 +584,8 @@ def parse_session_transcripts():
                                         "calls": 0,
                                     }),
                                     "tools": defaultdict(int),
+                                    "skills": defaultdict(int),
+                                    "hooks": defaultdict(int),
                                     "message_count": 0,
                                     "user_message_count": 0,
                                     "assistant_message_count": 0,
@@ -666,6 +668,17 @@ def parse_session_transcripts():
                                     if isinstance(block, dict) and block.get("type") == "tool_use":
                                         tool_name = block.get("name", "unknown")
                                         sess["tools"][tool_name] += 1
+                                        # Track skills specifically
+                                        if tool_name == "Skill":
+                                            skill_name = block.get("input", {}).get("skill", "unknown")
+                                            sess["skills"][skill_name] += 1
+
+                            elif msg_type == "progress":
+                                data_obj = obj.get("data", {})
+                                if data_obj.get("type") == "hook_progress":
+                                    hook_name = data_obj.get("hookName", "")
+                                    if hook_name:
+                                        sess["hooks"][hook_name] += 1
 
                 except Exception as e:
                     print(f"      ERROR reading {jsonl_file.name}: {e}")
@@ -931,6 +944,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "primary_model": primary_model,
             "model_breakdown": model_breakdown,
             "tools": dict(sess["tools"]),
+            "skills": dict(sess["skills"]),
+            "hooks": dict(sess["hooks"]),
             "first_prompt": sess["first_prompt"],
             "slug": sess["slug"],
             "file_size_mb": round(sess["file_size"] / 1_048_576, 2),
@@ -1026,6 +1041,22 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     tool_ranking = sorted(global_tools.items(), key=lambda x: -x[1])
     tool_summary = [{"name": n, "count": c} for n, c in tool_ranking]
 
+    # Global Skills Aggregation
+    global_skills = defaultdict(int)
+    for s in session_list:
+        for skill_name, count in s.get("skills", {}).items():
+            global_skills[skill_name] += count
+    skill_ranking = sorted(global_skills.items(), key=lambda x: -x[1])
+    skill_summary = [{"name": n, "count": c} for n, c in skill_ranking]
+
+    # Global Hooks Aggregation
+    global_hooks = defaultdict(int)
+    for s in session_list:
+        for hook_name, count in s.get("hooks", {}).items():
+            global_hooks[hook_name] += count
+    hook_ranking = sorted(global_hooks.items(), key=lambda x: -x[1])
+    hook_summary = [{"name": n, "count": c} for n, c in hook_ranking]
+
     dc = dot_claude
     account = dc.get("oauthAccount", {})
 
@@ -1065,6 +1096,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         "projects": project_list,
         "sessions": session_list,
         "tool_summary": tool_summary,
+        "skill_summary": skill_summary,
+        "hook_summary": hook_summary,
         "insights": {
             "plans": plans or [],
             "plugins": plugins or {},

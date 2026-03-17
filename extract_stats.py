@@ -73,7 +73,22 @@ else:
     MIGRATION_STATS_CACHE = None
     MIGRATION_HISTORY_JSONL = None
 
-VERSION = "0.5.0"
+# ── Additional Sources (optional, configured in config.json) ──────────────
+ADDITIONAL_SOURCES = []
+for _src in CONFIG.get("additional_sources", []):
+    _claude_dir = Path(_src["claude_dir"])
+    _dot_claude_json = Path(_src["dot_claude_json"]) if _src.get("dot_claude_json") else None
+    if _claude_dir.exists():
+        ADDITIONAL_SOURCES.append({
+            "label": _src.get("label", _claude_dir.name),
+            "claude_dir": _claude_dir,
+            "projects_dir": _claude_dir / "projects",
+            "dot_claude_json": _dot_claude_json,
+            "stats_cache": _claude_dir / "stats-cache.json",
+            "history_jsonl": _claude_dir / "history.jsonl",
+        })
+
+VERSION = "0.6.0"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
@@ -200,11 +215,13 @@ def project_display_name(project_path):
 
 
 def load_stats_cache():
-    """Load stats-cache.json from current + optional migration backup."""
+    """Load stats-cache.json from all sources."""
     merged = {}
     sources = []
     if MIGRATION_ENABLED:
         sources.append(MIGRATION_STATS_CACHE)
+    for _as in ADDITIONAL_SOURCES:
+        sources.append(_as["stats_cache"])
     sources.append(STATS_CACHE)
     for path in sources:
         if path and path.exists():
@@ -221,11 +238,14 @@ def load_stats_cache():
 
 
 def load_dot_claude():
-    """Load .claude.json from current + optional migration backup, merge projects."""
+    """Load .claude.json from all sources, merge projects."""
     merged = {}
     sources = []
     if MIGRATION_ENABLED:
         sources.append(MIGRATION_DOT_CLAUDE_JSON)
+    for _as in ADDITIONAL_SOURCES:
+        if _as["dot_claude_json"]:
+            sources.append(_as["dot_claude_json"])
     sources.append(DOT_CLAUDE_JSON)
     for path in sources:
         if not path or not path.exists():
@@ -253,12 +273,14 @@ def load_dot_claude():
 
 
 def load_history():
-    """Load history.jsonl from current + optional migration backup."""
+    """Load history.jsonl from all sources."""
     prompts = []
     seen_ids = set()
     sources = []
     if MIGRATION_ENABLED:
         sources.append(MIGRATION_HISTORY_JSONL)
+    for _as in ADDITIONAL_SOURCES:
+        sources.append(_as["history_jsonl"])
     sources.append(HISTORY_JSONL)
     for path in sources:
         if not path or not path.exists():
@@ -288,12 +310,14 @@ def load_history():
 
 
 def load_plans():
-    """Load plan files from current + optional migration backup."""
+    """Load plan files from all sources."""
     plans = []
     seen_filenames = set()
     sources = []
     if MIGRATION_ENABLED:
         sources.append(MIGRATION_CLAUDE_DIR)
+    for _as in ADDITIONAL_SOURCES:
+        sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
     for claude_dir in sources:
         plans_dir = claude_dir / "plans"
@@ -328,13 +352,15 @@ def load_plans():
 
 
 def load_plugins():
-    """Load plugin data from current + optional migration backup."""
+    """Load plugin data from all sources."""
     result = {"installed": [], "settings": {}, "marketplace_stats": []}
     seen_plugins = set()
 
     sources = []
     if MIGRATION_ENABLED:
         sources.append(MIGRATION_CLAUDE_DIR)
+    for _as in ADDITIONAL_SOURCES:
+        sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
     for claude_dir in sources:
         plugins_dir = claude_dir / "plugins"
@@ -390,7 +416,7 @@ def load_plugins():
 
 
 def load_todos():
-    """Load todo/task data from current + optional migration backup."""
+    """Load todo/task data from all sources."""
     total = 0
     completed = 0
     pending = 0
@@ -399,6 +425,8 @@ def load_todos():
     sources = []
     if MIGRATION_ENABLED:
         sources.append(MIGRATION_CLAUDE_DIR)
+    for _as in ADDITIONAL_SOURCES:
+        sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
     for claude_dir in sources:
         todos_dir = claude_dir / "todos"
@@ -426,7 +454,7 @@ def load_todos():
 
 
 def load_file_history_stats():
-    """Count files in file-history from current + optional migration backup."""
+    """Count files in file-history from all sources."""
     total_files = 0
     total_size = 0
     sessions = 0
@@ -434,6 +462,8 @@ def load_file_history_stats():
     sources = []
     if MIGRATION_ENABLED:
         sources.append(MIGRATION_CLAUDE_DIR)
+    for _as in ADDITIONAL_SOURCES:
+        sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
     for claude_dir in sources:
         fh_dir = claude_dir / "file-history"
@@ -500,6 +530,25 @@ def calc_storage():
             breakdown["_migration-backup/"] = migration_size
             total += migration_size
 
+    # Additional sources as single entries
+    for _as in ADDITIONAL_SOURCES:
+        src_size = 0
+        if _as["claude_dir"].exists():
+            for f in _as["claude_dir"].rglob("*"):
+                if f.is_file():
+                    try:
+                        src_size += f.stat().st_size
+                    except OSError:
+                        pass
+        if _as["dot_claude_json"] and _as["dot_claude_json"].exists():
+            try:
+                src_size += _as["dot_claude_json"].stat().st_size
+            except OSError:
+                pass
+        if src_size > 0:
+            breakdown[f"_{_as['label']}/"] = src_size
+            total += src_size
+
     # Sort by size descending
     sorted_items = sorted(breakdown.items(), key=lambda x: -x[1])
     return {
@@ -509,7 +558,7 @@ def calc_storage():
 
 
 def load_telemetry():
-    """Load telemetry data from ~/.claude/telemetry/."""
+    """Load telemetry data from all sources."""
     per_session = defaultdict(lambda: {
         "peak_rss_mb": 0, "peak_heap_mb": 0, "max_cpu_pct": 0,
         "max_uptime_s": 0, "event_count": 0,
@@ -519,6 +568,8 @@ def load_telemetry():
     sources = []
     if MIGRATION_ENABLED:
         sources.append(MIGRATION_CLAUDE_DIR)
+    for _as in ADDITIONAL_SOURCES:
+        sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
 
     for claude_dir in sources:
@@ -596,6 +647,9 @@ def load_project_memories(skip_memories=False):
         proj_dir = MIGRATION_CLAUDE_DIR / "projects"
         if proj_dir.exists():
             sources.append(proj_dir)
+    for _as in ADDITIONAL_SOURCES:
+        if _as["projects_dir"].exists():
+            sources.append(_as["projects_dir"])
     if PROJECTS_DIR.exists():
         sources.append(PROJECTS_DIR)
 
@@ -617,7 +671,7 @@ def load_project_memories(skip_memories=False):
 
 
 def load_tasks():
-    """Load task management data from ~/.claude/tasks/."""
+    """Load task management data from all sources."""
     all_tasks = []
     session_count = 0
     seen_sessions = set()
@@ -625,6 +679,8 @@ def load_tasks():
     sources = []
     if MIGRATION_ENABLED:
         sources.append(MIGRATION_CLAUDE_DIR)
+    for _as in ADDITIONAL_SOURCES:
+        sources.append(_as["claude_dir"])
     sources.append(CLAUDE_DIR)
 
     for claude_dir in sources:
@@ -696,7 +752,7 @@ def _categorize_error(msg: str, tool_name: str) -> str:
 
 
 def parse_session_transcripts():
-    """Parse all session JSONL transcripts from current + optional migration backup."""
+    """Parse all session JSONL transcripts from all sources."""
     sessions = {}  # session_id -> session_data
     total_files = 0
     total_lines = 0
@@ -704,6 +760,9 @@ def parse_session_transcripts():
     sources = []
     if MIGRATION_ENABLED and MIGRATION_PROJECTS_DIR and MIGRATION_PROJECTS_DIR.exists():
         sources.append(("migration", MIGRATION_PROJECTS_DIR))
+    for _as in ADDITIONAL_SOURCES:
+        if _as["projects_dir"].exists():
+            sources.append((_as["label"], _as["projects_dir"]))
     if PROJECTS_DIR.exists():
         sources.append(("current", PROJECTS_DIR))
 
@@ -998,6 +1057,9 @@ def extract_session_messages(session_id, project_dir_name):
     sources = []
     if MIGRATION_ENABLED and MIGRATION_PROJECTS_DIR and MIGRATION_PROJECTS_DIR.exists():
         sources.append(MIGRATION_PROJECTS_DIR)
+    for _as in ADDITIONAL_SOURCES:
+        if _as["projects_dir"].exists():
+            sources.append(_as["projects_dir"])
     if PROJECTS_DIR.exists():
         sources.append(PROJECTS_DIR)
 
@@ -1276,6 +1338,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     total_cost = 0.0
     total_input = 0
     total_output = 0
+    total_cache_read = 0
+    total_cache_write = 0
     total_messages = 0
 
     for sid, sess in sessions.items():
@@ -1335,6 +1399,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         total_cost += session_cost
         total_input += session_input
         total_output += session_output
+        total_cache_read += session_cache_read
+        total_cache_write += session_cache_write
         total_messages += sess["message_count"]
 
         proj_name = project_display_name(sess["project_path"])
@@ -1569,6 +1635,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "total_messages": total_messages,
             "total_output_tokens": total_output,
             "total_input_tokens": total_input,
+            "total_cache_read_tokens": total_cache_read,
+            "total_cache_write_tokens": total_cache_write,
             "first_session": all_dates[0] if all_dates else "",
             "last_session": all_dates[-1] if all_dates else "",
             "total_projects": len(project_list),
@@ -2205,6 +2273,8 @@ function filterData(days, projectFilter) {
   const totalMessages = F.sessions.reduce((s, x) => s + (x.messages || 0), 0);
   const totalOutputTokens = F.sessions.reduce((s, x) => s + (x.output_tokens || 0), 0);
   const totalInputTokens = F.sessions.reduce((s, x) => s + (x.input_tokens || 0), 0);
+  const totalCacheReadTokens = F.sessions.reduce((s, x) => s + (x.cache_read_tokens || 0), 0);
+  const totalCacheWriteTokens = F.sessions.reduce((s, x) => s + (x.cache_write_tokens || 0), 0);
   const dates = F.sessions.map(s => s.date).filter(Boolean).sort();
   F.kpi = {
     total_cost: totalCost,
@@ -2213,6 +2283,8 @@ function filterData(days, projectFilter) {
     total_messages: totalMessages,
     total_output_tokens: totalOutputTokens,
     total_input_tokens: totalInputTokens,
+    total_cache_read_tokens: totalCacheReadTokens,
+    total_cache_write_tokens: totalCacheWriteTokens,
     first_session: dates.length > 0 ? dates[0] : D.kpi.first_session,
     last_session: dates.length > 0 ? dates[dates.length - 1] : D.kpi.last_session,
   };
@@ -2326,7 +2398,7 @@ function renderKPI() {
     {cls:'cost', label:D.locale.kpi.api_equivalent, value:fmtUSD(k.total_cost), sub:D.locale.kpi.api_equivalent_sub + fmtUSD(k.actual_plan_cost)},
     {cls:'messages', label:D.locale.kpi.messages, value:fmt(k.total_messages), sub:D.locale.kpi.messages_sub_prefix+k.total_sessions+D.locale.kpi.messages_sub_suffix},
     {cls:'sessions', label:D.locale.kpi.sessions, value:fmt(k.total_sessions), sub:k.first_session+' - '+k.last_session},
-    {cls:'tokens', label:D.locale.kpi.output_tokens, value:fmtTokens(k.total_output_tokens), sub:D.locale.kpi.input_prefix+fmtTokens(k.total_input_tokens)},
+    {cls:'tokens', label:'Tokens', value:'', sub:''},
   ];
   cards.forEach(c => {
     const div = document.createElement('div');
@@ -2337,6 +2409,24 @@ function renderKPI() {
     div.appendChild(lbl); div.appendChild(val); div.appendChild(sub);
     grid.appendChild(div);
   });
+
+  // Token breakdown card — replace placeholder with detailed version
+  const tokCard = grid.querySelector('.kpi-card.tokens');
+  if (tokCard) {
+    const totalIn = (k.total_input_tokens||0) + (k.total_cache_read_tokens||0) + (k.total_cache_write_tokens||0);
+    tokCard.querySelector('.value').textContent = fmtTokens(totalIn + (k.total_output_tokens||0));
+    const sub = tokCard.querySelector('.sub');
+    sub.style.cssText = 'line-height:1.6;font-size:0.78em';
+    sub.textContent = '';
+    const line1 = document.createElement('span');
+    line1.textContent = 'Out: ' + fmtTokens(k.total_output_tokens||0) + ' \u00b7 In: ' + fmtTokens(k.total_input_tokens||0);
+    const br = document.createElement('br');
+    const line2 = document.createElement('span');
+    line2.textContent = 'Cache Read: ' + fmtTokens(k.total_cache_read_tokens||0) + ' \u00b7 Write: ' + fmtTokens(k.total_cache_write_tokens||0);
+    sub.appendChild(line1);
+    sub.appendChild(br);
+    sub.appendChild(line2);
+  }
 }
 
 // ── Tabs ───────────────────────────────────────────────────────────────

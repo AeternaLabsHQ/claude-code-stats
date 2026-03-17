@@ -71,6 +71,7 @@ See [`config.example.json`](config.example.json) for all options:
 | `plan_history` | `array` | `[]` | Your subscription plan history |
 | `migration.enabled` | `bool` | `false` | Enable data from a migration backup |
 | `migration.dir` | `string` | `null` | Path to migration backup directory |
+| `additional_sources` | `array` | `[]` | Extra `~/.claude` directories to merge (multi-user) |
 
 ### Plan History
 
@@ -106,6 +107,28 @@ If you migrated Claude Code data from another machine, you can include that hist
 ```
 
 The script deduplicates sessions across both sources automatically.
+
+### Multi-User / Additional Sources
+
+To include Claude Code data from other users on the same machine (or any additional `~/.claude` directory), add them to `additional_sources`:
+
+```json
+{
+  "additional_sources": [
+    {
+      "label": "alice",
+      "claude_dir": "/home/alice/.claude",
+      "dot_claude_json": "/home/alice/.claude.json"
+    }
+  ]
+}
+```
+
+- `label` -- Identifies the source in session metadata
+- `claude_dir` -- Path to the user's `.claude` directory
+- `dot_claude_json` -- *(optional)* Path to their `.claude.json` file
+
+The running user needs read access to the referenced directories. Sessions are deduplicated and all data (sessions, plans, todos, telemetry, etc.) is merged into the dashboard.
 
 ## Output
 

@@ -14,7 +14,7 @@ import re
 import sys
 import time
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # ── Configuration ──────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ for _src in CONFIG.get("additional_sources", []):
             "history_jsonl": _claude_dir / "history.jsonl",
         })
 
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
@@ -1187,6 +1187,35 @@ def extract_session_messages(session_id, project_dir_name):
     return messages
 
 
+def _split_into_billing_cycles(start_str, end_str, billing_day):
+    """Split a date range into monthly billing cycles based on billing_day."""
+    start_dt = datetime.strptime(start_str, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_str, "%Y-%m-%d")
+
+    cycles = []
+    cycle_start = start_dt
+
+    while cycle_start <= end_dt:
+        # Next billing date is billing_day of the following month
+        if cycle_start.month == 12:
+            next_billing = cycle_start.replace(
+                year=cycle_start.year + 1, month=1, day=billing_day
+            )
+        else:
+            next_billing = cycle_start.replace(
+                month=cycle_start.month + 1, day=billing_day
+            )
+
+        cycle_end = min(next_billing - timedelta(days=1), end_dt)
+        cycles.append((
+            cycle_start.strftime("%Y-%m-%d"),
+            cycle_end.strftime("%Y-%m-%d"),
+        ))
+        cycle_start = next_billing
+
+    return cycles
+
+
 def build_plan_analysis(daily_cost_series, session_list):
     """Analyze cost savings per plan period and current billing cycle."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -1195,46 +1224,57 @@ def build_plan_analysis(daily_cost_series, session_list):
     for ph in PLAN_HISTORY:
         start = ph["start"]
         end = ph["end"] or today
+        billing_day = ph.get("billing_day")
 
-        # Sum API costs in this period
-        api_cost = sum(
-            dc.get("total", 0)
-            for dc in daily_cost_series
-            if start <= dc["date"] <= end
-        )
+        # Split into monthly billing cycles if billing_day is set
+        if billing_day:
+            cycles = _split_into_billing_cycles(start, end, billing_day)
+        else:
+            cycles = [(start, end)]
 
-        # Count sessions and messages
-        sess_in_period = [
-            s for s in session_list
-            if start <= s["date"] <= end
-        ]
-        session_count = len(sess_in_period)
-        message_count = sum(s["messages"] for s in sess_in_period)
-        days_active = len(set(s["date"] for s in sess_in_period))
+        for cycle_start, cycle_end in cycles:
+            # Skip cycle that started today (handled by current_billing)
+            if cycle_start == today:
+                continue
+            # Sum API costs in this cycle
+            api_cost = sum(
+                dc.get("total", 0)
+                for dc in daily_cost_series
+                if cycle_start <= dc["date"] <= cycle_end
+            )
 
-        # Calculate days in period
-        start_dt = datetime.strptime(start, "%Y-%m-%d")
-        end_dt = datetime.strptime(end, "%Y-%m-%d")
-        total_days = (end_dt - start_dt).days + 1
+            # Count sessions and messages
+            sess_in_period = [
+                s for s in session_list
+                if cycle_start <= s["date"] <= cycle_end
+            ]
+            session_count = len(sess_in_period)
+            message_count = sum(s["messages"] for s in sess_in_period)
+            days_active = len(set(s["date"] for s in sess_in_period))
 
-        plan_cost_usd = ph["cost_usd"]
-        savings = api_cost - plan_cost_usd
+            # Calculate days in period
+            start_dt = datetime.strptime(cycle_start, "%Y-%m-%d")
+            end_dt = datetime.strptime(cycle_end, "%Y-%m-%d")
+            total_days = (end_dt - start_dt).days + 1
 
-        periods.append({
-            "plan": ph["plan"],
-            "start": start,
-            "end": end,
-            "total_days": total_days,
-            "days_active": days_active,
-            "plan_cost_eur": ph["cost_eur"],
-            "plan_cost_usd": plan_cost_usd,
-            "api_cost": round(api_cost, 2),
-            "savings": round(savings, 2),
-            "roi_factor": round(api_cost / plan_cost_usd, 1) if plan_cost_usd > 0 else 0,
-            "sessions": session_count,
-            "messages": message_count,
-            "cost_per_day": round(api_cost / total_days, 2) if total_days > 0 else 0,
-        })
+            plan_cost_usd = ph["cost_usd"]
+            savings = api_cost - plan_cost_usd
+
+            periods.append({
+                "plan": ph["plan"],
+                "start": cycle_start,
+                "end": cycle_end,
+                "total_days": total_days,
+                "days_active": days_active,
+                "plan_cost_eur": ph["cost_eur"],
+                "plan_cost_usd": plan_cost_usd,
+                "api_cost": round(api_cost, 2),
+                "savings": round(savings, 2),
+                "roi_factor": round(api_cost / plan_cost_usd, 1) if plan_cost_usd > 0 else 0,
+                "sessions": session_count,
+                "messages": message_count,
+                "cost_per_day": round(api_cost / total_days, 2) if total_days > 0 else 0,
+            })
 
     # Current billing period (from last billing day to now)
     current_plan = PLAN_HISTORY[-1]

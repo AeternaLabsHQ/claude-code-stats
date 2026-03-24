@@ -26,3 +26,6 @@ dot-claude.json
 
 # Python
 __pycache__/
+
+# Superpowers brainstorming artifacts
+.superpowers/

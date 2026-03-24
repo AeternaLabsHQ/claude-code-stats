@@ -3683,7 +3683,23 @@ a:hover { text-decoration:underline; }
 .stat-card .label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
 .stat-card .value { font-size:20px; font-weight:700; }
 .main-layout { display:grid; grid-template-columns:2fr 1fr; gap:0; max-width:1600px; margin:0 auto; }
-.chat-panel { padding:0 0 20px 0; max-height:calc(100vh - 180px); overflow-y:auto; border-right:1px solid var(--border); }
+.chat-panel { padding:0 0 20px 0; flex:1; overflow-y:auto; border-right:1px solid var(--border); }
+.left-column{display:flex;flex-direction:column;max-height:calc(100vh - 180px);overflow:hidden}
+.flow-container{position:relative;height:40%;min-height:200px;background:#0a0a0f;border-bottom:1px solid #1a1a2e}
+.flow-container canvas{width:100%;height:100%;display:block}
+.flow-toolbar{position:absolute;top:8px;left:8px;display:flex;gap:6px;z-index:10}
+.flow-toolbar button{background:rgba(10,10,15,0.8);color:#8888aa;border:1px solid #1a1a2e;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:11px;backdrop-filter:blur(4px)}
+.flow-toolbar button:hover{color:#00d4ff;border-color:#00d4ff40}
+.flow-toolbar button.active{color:#00d4ff;border-color:#00d4ff60}
+.flow-toolbar .speed-btn{min-width:32px;text-align:center}
+.flow-fitall{position:absolute;top:8px;right:8px;z-index:10}
+.flow-fitall button{background:rgba(10,10,15,0.8);color:#8888aa;border:1px solid #1a1a2e;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:11px}
+.flow-fitall button:hover{color:#00d4ff;border-color:#00d4ff40}
+.flow-progress{position:absolute;bottom:0;left:0;right:0;height:3px;background:#0a0a0f;z-index:10;cursor:pointer}
+.flow-progress-bar{height:100%;background:linear-gradient(90deg,#00d4ff,#ff00aa);width:0%;transition:width 0.1s}
+.flow-tooltip{position:absolute;display:none;background:rgba(10,10,15,0.95);border:1px solid #00d4ff40;border-radius:6px;padding:8px 12px;color:#ccc;font-size:11px;pointer-events:none;z-index:20;max-width:280px;backdrop-filter:blur(8px)}
+.flow-toggle{display:none;width:100%;padding:8px;background:#12121f;color:#8888aa;border:none;border-bottom:1px solid #1a1a2e;cursor:pointer;font-size:12px}
+.flow-toggle:hover{color:#00d4ff;background:#15152a}
 .chat-toolbar { position:sticky; top:0; z-index:10; background:var(--bg); padding:10px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
 .chat-toolbar .filter-group { display:flex; gap:0; }
 .chat-toolbar .filter-btn { padding:5px 14px; font-size:12px; font-weight:600; border:1px solid var(--border); background:var(--bg2); color:var(--text2); cursor:pointer; transition:all 0.15s; }
@@ -3729,7 +3745,8 @@ a:hover { text-decoration:underline; }
 .sidebar-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; margin:2px; background:var(--bg3); }
 .compaction-timeline { margin-top:8px; }
 .compaction-event { padding:4px 8px; font-size:11px; color:var(--amber); border-left:2px solid var(--amber); margin-bottom:4px; }
-@media (max-width:1000px) { .main-layout { grid-template-columns:1fr; } .stats-bar { grid-template-columns:repeat(3,1fr); } }
+@media (max-width:1000px) { .main-layout { grid-template-columns:1fr; } .stats-bar { grid-template-columns:repeat(3,1fr); } .flow-container{display:none} .flow-container.visible{display:block;height:50%} .flow-toggle{display:block} }
+@media(min-width:1000px) and (max-width:1400px){.flow-container{height:35%}}
 </style>
 </head>
 <body>
@@ -3742,17 +3759,33 @@ a:hover { text-decoration:underline; }
 </div>
 <div class="stats-bar" id="statsBar"></div>
 <div class="main-layout">
-  <div class="chat-panel">
-    <div class="chat-toolbar">
-      <div class="filter-group">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="user">User</button>
-        <button class="filter-btn" data-filter="assistant">Agent</button>
-        <button class="filter-btn" data-filter="agent-dispatch">Subagents</button>
+  <div class="left-column">
+    <div class="flow-container">
+      <canvas id="flow-canvas"></canvas>
+      <div class="flow-toolbar">
+        <button id="flow-play" class="active" title="Play/Pause">&#9654;</button>
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+        <button class="speed-btn" data-speed="5">5x</button>
+        <button class="speed-btn" data-speed="0" title="Skip to end">&#9199;</button>
       </div>
-      <button class="copy-btn" id="copyBtn">&#128203; Copy</button>
+      <div class="flow-fitall"><button id="flow-fit" title="Fit all nodes">&#8982;</button></div>
+      <div class="flow-progress"><div class="flow-progress-bar" id="flow-progress"></div></div>
+      <div class="flow-tooltip" id="flow-tooltip"></div>
     </div>
-    <div class="chat-messages" id="chatPanel"></div>
+    <button class="flow-toggle" id="flow-toggle">Show Flow</button>
+    <div class="chat-panel">
+      <div class="chat-toolbar">
+        <div class="filter-group">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="user">User</button>
+          <button class="filter-btn" data-filter="assistant">Agent</button>
+          <button class="filter-btn" data-filter="agent-dispatch">Subagents</button>
+        </div>
+        <button class="copy-btn" id="copyBtn">&#128203; Copy</button>
+      </div>
+      <div class="chat-messages" id="chatPanel"></div>
+    </div>
   </div>
   <div class="sidebar" id="sidebar"></div>
 </div>
@@ -3798,14 +3831,14 @@ const chatEl = document.getElementById('chatPanel');
 let chatHtml = '';
 msgs.forEach((m,i) => {
   if (m.role==='hook') {
-    chatHtml += '<div class="marker hook"><span>&#9881;</span> Hook: '+escHtml(m.hook_name)+' <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker hook" id="marker-'+i+'"><span>&#9881;</span> Hook: '+escHtml(m.hook_name)+' <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='compaction') {
-    chatHtml += '<div class="marker compaction"><span>&#9889;</span> Context Compaction <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker compaction" id="marker-'+i+'"><span>&#9889;</span> Context Compaction <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else {
     // Check for Agent dispatches in tools
     const agentTools = (m.tools || []).filter(t => t.name === 'Agent');
     agentTools.forEach(at => {
-      chatHtml += '<div class="marker agent-dispatch agent-toggle">' +
+      chatHtml += '<div class="marker agent-dispatch agent-toggle" id="marker-'+i+'-a">' +
         '<span>&#129302;</span> Agent: <strong>'+escHtml(at.detail || 'unnamed')+'</strong>' +
         '<span class="agent-type-badge">'+escHtml(at.agent_type || 'general-purpose')+'</span>' +
         '<span style="margin-left:auto;font-size:11px;opacity:0.7">'+fmtTime(m.timestamp)+' &#9660; click to expand</span>' +
@@ -3816,7 +3849,7 @@ msgs.forEach((m,i) => {
     const isLong = (m.content||'').length > 2000;
     const display = isLong ? m.content.slice(0,2000) : m.content;
     const hasAgentDispatch = agentTools.length > 0;
-    chatHtml += '<div class="msg '+m.role+(hasAgentDispatch?' has-agent-dispatch':'')+'">' +
+    chatHtml += '<div class="msg '+m.role+(hasAgentDispatch?' has-agent-dispatch':'')+'" id="msg-'+i+'">' +
       '<div class="msg-header">' +
         '<div class="msg-role '+m.role+'">'+(m.role==='user'?'U':'A')+'</div>' +
         '<span class="msg-time">'+fmtTime(m.timestamp)+'</span>' +

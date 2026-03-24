@@ -262,14 +262,6 @@ The flow data is embedded as a JSON object alongside the existing session messag
 const FLOW = "__FLOW_DATA__";  // replaced by Python: html.replace('"__FLOW_DATA__"', flow_json)
 ```
 
-### Embedding in HTML
-
-The flow data is embedded as a JSON object alongside the existing session message data:
-
-```javascript
-const FLOW = __FLOW_DATA__;  // replaced by Python at generation time
-```
-
 ## JavaScript Architecture
 
 Single self-contained class `SessionFlow` (~2000-2500 lines), structured as:

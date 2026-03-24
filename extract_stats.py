@@ -3504,7 +3504,6 @@ def build_session_flow(messages):
         if ts:
             if isinstance(ts, str):
                 try:
-                    from datetime import datetime
                     first_ts = datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp() * 1000
                 except Exception:
                     first_ts = 0
@@ -3520,7 +3519,6 @@ def build_session_flow(messages):
             return 0
         if isinstance(timestamp, str):
             try:
-                from datetime import datetime
                 ts_ms = datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp() * 1000
                 return max(0, ts_ms - first_ts)
             except Exception:
@@ -4023,7 +4021,8 @@ class SessionFlow {
   }
 
   _resize() {
-    const r = this.canvas.parentElement.getBoundingClientRect();
+    var r = this.canvas.parentElement.getBoundingClientRect();
+    if (Math.abs(r.width - this.W) < 1 && Math.abs(r.height - this.H) < 1) return;
     this.W = r.width; this.H = r.height;
     this.canvas.width = this.W * this.dpr;
     this.canvas.height = this.H * this.dpr;
@@ -4197,6 +4196,9 @@ class SessionFlow {
     });
 
     this.allNodes = [...this.nodes, ...this.toolNodes];
+    var self = this;
+    this.nodeMap = {};
+    this.allNodes.forEach(function(n) { self.nodeMap[n.id] = n; });
   }
 
   _stepSimulation() {
@@ -4479,7 +4481,7 @@ class SessionFlow {
     this._stepPlayback(dt);
     this._drawEdges(this.ctx);
     this._drawNodes(this.ctx);
-    this._drawEffects(this.ctx);
+    this._drawEffects(this.ctx, dt);
     requestAnimationFrame(() => this._raf());
   }
 
@@ -4567,8 +4569,7 @@ class SessionFlow {
   }
 
   _processEvent(evt) {
-    var nodeMap = {};
-    this.allNodes.forEach(function(n) { nodeMap[n.id] = n; });
+    var nodeMap = this.nodeMap;
     var agent, toolNode, toolId;
     switch (evt.type) {
       case "message":
@@ -4646,11 +4647,11 @@ class SessionFlow {
     this._fitAll();
   }
 
-  _drawEffects(ctx) {
+  _drawEffects(ctx, dt) {
     var toRemove = [];
     for (var i = 0; i < this.effects.length; i++) {
       var fx = this.effects[i];
-      fx.t += 0.016;
+      fx.t += dt;
       var progress = fx.t / fx.dur;
       if (progress > 1) { toRemove.push(i); continue; }
       var n = fx.node;
@@ -4822,7 +4823,11 @@ class SessionFlow {
       self.playIndex = 0;
       self.allNodes.forEach(function(n) { n.opacity = 0; n.targetOpacity = 0; });
       self.effects = [];
+      self.playDone = false;
+      var wasPlaying = self.playing;
+      self.playing = true;
       self._stepPlayback(0);
+      self.playing = wasPlaying;
     });
   }
 }
@@ -4841,7 +4846,8 @@ if (FLOW && FLOW.agents && FLOW.agents.length > 0 && FLOW.events && FLOW.events.
 document.querySelectorAll(".msg,.marker").forEach(function(el) {
   el.addEventListener("click", function() {
     if (!window._sessionFlow) return;
-    var idx = parseInt((el.id || "").replace(/\D/g, ""));
+    var match = (el.id || "").match(/(?:msg|marker)-(\d+)/);
+    var idx = match ? parseInt(match[1]) : NaN;
     if (isNaN(idx)) return;
     var sf = window._sessionFlow;
     var evt = sf.flow.events.find(function(e) { return e.msg_index === idx; });

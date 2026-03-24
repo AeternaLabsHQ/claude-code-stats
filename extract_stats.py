@@ -4827,12 +4827,15 @@ class SessionFlow {
   }
 }
 
-if (FLOW && FLOW.agents && FLOW.agents.length > 0) {
+if (FLOW && FLOW.agents && FLOW.agents.length > 0 && FLOW.events && FLOW.events.length > 0) {
   const fc = document.getElementById("flow-canvas");
   const cp = document.querySelector(".chat-panel");
   if (fc && cp) {
     window._sessionFlow = new SessionFlow(fc, FLOW, cp);
   }
+} else {
+  var fc = document.querySelector('.flow-container');
+  if (fc) fc.style.display = 'none';
 }
 
 document.querySelectorAll(".msg,.marker").forEach(function(el) {
@@ -4850,6 +4853,33 @@ document.querySelectorAll(".msg,.marker").forEach(function(el) {
     }
   });
 });
+
+var flowToggle = document.getElementById('flow-toggle');
+var flowContainer = document.querySelector('.flow-container');
+if (flowToggle && flowContainer) {
+  if (window.innerWidth < 1000) {
+    flowContainer.style.display = 'none';
+  }
+  flowToggle.addEventListener('click', function() {
+    var visible = flowContainer.classList.toggle('visible');
+    flowContainer.style.display = visible ? 'block' : 'none';
+    flowToggle.textContent = visible ? 'Hide Flow' : 'Show Flow';
+    if (visible && window._sessionFlow) {
+      window._sessionFlow._resize();
+      window._sessionFlow._fitAll();
+    }
+  });
+  window.addEventListener('resize', function() {
+    if (window.innerWidth >= 1000) {
+      flowToggle.style.display = 'none';
+      flowContainer.style.display = '';
+      flowContainer.classList.remove('visible');
+    } else if (!flowContainer.classList.contains('visible')) {
+      flowToggle.style.display = 'block';
+      flowContainer.style.display = 'none';
+    }
+  });
+}
 </script>
 </body>
 </html>'''

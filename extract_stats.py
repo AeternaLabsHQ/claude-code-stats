@@ -4210,7 +4210,7 @@ class SessionFlow {
         if (name === "Agent") return;
         const tn = {
           id: a.id + "-tool-" + name, name: name, type: "tool",
-          parentId: a.id, count: count,
+          parentId: a.id, count: count, displayCount: 0,
           x: parent.x + 80 + Math.random() * 80,
           y: parent.y + (Math.random() - 0.5) * 100,
           vx: 0, vy: 0, fx: null, fy: null,
@@ -4342,7 +4342,8 @@ class SessionFlow {
         ctx.font = Math.max(9, r * 0.5) + "px monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        const label = n.count > 1 ? n.name + " x" + n.count : n.name;
+        var showCount = this.playDone || this.showAll ? n.count : (n.displayCount || 0);
+        const label = showCount > 1 ? n.name + " x" + showCount : n.name;
         ctx.fillText(label, s.x, s.y + r + 12);
       }
     }
@@ -4835,6 +4836,7 @@ class SessionFlow {
         toolNode = nodeMap[toolId];
         if (toolNode) {
           toolNode.targetOpacity = 1;
+          toolNode.displayCount = (toolNode.displayCount || 0) + 1;
           toolNode.lastActiveTime = this.playTime;
           this.effects.push({type:"spawn", node:toolNode, t:0, dur:0.6});
         }
@@ -4910,6 +4912,7 @@ class SessionFlow {
   _skipToEnd() {
     this.showAll = true;
     this.allNodes.forEach(function(n) { n.opacity = 1; n.targetOpacity = 1; });
+    this.toolNodes.forEach(function(n) { n.displayCount = n.count; });
     this.playDone = true;
     this.playIndex = (this.flow.events || []).length;
     this.convEdgeOpacity = 0.3;
@@ -5114,6 +5117,7 @@ class SessionFlow {
       self.effects = [];
       self.reverseBursts = [];
       self.allNodes.forEach(function(n) { n.opacity = 0; n.targetOpacity = 0; });
+      self.toolNodes.forEach(function(n) { n.displayCount = 0; });
       // Show user and main agent immediately
       if (self.nodes.length > 0) {
         self.nodes[0].targetOpacity = 1;
@@ -5154,6 +5158,7 @@ class SessionFlow {
       self.playTime = pct * maxT;
       self.playIndex = 0;
       self.allNodes.forEach(function(n) { n.opacity = 0; n.targetOpacity = 0; });
+      self.toolNodes.forEach(function(n) { n.displayCount = 0; });
       self.effects = [];
       self.reverseBursts = [];
       self.playDone = false;

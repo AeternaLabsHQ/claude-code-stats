@@ -3703,6 +3703,7 @@ a:hover { text-decoration:underline; }
 .chat-panel { padding:0 0 20px 0; flex:1; overflow-y:auto; border-right:1px solid var(--border); }
 .left-column{display:flex;flex-direction:column;max-height:calc(100vh - 180px);overflow:hidden}
 .flow-container{position:relative;height:40%;min-height:200px;background:#0a0a0f;border-bottom:1px solid #1a1a2e}
+.flow-container.fullscreen{position:fixed;top:0;left:0;right:0;bottom:0;height:100vh!important;z-index:1000;min-height:unset}
 .flow-container canvas{width:100%;height:100%;display:block}
 .flow-toolbar{position:absolute;top:8px;left:8px;display:flex;gap:6px;z-index:10}
 .flow-toolbar button{background:rgba(10,10,15,0.8);color:#8888aa;border:1px solid #1a1a2e;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:11px;backdrop-filter:blur(4px)}
@@ -3788,7 +3789,7 @@ a:hover { text-decoration:underline; }
         <button class="speed-btn" data-speed="0" title="Skip to end">&#9199;</button>
         <button class="speed-btn" id="flow-showall" title="Show all nodes">&#9673;</button>
       </div>
-      <div class="flow-fitall"><button id="flow-fit" title="Fit all nodes">&#8982;</button></div>
+      <div class="flow-fitall"><button id="flow-fullscreen" title="Fullscreen">&#x26F6;</button><button id="flow-fit" title="Fit all nodes">&#8982;</button></div>
       <div class="flow-progress"><div class="flow-progress-bar" id="flow-progress"></div></div>
       <div class="flow-tooltip" id="flow-tooltip"></div>
     </div>
@@ -4913,6 +4914,28 @@ class SessionFlow {
     if (fitBtn) fitBtn.addEventListener("click", () => this._fitAll());
 
     var self = this;
+    var fsBtn = document.getElementById('flow-fullscreen');
+    if (fsBtn) fsBtn.addEventListener('click', function() {
+      var fc = document.querySelector('.flow-container');
+      if (!fc) return;
+      var isFs = fc.classList.toggle('fullscreen');
+      fsBtn.textContent = isFs ? '\u2716' : '\u26F6';
+      fsBtn.title = isFs ? 'Exit fullscreen' : 'Fullscreen';
+      self._resize();
+      self._fitAll();
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var fc = document.querySelector('.flow-container');
+        if (fc && fc.classList.contains('fullscreen')) {
+          fc.classList.remove('fullscreen');
+          if (fsBtn) { fsBtn.textContent = '\u26F6'; fsBtn.title = 'Fullscreen'; }
+          self._resize();
+          self._fitAll();
+        }
+      }
+    });
     var playBtn = document.getElementById("flow-play");
     if (playBtn) playBtn.addEventListener("click", function() {
       self.playing = !self.playing;

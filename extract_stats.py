@@ -4551,7 +4551,8 @@ class SessionFlow {
         ctx.globalAlpha = alpha;
         for (const p of e.particles) {
           var isHovered = this.hovered === fa || this.hovered === ta;
-          var particleSpeed = this.playing && !this.playDone ? p.speed : (isHovered ? p.speed * 1.5 : 0);
+          var isFaded = fa.opacity < 0.5 || ta.opacity < 0.5;
+          var particleSpeed = this.playing && !this.playDone && !isFaded ? p.speed : (isHovered ? p.speed * 1.5 : 0);
           p.t += particleSpeed;
           if (p.t > 1) p.t -= 1;
           p.wobble += 0.03;
@@ -4797,7 +4798,6 @@ class SessionFlow {
                 color: '#00d4ff',
                 particles: 3
               });
-              this.convEdgeOpacity = 1;
             }
           }
         }

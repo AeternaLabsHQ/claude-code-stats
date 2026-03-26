@@ -4385,7 +4385,7 @@ class SessionFlow {
         ctx.stroke();
         // User icon
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold ' + Math.max(14, r * 0.4) + 'px monospace';
+        ctx.font = 'bold ' + Math.max(16, r * 0.5) + 'px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('\u263A', s.x, s.y);

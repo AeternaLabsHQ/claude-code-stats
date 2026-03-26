@@ -4153,7 +4153,7 @@ class SessionFlow {
 
   _drawBgParticles(ctx) {
     for (const p of this.bgParticles) {
-      if (this.playing || this.playDone) {
+      if (this.playing && !this.playDone) {
         p.x += p.vx; p.y += p.vy;
       }
       const sc = this.worldToScreen(p.x, p.y);
@@ -4529,8 +4529,9 @@ class SessionFlow {
       const sprite = e.type === "dispatch" ? this.sprites.glow : (e.type === "conversation" ? this.sprites.glowGreen : this.sprites.glowOrange);
       ctx.globalAlpha = alpha;
       for (const p of e.particles) {
-        var particleSpeed = (this.playing || this.playDone) ? p.speed : 0;
-        p.t += particleSpeed * (this.hovered === fa || this.hovered === ta ? 2.5 : 1);
+        var isHovered = this.hovered === fa || this.hovered === ta;
+        var particleSpeed = this.playing && !this.playDone ? p.speed : (isHovered ? p.speed * 1.5 : 0);
+        p.t += particleSpeed;
         if (p.t > 1) p.t -= 1;
         p.wobble += 0.03;
 

@@ -4021,6 +4021,7 @@ class SessionFlow {
     this.playTime = 0; this.playIndex = 0;
     this.playDone = false;
     this.showAll = false;
+    this.convEdgeOpacity = 0;
     // Sprite cache
     this.sprites = {};
     // Hex grid params
@@ -4507,7 +4508,8 @@ class SessionFlow {
       const cp2 = {x: sf.x + dx*0.7 + nx*off, y: sf.y + dy*0.7 + ny*off};
 
       var edgeColor = e.type === "dispatch" ? "#00d4ff" : (e.type === "conversation" ? "#00ff88" : "#ff8800");
-      ctx.globalAlpha = alpha * 0.3;
+      var edgeAlpha = e.type === 'conversation' ? alpha * this.convEdgeOpacity : alpha;
+      ctx.globalAlpha = edgeAlpha * 0.3;
       ctx.beginPath();
       ctx.moveTo(sf.x, sf.y);
       ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, st.x, st.y);
@@ -4517,7 +4519,7 @@ class SessionFlow {
 
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = alpha * 0.15;
+      ctx.globalAlpha = edgeAlpha * 0.15;
       ctx.beginPath();
       ctx.moveTo(sf.x, sf.y);
       ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, st.x, st.y);
@@ -4644,6 +4646,11 @@ class SessionFlow {
     for (const n of this.allNodes) {
       n.opacity += (n.targetOpacity - n.opacity) * 0.08;
     }
+    if (!this.showAll && this.convEdgeOpacity > 0.01) {
+      this.convEdgeOpacity *= 0.97; // slow fade
+    } else if (!this.showAll) {
+      this.convEdgeOpacity = 0;
+    }
     this._stepPlayback(dt);
     this._drawEdges(this.ctx);
     this._drawNodes(this.ctx);
@@ -4760,6 +4767,7 @@ class SessionFlow {
                 particles: 3,
                 reverse: false
               });
+              this.convEdgeOpacity = 1;
             }
           } else if (evt.role === "assistant") {
             // Don't pulse immediately — launch particles that will trigger pulse on arrival
@@ -4773,6 +4781,7 @@ class SessionFlow {
                 color: '#00d4ff',
                 particles: 3
               });
+              this.convEdgeOpacity = 1;
             }
           }
         }
@@ -4859,6 +4868,7 @@ class SessionFlow {
     this.allNodes.forEach(function(n) { n.opacity = 1; n.targetOpacity = 1; });
     this.playDone = true;
     this.playIndex = (this.flow.events || []).length;
+    this.convEdgeOpacity = 0.3;
     var prog = document.getElementById("flow-progress");
     if (prog) prog.style.width = "100%";
     this._fitAll();

@@ -3502,13 +3502,19 @@ def build_session_flow(messages):
         "cost": None,
         "tools_summary": {}
     })
+    agents.append({
+        "id": "chat",
+        "name": "Chat",
+        "type": "chat",
+        "parent_id": None,
+        "tokens": None,
+        "cost": None,
+        "tools_summary": {}
+    })
     events = []
     edges = []
-    edges.append({
-        "from": "user",
-        "to": "main",
-        "type": "conversation"
-    })
+    edges.append({"from": "user", "to": "chat", "type": "conversation"})
+    edges.append({"from": "chat", "to": "main", "type": "conversation"})
     subagent_counter = 0
 
     # Determine session start time for relative timestamps
@@ -4023,6 +4029,11 @@ class SessionFlow {
     this.showAll = false;
     this.convEdgeOpacity = 0;
     this.responseEdgeOpacity = 0;
+    // Chat waiting state
+    this._chatWaiting = false;
+    this._chatWaitStart = 0;
+    this._chatWaitDisplay = 0;
+    this._chatWaitFadeTimer = 0;
     // Sprite cache
     this.sprites = {};
     // Hex grid params
@@ -4046,6 +4057,12 @@ class SessionFlow {
     if (userNode) {
       userNode.targetOpacity = 1;
       this.effects.push({type:'spawn', node:userNode, t:0, dur:1.0});
+    }
+    // Show chat node immediately
+    var chatNode = this.allNodes.find(function(n) { return n.id === 'chat'; });
+    if (chatNode) {
+      chatNode.targetOpacity = 1;
+      this.effects.push({type:'spawn', node:chatNode, t:0, dur:1.0});
     }
     this._fitAll();
     this._bindEvents();
@@ -4187,16 +4204,17 @@ class SessionFlow {
     agents.forEach((a, i) => {
       var isMain = a.type === 'main';
       var isUser = a.type === 'user';
+      var isChat = a.type === 'chat';
       const node = {
-        id: a.id, name: a.name, type: isUser ? 'user' : (isMain ? 'main' : 'subagent'),
+        id: a.id, name: a.name, type: isUser ? 'user' : (isMain ? 'main' : (isChat ? 'chat' : 'subagent')),
         parentId: a.parent_id, data: a,
-        x: isUser ? -250 : (isMain ? 0 : 150 + (Math.random() - 0.5) * 100),
-        y: isUser ? 0 : (isMain ? 0 : (Math.random() - 0.5) * 200),
+        x: isUser ? -250 : (isChat ? -125 : (isMain ? 0 : 150 + (Math.random() - 0.5) * 100)),
+        y: isUser ? 0 : (isChat ? 0 : (isMain ? 0 : (Math.random() - 0.5) * 200)),
         vx: 0, vy: 0,
-        fx: isUser ? -250 : null,
-        fy: isUser ? 0 : null,
-        r: isUser ? 40 : (isMain ? 50 : 35),
-        color: isUser ? '#00ff88' : (isMain ? '#00d4ff' : '#ff00aa'),
+        fx: isUser ? -250 : (isChat ? -125 : null),
+        fy: isUser ? 0 : (isChat ? 0 : null),
+        r: isUser ? 40 : (isMain ? 50 : (isChat ? 25 : 35)),
+        color: isUser ? '#00ff88' : (isMain ? '#00d4ff' : (isChat ? '#666688' : '#ff00aa')),
         opacity: 0, targetOpacity: 0,
         lastActiveTime: 0,
         scanPhase: Math.random() * Math.PI * 2,
@@ -4280,7 +4298,7 @@ class SessionFlow {
     // Push tools and sub-agents to the right of main agent
     for (var ni = 0; ni < nodes.length; ni++) {
       var node = nodes[ni];
-      if (node.type === 'user' || node.type === 'main') continue;
+      if (node.type === 'user' || node.type === 'main' || node.type === 'chat') continue;
       // Gentle rightward force
       node.vx += 0.3;
       // Also push away from user node (left side)
@@ -4401,6 +4419,56 @@ class SessionFlow {
         if (this.selected === n || this.hovered === n) {
           ctx.beginPath();
           ctx.arc(s.x, s.y, r + 4, 0, Math.PI * 2);
+          ctx.strokeStyle = '#ffffff60';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      } else if (n.type === 'chat') {
+        var rw = r * 1.4, rh = r;
+        // Glow when waiting
+        if (this._chatWaiting) {
+          ctx.save();
+          ctx.shadowColor = '#ffcc00';
+          ctx.shadowBlur = 20 * this.cam.scale;
+          ctx.beginPath();
+          ctx.roundRect(s.x - rw, s.y - rh, rw*2, rh*2, 6 * this.cam.scale);
+          ctx.fillStyle = 'rgba(255,204,0,0.15)';
+          ctx.fill(); ctx.fill();
+          ctx.restore();
+        }
+        // Body
+        ctx.beginPath();
+        ctx.roundRect(s.x - rw, s.y - rh, rw*2, rh*2, 6 * this.cam.scale);
+        ctx.fillStyle = this._chatWaiting ? '#1a1a0f' : '#0d0d1a';
+        ctx.fill();
+        // Border
+        ctx.beginPath();
+        ctx.roundRect(s.x - rw, s.y - rh, rw*2, rh*2, 6 * this.cam.scale);
+        ctx.strokeStyle = this._chatWaiting ? '#ffcc0080' : (n.color + '80');
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Envelope icon
+        ctx.fillStyle = this._chatWaiting ? '#ffcc00' : '#888';
+        ctx.font = 'bold ' + Math.max(12, r * 0.5) + 'px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('\u2709', s.x, s.y);
+        // Label
+        ctx.font = Math.max(9, r * 0.3) + 'px monospace';
+        ctx.fillStyle = n.color;
+        ctx.fillText('Chat', s.x, s.y + rh + 12);
+        // Wait timer display
+        if (this._chatWaitDisplay > 0) {
+          var secs = (this._chatWaitDisplay / 1000);
+          var timerText = secs.toFixed(1) + 's';
+          ctx.font = 'bold ' + Math.max(10, r * 0.4) + 'px monospace';
+          ctx.fillStyle = this._chatWaiting ? '#ffcc00' : '#ffcc0088';
+          ctx.fillText(timerText, s.x, s.y - rh - 8);
+        }
+        // Selection highlight
+        if (this.selected === n || this.hovered === n) {
+          ctx.beginPath();
+          ctx.roundRect(s.x - rw - 3, s.y - rh - 3, rw*2 + 6, rh*2 + 6, 8 * this.cam.scale);
           ctx.strokeStyle = '#ffffff60';
           ctx.lineWidth = 2;
           ctx.stroke();
@@ -4699,6 +4767,16 @@ class SessionFlow {
     } else if (!this.showAll) {
       this.responseEdgeOpacity = 0;
     }
+    // Update chat wait timer
+    if (this._chatWaiting && this.playing && !this.playDone) {
+      this._chatWaitDisplay = this.playTime - this._chatWaitStart;
+    }
+    if (this._chatWaitFadeTimer > 0) {
+      this._chatWaitFadeTimer -= dt;
+      if (this._chatWaitFadeTimer <= 0) {
+        this._chatWaitDisplay = 0;
+      }
+    }
     this._stepPlayback(dt);
     this._drawEdges(this.ctx);
     this._drawNodes(this.ctx);
@@ -4708,9 +4786,18 @@ class SessionFlow {
 
   _hitTest(sx, sy) {
     const w = this.screenToWorld(sx, sy);
+    // Check chat node (rectangular hit test)
+    for (var ci = 0; ci < this.nodes.length; ci++) {
+      var cn = this.nodes[ci];
+      if (cn.type !== 'chat' || cn.opacity < 0.1) continue;
+      var cdx = Math.abs(w.x - cn.x);
+      var cdy = Math.abs(w.y - cn.y);
+      if (cdx < cn.r * 1.4 && cdy < cn.r) return cn;
+    }
     for (let i = this.nodes.length - 1; i >= 0; i--) {
       const n = this.nodes[i];
       if (n.opacity < 0.1) continue;
+      if (n.type === 'chat') continue; // already handled above
       const dx = w.x - n.x, dy = w.y - n.y;
       if (dx*dx + dy*dy < n.r*n.r) return n;
     }
@@ -4801,35 +4888,57 @@ class SessionFlow {
           agent.lastActiveTime = this.playTime;
           this._lastActiveNode = agent;
           if (evt.role === "user") {
-            // Launch forward burst from user to agent (mirrors reverse burst for assistant messages)
-            var mainAgent = nodeMap['main'];
-            if (userNode && mainAgent) {
+            // Launch burst from user to chat node
+            var chatNode = nodeMap['chat'];
+            if (userNode && chatNode) {
               userNode.lastActiveTime = this.playTime;
               userNode.targetOpacity = 1;
+              chatNode.targetOpacity = 1;
+              chatNode.lastActiveTime = this.playTime;
               this.reverseBursts.push({
                 from: userNode,
-                to: mainAgent,
+                to: chatNode,
                 t: 0,
-                speed: 0.02,
+                speed: 0.03,
                 color: '#00ff88',
-                particles: 3,
-                reverse: false
+                particles: 3
               });
+              this._chatWaiting = true;
+              this._chatWaitStart = this.playTime;
+              this._chatWaitDisplay = 0;
               this.convEdgeOpacity = 1;
             }
           } else if (evt.role === "assistant") {
-            // Don't pulse immediately — launch particles that will trigger pulse on arrival
+            var chatNode = nodeMap['chat'];
+            // Calculate and freeze wait time
+            if (this._chatWaiting) {
+              this._chatWaitDisplay = this.playTime - this._chatWaitStart;
+              this._chatWaiting = false;
+              this._chatWaitFadeTimer = 3;
+            }
+            // Burst from chat to main agent (Claude reads)
+            if (chatNode && agent) {
+              this.reverseBursts.push({
+                from: chatNode,
+                to: agent,
+                t: 0,
+                speed: 0.03,
+                color: '#00ff88',
+                particles: 2
+              });
+              this.responseEdgeOpacity = 1;
+            }
+            // Reverse burst from agent back to user (response)
             if (userNode) {
               userNode.targetOpacity = 1;
               this.reverseBursts.push({
                 from: agent,
                 to: userNode,
-                t: 0,        // progress 0→1
-                speed: 0.02,  // takes ~50 frames to arrive
+                t: 0,
+                speed: 0.02,
                 color: '#00d4ff',
                 particles: 3
               });
-              this.responseEdgeOpacity = 1;
             }
           }
         }
@@ -4890,7 +4999,7 @@ class SessionFlow {
       var fadeThreshold = 8000;
       for (var ni = 0; ni < this.allNodes.length; ni++) {
         var node = this.allNodes[ni];
-        if (node.type === 'main' || node.type === 'user') continue; // Never fade main/user
+        if (node.type === 'main' || node.type === 'user' || node.type === 'chat') continue; // Never fade main/user/chat
         if (node.targetOpacity > 0 && this.playTime - node.lastActiveTime > fadeThreshold) {
           node.targetOpacity = 0.15; // Dim but not invisible
         }
@@ -5117,6 +5226,10 @@ class SessionFlow {
       self.showAll = false;
       self.effects = [];
       self.reverseBursts = [];
+      self._chatWaiting = false;
+      self._chatWaitStart = 0;
+      self._chatWaitDisplay = 0;
+      self._chatWaitFadeTimer = 0;
       self.allNodes.forEach(function(n) { n.opacity = 0; n.targetOpacity = 0; });
       // Show user and main agent immediately
       if (self.nodes.length > 0) {
@@ -5127,6 +5240,11 @@ class SessionFlow {
       if (userNode) {
         userNode.targetOpacity = 1;
         self.effects.push({type:"spawn", node:userNode, t:0, dur:1.0});
+      }
+      var chatNode = self.allNodes.find(function(n) { return n.id === "chat"; });
+      if (chatNode) {
+        chatNode.targetOpacity = 1;
+        self.effects.push({type:"spawn", node:chatNode, t:0, dur:1.0});
       }
       self.playing = true;
       if (playBtn) playBtn.textContent = "\u25B6";

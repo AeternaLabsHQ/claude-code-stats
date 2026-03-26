@@ -4572,7 +4572,7 @@ class SessionFlow {
       // Draw message counters along conversation edges
       if (e.type === 'conversation') {
         if (this._userMsgCount > 0) {
-          var umPos = this._cubicBezier(0.4, sf, cp1, cp2, st);
+          var umPos = this._cubicBezier(0.12, sf, cp1, cp2, st);
           var umAlpha = this.convEdgeOpacity > 0.1 ? 0.8 : 0.35;
           ctx.globalAlpha = alpha * umAlpha;
           ctx.font = '10px monospace';
@@ -4584,7 +4584,7 @@ class SessionFlow {
         if (this._assistantMsgCount > 0) {
           var rcp1b = {x: sf.x + dx*0.3 - nx*off, y: sf.y + dy*0.3 - ny*off};
           var rcp2b = {x: sf.x + dx*0.7 - nx*off, y: sf.y + dy*0.7 - ny*off};
-          var amPos = this._cubicBezier(0.4, st, rcp1b, rcp2b, sf);
+          var amPos = this._cubicBezier(0.12, st, rcp1b, rcp2b, sf);
           var amAlpha = this.responseEdgeOpacity > 0.1 ? 0.8 : 0.35;
           ctx.globalAlpha = alpha * amAlpha;
           ctx.font = '10px monospace';

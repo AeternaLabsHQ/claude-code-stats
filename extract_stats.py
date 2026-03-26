@@ -4526,61 +4526,61 @@ class SessionFlow {
       ctx.stroke();
       ctx.restore();
 
-      if (e.particles.length === 0) this._initEdgeParticles(e);
-      const sprite = e.type === "dispatch" ? this.sprites.glow : (e.type === "conversation" ? this.sprites.glowGreen : this.sprites.glowOrange);
-      ctx.globalAlpha = alpha;
-      for (const p of e.particles) {
-        var isHovered = this.hovered === fa || this.hovered === ta;
-        var particleSpeed = this.playing && !this.playDone ? p.speed : (isHovered ? p.speed * 1.5 : 0);
-        p.t += particleSpeed;
-        if (p.t > 1) p.t -= 1;
-        p.wobble += 0.03;
-
-        const pos = this._cubicBezier(p.t, sf, cp1, cp2, st);
-        const tan = this._cubicBezier(Math.min(1, p.t + 0.01), sf, cp1, cp2, st);
-        const tdx = tan.x - pos.x, tdy = tan.y - pos.y;
-        const tl = Math.sqrt(tdx*tdx + tdy*tdy) || 1;
-        const wobX = -tdy/tl * Math.sin(p.wobble) * p.wobbleAmp;
-        const wobY = tdx/tl * Math.sin(p.wobble) * p.wobbleAmp;
-
-        const sz = 10 * this.cam.scale;
-        ctx.drawImage(sprite, pos.x + wobX - sz/2, pos.y + wobY - sz/2, sz, sz);
-
-        for (let ti = 1; ti <= 3; ti++) {
-          const tt = p.t - ti * 0.015;
-          if (tt < 0) continue;
-          const tp = this._cubicBezier(tt, sf, cp1, cp2, st);
-          ctx.globalAlpha = alpha * (1 - ti * 0.3);
-          ctx.drawImage(sprite, tp.x - sz*0.3, tp.y - sz*0.3, sz*0.6, sz*0.6);
-        }
+      // Only draw permanent particles for dispatch/tool edges, not conversation
+      if (e.type !== 'conversation') {
+        if (e.particles.length === 0) this._initEdgeParticles(e);
+        const sprite = e.type === "dispatch" ? this.sprites.glow : this.sprites.glowOrange;
         ctx.globalAlpha = alpha;
+        for (const p of e.particles) {
+          var isHovered = this.hovered === fa || this.hovered === ta;
+          var particleSpeed = this.playing && !this.playDone ? p.speed : (isHovered ? p.speed * 1.5 : 0);
+          p.t += particleSpeed;
+          if (p.t > 1) p.t -= 1;
+          p.wobble += 0.03;
+
+          const pos = this._cubicBezier(p.t, sf, cp1, cp2, st);
+          const tan = this._cubicBezier(Math.min(1, p.t + 0.01), sf, cp1, cp2, st);
+          const tdx = tan.x - pos.x, tdy = tan.y - pos.y;
+          const tl = Math.sqrt(tdx*tdx + tdy*tdy) || 1;
+          const wobX = -tdy/tl * Math.sin(p.wobble) * p.wobbleAmp;
+          const wobY = tdx/tl * Math.sin(p.wobble) * p.wobbleAmp;
+
+          const sz = 10 * this.cam.scale;
+          ctx.drawImage(sprite, pos.x + wobX - sz/2, pos.y + wobY - sz/2, sz, sz);
+
+          for (let ti = 1; ti <= 3; ti++) {
+            const tt = p.t - ti * 0.015;
+            if (tt < 0) continue;
+            const tp = this._cubicBezier(tt, sf, cp1, cp2, st);
+            ctx.globalAlpha = alpha * (1 - ti * 0.3);
+            ctx.drawImage(sprite, tp.x - sz*0.3, tp.y - sz*0.3, sz*0.6, sz*0.6);
+          }
+          ctx.globalAlpha = alpha;
+        }
       }
     }
     ctx.globalAlpha = 1;
 
-    // Draw reverse bursts (agent → user response particles)
+    // Draw particle bursts (user→agent and agent→user)
     var burstsToRemove = [];
     for (var bi = 0; bi < this.reverseBursts.length; bi++) {
       var burst = this.reverseBursts[bi];
       var bFrom = burst.from, bTo = burst.to;
       if (!bFrom || !bTo || bFrom.opacity < 0.05) { burstsToRemove.push(bi); continue; }
 
-      // Only advance during playback
       if (this.playing && !this.playDone) {
         burst.t += burst.speed;
       }
 
       if (burst.t >= 1) {
-        // Arrived! Trigger cyan pulse on user node
         this.effects.push({type:'pulse', node:bTo, t:0, dur:0.8, color:burst.color});
         burstsToRemove.push(bi);
         continue;
       }
 
-      // Draw particles traveling from agent to user (REVERSE direction)
-      // Use the same edge path as the conversation edge but in reverse
-      var sf = this.worldToScreen(bTo.x, bTo.y);  // user (destination visually is source of path)
-      var st = this.worldToScreen(bFrom.x, bFrom.y); // agent (source visually is end of path)
+      // Draw particles traveling from burst.from to burst.to
+      var sf = this.worldToScreen(bFrom.x, bFrom.y);
+      var st = this.worldToScreen(bTo.x, bTo.y);
       var dx = st.x - sf.x, dy = st.y - sf.y;
       var d = Math.sqrt(dx*dx + dy*dy) || 1;
       var nx = -dy/d, ny = dx/d;
@@ -4588,20 +4588,17 @@ class SessionFlow {
       var cp1 = {x: sf.x + dx*0.3 + nx*off, y: sf.y + dy*0.3 + ny*off};
       var cp2 = {x: sf.x + dx*0.7 + nx*off, y: sf.y + dy*0.7 + ny*off};
 
-      // The burst.t goes 0→1, but we want particles to go from agent to user
-      // So we draw at position (1 - burst.t) on the forward path
-      var sprite = this.sprites.glow;
+      var sprite = burst.color === '#00ff88' ? this.sprites.glowGreen : this.sprites.glow;
       ctx.globalAlpha = 0.9;
       for (var pi = 0; pi < burst.particles; pi++) {
-        var pt = 1 - burst.t + pi * 0.04; // slightly spread out particles
+        var pt = burst.t - pi * 0.04;
         if (pt < 0 || pt > 1) continue;
         var pos = this._cubicBezier(pt, sf, cp1, cp2, st);
         var sz = 12 * this.cam.scale;
         ctx.drawImage(sprite, pos.x - sz/2, pos.y - sz/2, sz, sz);
-        // Comet trail
         for (var ti = 1; ti <= 3; ti++) {
-          var tt = pt + ti * 0.02; // trail behind (in forward direction = ahead in reverse)
-          if (tt > 1) continue;
+          var tt = pt - ti * 0.02;
+          if (tt < 0) continue;
           var tp = this._cubicBezier(tt, sf, cp1, cp2, st);
           ctx.globalAlpha = 0.9 * (1 - ti * 0.3);
           ctx.drawImage(sprite, tp.x - sz*0.3, tp.y - sz*0.3, sz*0.6, sz*0.6);
@@ -4610,7 +4607,6 @@ class SessionFlow {
       }
     }
     ctx.globalAlpha = 1;
-    // Remove completed bursts
     for (var ri = burstsToRemove.length - 1; ri >= 0; ri--) {
       this.reverseBursts.splice(burstsToRemove[ri], 1);
     }
@@ -4750,12 +4746,21 @@ class SessionFlow {
           agent.lastActiveTime = this.playTime;
           this._lastActiveNode = agent;
           if (evt.role === "user") {
-            // Pulse user node green and also pulse the main agent (data flowing from user to agent)
-            if (userNode) {
+            // Launch forward burst from user to agent (mirrors reverse burst for assistant messages)
+            var mainAgent = nodeMap['main'];
+            if (userNode && mainAgent) {
+              userNode.lastActiveTime = this.playTime;
               userNode.targetOpacity = 1;
-              this.effects.push({type:"pulse", node:userNode, t:0, dur:0.8, color:"#00ff88"});
+              this.reverseBursts.push({
+                from: userNode,
+                to: mainAgent,
+                t: 0,
+                speed: 0.02,
+                color: '#00ff88',
+                particles: 3,
+                reverse: false
+              });
             }
-            this.effects.push({type:"pulse", node:agent, t:0, dur:0.8, color:"#00ff88"});
           } else if (evt.role === "assistant") {
             // Don't pulse immediately — launch particles that will trigger pulse on arrival
             if (userNode) {

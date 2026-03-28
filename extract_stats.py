@@ -1937,6 +1937,33 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 @media (max-width:900px) {
   .chart-grid { grid-template-columns:1fr; }
   .kpi-grid { grid-template-columns:repeat(2,1fr); }
+  .config-grid { grid-template-columns:1fr; }
+  .misc-stat-grid { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:640px) {
+  .header { flex-wrap:wrap; gap:10px; padding:12px 16px; }
+  .header h1 { width:100%; font-size:17px; }
+  .header .meta { width:100%; order:10; }
+  .header label { font-size:11px; }
+  .header input[type="text"] { flex:1; min-width:0; width:auto; }
+  .time-filter { flex-wrap:wrap; }
+  .tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:2px; flex-wrap:nowrap; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tab-btn { flex:0 0 auto; padding:8px 12px; font-size:13px; white-space:nowrap; }
+  .container { padding:12px; }
+  .kpi-grid { grid-template-columns:1fr; }
+  .chart-box:has(.data-table) { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .data-table { min-width:500px; }
+  .session-filters { gap:8px; }
+  .session-filters select { min-width:0; flex:1; }
+  .session-filters input { flex:1; min-width:0; }
+  .config-grid { grid-template-columns:1fr; }
+  .misc-stat-grid { grid-template-columns:1fr; }
+  .plan-comparison .bar-label { width:100px; font-size:12px; }
+  .plan-comparison .bar-val { min-width:60px; font-size:12px; }
+  .plan-highlight { grid-template-columns:1fr; }
+  .progress-stats { gap:12px; }
+  .chart-box canvas { max-height:280px; }
 }
 </style>
 </head>

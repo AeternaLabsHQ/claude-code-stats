@@ -88,7 +88,7 @@ for _src in CONFIG.get("additional_sources", []):
             "history_jsonl": _claude_dir / "history.jsonl",
         })
 
-VERSION = "0.6.1"
+VERSION = "0.7.0"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
@@ -2222,6 +2222,31 @@ let agentTypesChartInstance, agentDescsChartInstance, errorByCatChartInstance, e
 const chartColors = ['#6366f1','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#ec4899','#3b82f6','#f97316','#14b8a6'];
 let currentProjectFilter = '';
 
+function calcFilteredPlanCost(filteredDates) {
+  if (!filteredDates.length || !D.plan) return D.kpi.actual_plan_cost;
+  const minDate = filteredDates[0];
+  const maxDate = filteredDates[filteredDates.length - 1];
+  let cost = 0;
+  // Sum plan costs for periods that overlap with the filtered date range
+  const allPeriods = (D.plan.periods || []).concat(D.plan.current_billing ? [D.plan.current_billing] : []);
+  allPeriods.forEach(p => {
+    const pStart = p.start || p.period_start;
+    const pEnd = p.end || p.period_end;
+    if (!pStart || !pEnd) return;
+    // Check overlap
+    if (pEnd < minDate || pStart > maxDate) return;
+    // Calculate overlap fraction
+    const overlapStart = pStart > minDate ? pStart : minDate;
+    const overlapEnd = pEnd < maxDate ? pEnd : maxDate;
+    const totalDays = p.total_days || p.days_total || 30;
+    const msPerDay = 86400000;
+    const overlapDays = Math.round((new Date(overlapEnd) - new Date(overlapStart)) / msPerDay) + 1;
+    const fraction = Math.min(1, overlapDays / totalDays);
+    cost += (p.plan_cost_usd || 0) * fraction;
+  });
+  return Math.round(cost * 100) / 100;
+}
+
 function filterData(days, projectFilter) {
   if (days !== undefined) currentDays = days;
   if (projectFilter !== undefined) currentProjectFilter = projectFilter;
@@ -2345,7 +2370,7 @@ function filterData(days, projectFilter) {
   const dates = F.sessions.map(s => s.date).filter(Boolean).sort();
   F.kpi = {
     total_cost: totalCost,
-    actual_plan_cost: D.kpi.actual_plan_cost,
+    actual_plan_cost: calcFilteredPlanCost(dates),
     total_sessions: totalSessions,
     total_messages: totalMessages,
     total_output_tokens: totalOutputTokens,
@@ -2462,15 +2487,16 @@ function renderKPI() {
 
   const grid = document.getElementById('kpiGrid');
   const cards = [
-    {cls:'cost', label:D.locale.kpi.api_equivalent, value:fmtUSD(k.total_cost), sub:D.locale.kpi.api_equivalent_sub + fmtUSD(k.actual_plan_cost)},
+    {cls:'cost', label:D.locale.kpi.api_equivalent, value:fmtUSD(k.total_cost), sub:D.locale.kpi.api_equivalent_sub + fmtUSD(k.actual_plan_cost), tip: D.locale.locale_code === 'de' ? 'Was diese Nutzung \u00fcber die API kosten w\u00fcrde (ohne Abo). Darunter: tats\u00e4chlich bezahlter Abo-Preis im gew\u00e4hlten Zeitraum.' : 'What this usage would cost via the API (without subscription). Below: actual subscription cost paid in the selected period.'},
     {cls:'messages', label:D.locale.kpi.messages, value:fmt(k.total_messages), sub:D.locale.kpi.messages_sub_prefix+k.total_sessions+D.locale.kpi.messages_sub_suffix},
     {cls:'sessions', label:D.locale.kpi.sessions, value:fmt(k.total_sessions), sub:k.first_session+' - '+k.last_session},
-    {cls:'tokens', label:'Tokens', value:'', sub:''},
+    {cls:'tokens', label:'Tokens', value:'', sub:'', tip: D.locale.locale_code === 'de' ? 'Tokens sind die Texteinheiten die das Sprachmodell verarbeitet (ca. 0.75 Worte pro Token)' : 'Tokens are the text units processed by the language model (approx. 0.75 words per token)'},
   ];
   cards.forEach(c => {
     const div = document.createElement('div');
     div.className = 'kpi-card ' + c.cls;
     const lbl = document.createElement('div'); lbl.className = 'label'; lbl.textContent = c.label;
+    if (c.tip) lbl.title = c.tip;
     const val = document.createElement('div'); val.className = 'value'; val.textContent = c.value;
     const sub = document.createElement('div'); sub.className = 'sub'; sub.textContent = c.sub;
     div.appendChild(lbl); div.appendChild(val); div.appendChild(sub);
@@ -2481,7 +2507,9 @@ function renderKPI() {
   const tokCard = grid.querySelector('.kpi-card.tokens');
   if (tokCard) {
     const totalIn = (k.total_input_tokens||0) + (k.total_cache_read_tokens||0) + (k.total_cache_write_tokens||0);
-    tokCard.querySelector('.value').textContent = fmtTokens(totalIn + (k.total_output_tokens||0));
+    const valEl = tokCard.querySelector('.value');
+    valEl.textContent = fmtTokens(totalIn + (k.total_output_tokens||0));
+    valEl.title = D.locale.locale_code === 'de' ? 'Summe aller Tokens (Input + Output + Cache)' : 'Total tokens (input + output + cache)';
     const sub = tokCard.querySelector('.sub');
     sub.style.cssText = 'line-height:1.6;font-size:0.78em';
     sub.textContent = '';
@@ -2490,6 +2518,12 @@ function renderKPI() {
     const br = document.createElement('br');
     const line2 = document.createElement('span');
     line2.textContent = 'Cache Read: ' + fmtTokens(k.total_cache_read_tokens||0) + ' \u00b7 Write: ' + fmtTokens(k.total_cache_write_tokens||0);
+    const ttOut = D.locale.locale_code === 'de' ? 'Von Claude generierter Text' : 'Text generated by Claude';
+    const ttIn = D.locale.locale_code === 'de' ? 'Neue (nicht gecachte) Eingabe-Tokens pro Request' : 'New (non-cached) input tokens per request';
+    const ttCR = D.locale.locale_code === 'de' ? 'Konversationskontext aus dem Cache gelesen \\u2013 wird bei jedem Turn erneut gesendet, daher die hohe Zahl' : 'Conversation context read from cache \\u2013 resent every turn, hence the large number';
+    const ttCW = D.locale.locale_code === 'de' ? 'Tokens die in den Cache geschrieben wurden' : 'Tokens written to the prompt cache';
+    line1.title = 'Out: ' + ttOut + '\\nIn: ' + ttIn;
+    line2.title = 'Cache Read: ' + ttCR + '\\nWrite: ' + ttCW;
     sub.appendChild(line1);
     sub.appendChild(br);
     sub.appendChild(line2);

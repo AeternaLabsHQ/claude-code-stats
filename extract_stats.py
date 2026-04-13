@@ -3808,6 +3808,7 @@ a:hover { text-decoration:underline; }
 .sidebar-card h4 { font-size:13px; font-weight:600; margin-bottom:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; }
 .sidebar-row { display:flex; justify-content:space-between; padding:4px 0; font-size:13px; }
 .sidebar-row .label { color:var(--text2); }
+.sidebar-row .label::after { content:':'; margin-right:0.5em; }
 .sidebar-row .val { font-weight:600; font-variant-numeric:tabular-nums; }
 .sidebar-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; margin:2px; background:var(--bg3); }
 .compaction-timeline { margin-top:8px; }

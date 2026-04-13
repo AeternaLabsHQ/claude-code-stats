@@ -469,17 +469,26 @@ def load_file_history_stats():
         fh_dir = claude_dir / "file-history"
         if not fh_dir.exists():
             continue
-        for sess_dir in fh_dir.iterdir():
-            if not sess_dir.is_dir():
-                continue
-            if sess_dir.name in seen_sessions:
-                continue
-            seen_sessions.add(sess_dir.name)
-            sessions += 1
-            for f in sess_dir.iterdir():
-                if f.is_file():
-                    total_files += 1
-                    total_size += f.stat().st_size
+        try:
+            for sess_dir in fh_dir.iterdir():
+                if not sess_dir.is_dir():
+                    continue
+                if sess_dir.name in seen_sessions:
+                    continue
+                seen_sessions.add(sess_dir.name)
+                sessions += 1
+                try:
+                    for f in sess_dir.iterdir():
+                        if f.is_file():
+                            try:
+                                total_size += f.stat().st_size
+                                total_files += 1
+                            except PermissionError:
+                                pass
+                except PermissionError:
+                    pass
+        except PermissionError:
+            pass
     return {
         "total_files": total_files,
         "total_sessions": sessions,
@@ -535,11 +544,11 @@ def calc_storage():
         src_size = 0
         if _as["claude_dir"].exists():
             for f in _as["claude_dir"].rglob("*"):
-                if f.is_file():
-                    try:
+                try:
+                    if f.is_file():
                         src_size += f.stat().st_size
-                    except OSError:
-                        pass
+                except OSError:
+                    pass
         if _as["dot_claude_json"] and _as["dot_claude_json"].exists():
             try:
                 src_size += _as["dot_claude_json"].stat().st_size
@@ -2158,7 +2167,6 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
       <div class="chart-box"><h3>__L_insights_git_ops__</h3><div id="gitOpsInfo"></div></div>
     </div>
     <div class="chart-grid">
-      <div class="chart-box"><h3>__L_insights_memory_per_session__</h3><canvas id="memoryChart" height="200"></canvas></div>
       <div class="chart-box"><h3>__L_insights_error_rate_over_time__</h3><canvas id="errorRateChart" height="200"></canvas></div>
     </div>
   </div>
@@ -3311,22 +3319,6 @@ function renderInsights() {
       '<div class="sidebar-row"><span class="label">__L_insights_commits__</span><span class="val" style="color:var(--green)">'+(gs.commits||0)+'</span></div>' +
       '<div class="sidebar-row"><span class="label">__L_insights_pushes__</span><span class="val" style="color:var(--blue)">'+(gs.pushes||0)+'</span></div>' +
       '<div class="sidebar-row"><span class="label">__L_insights_pull_requests__</span><span class="val" style="color:var(--purple)">'+(gs.prs||0)+'</span></div>';
-  }
-
-  // Memory per session chart
-  const telSessions = D.insights?.telemetry?.per_session || {};
-  const memData = D.sessions.filter(s => telSessions[s.session_id]).map(s => ({
-    date: s.date, rss: telSessions[s.session_id].peak_rss_mb
-  }));
-  if (memData.length > 0) {
-    new Chart(document.getElementById('memoryChart'), {
-      type: 'bar',
-      data: {
-        labels: memData.map(d => d.date),
-        datasets: [{ label: 'Peak RSS (MB)', data: memData.map(d => d.rss), backgroundColor: 'rgba(168,85,247,0.6)', borderRadius:3 }]
-      },
-      options: { responsive:true, plugins:{legend:{labels:{color:'#e2e8f0'}}}, scales:{ x:{ticks:{color:'#94a3b8',maxTicksLimit:15}}, y:{ticks:{color:'#94a3b8'}} } }
-    });
   }
 
   // Error rate over time chart

@@ -159,7 +159,6 @@
     "performance": "Performance",
     "peak_memory": "Peak Memory (RSS)",
     "peak_cpu": "Peak CPU",
-    "memory_per_session": "Memory per Session",
     "error_rate_over_time": "Error Rate over Time",
     "git_ops": "Git Operations",
     "commits": "Commits",

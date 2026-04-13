@@ -9,16 +9,18 @@ A comprehensive analytics dashboard for [Claude Code](https://docs.anthropic.com
 
 ## Features
 
-- **Time Range Filter** -- Global pill buttons (All / 7D / 30D / 90D / 1Y) to filter the entire dashboard by time period
-- **KPI Dashboard** -- Total API-equivalent cost, messages, sessions, output tokens
+- **Time Range & Project Filter** -- Global pill buttons (All / 7D / 30D / 90D / 1Y) and project search to filter the entire dashboard; plan costs adjust proportionally to the selected range
+- **KPI Dashboard** -- Total API-equivalent cost, messages, sessions, token breakdown with hover tooltips explaining each metric
+- **Session Flow Visualization** -- Interactive canvas-based session replay with node graph, particle animations, auto-play timeline, and fullscreen mode
 - **Token & API Value** -- Daily costs, cumulative costs, model distribution
 - **Activity** -- Message patterns, hourly distribution, weekday distribution
 - **Agents** -- Subagent type distribution, error breakdown by category and tool, task management
 - **Projects** -- Top projects by cost, detailed project pages with memories and workflow timeline
 - **Sessions** -- Filterable/searchable session details with chat replay and subagent prompt viewer
-- **Plan & Billing** -- Cost savings analysis vs. your subscription plan
+- **Plan & Billing** -- Cost savings analysis vs. your subscription plan, split into monthly billing cycles
 - **Insights** -- Tool usage, storage breakdown, git ops, telemetry, performance metrics
 - **Privacy** -- F2 anonymization mode, configurable display name, empty session filter
+- **Mobile Responsive** -- Dashboard layout adapts to mobile screens
 
 <table>
   <tr>

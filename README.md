@@ -147,6 +147,24 @@ To auto-refresh the dashboard periodically:
 */10 * * * * cd /path/to/claude-stats && python3 extract_stats.py 2>&1 >> update.log
 ```
 
+## Important: Prevent Claude Code from Deleting Session Data
+
+Claude Code **automatically deletes session transcript files older than 30 days** on every startup ([docs](https://docs.anthropic.com/en/docs/claude-code/overview#application-data)). Your `history.jsonl` (prompt recall) is kept, but the detailed JSONL transcripts in `~/.claude/projects/` -- which this dashboard depends on for cost calculation, token breakdowns, and session replay -- are permanently removed.
+
+To preserve your data, add `cleanupPeriodDays` to your `~/.claude/settings.json` ([settings reference](https://docs.anthropic.com/en/docs/claude-code/settings#available-settings)):
+
+```json
+{
+  "cleanupPeriodDays": 99999
+}
+```
+
+> [!CAUTION]
+> Without this setting, you will silently lose historical session data every time Claude Code starts. There is no recovery mechanism -- once the files are deleted, the cost and token data they contained is gone. If you use `additional_sources` or `migration`, apply this setting on every machine.
+
+> [!NOTE]
+> Do not set the value to `0` -- this disables transcript persistence entirely ([#23710](https://github.com/anthropics/claude-code/issues/23710)). The minimum allowed value is `1`.
+
 ## Requirements
 
 - Python 3.8+

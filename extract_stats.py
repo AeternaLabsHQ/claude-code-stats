@@ -11,6 +11,7 @@ text (prompts) is escaped via textContent before display.
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from collections import defaultdict
@@ -54,9 +55,12 @@ DOT_CLAUDE_JSON = Path(os.path.expanduser("~/.claude.json"))
 STATS_CACHE = CLAUDE_DIR / "stats-cache.json"
 HISTORY_JSONL = CLAUDE_DIR / "history.jsonl"
 
+SOURCE_LABEL = CONFIG.get("source_label", "current")
+
 # ── Migration Backup (optional, configured in config.json) ───────────────
 _mig = CONFIG.get("migration", {})
 MIGRATION_ENABLED = _mig.get("enabled", False)
+MIGRATION_LABEL = _mig.get("label", "migration")
 if MIGRATION_ENABLED and _mig.get("dir"):
     MIGRATION_DIR = Path(os.path.expanduser(_mig["dir"]))
     MIGRATION_CLAUDE_DIR = MIGRATION_DIR / _mig.get("claude_dir_name", ".claude-windows")
@@ -78,7 +82,8 @@ ADDITIONAL_SOURCES = []
 for _src in CONFIG.get("additional_sources", []):
     _claude_dir = Path(_src["claude_dir"])
     _dot_claude_json = Path(_src["dot_claude_json"]) if _src.get("dot_claude_json") else None
-    if _claude_dir.exists():
+    _sudo_user = _src.get("sudo_user")
+    if _sudo_user or _claude_dir.exists():
         ADDITIONAL_SOURCES.append({
             "label": _src.get("label", _claude_dir.name),
             "claude_dir": _claude_dir,
@@ -86,7 +91,91 @@ for _src in CONFIG.get("additional_sources", []):
             "dot_claude_json": _dot_claude_json,
             "stats_cache": _claude_dir / "stats-cache.json",
             "history_jsonl": _claude_dir / "history.jsonl",
+            "sudo_user": _sudo_user,
         })
+
+
+def _get_sudo_user_for_path(path):
+    """Look up the sudo_user for a path based on ADDITIONAL_SOURCES config."""
+    path_str = str(path)
+    for _as in ADDITIONAL_SOURCES:
+        if _as.get("sudo_user") and path_str.startswith(str(_as["claude_dir"])):
+            return _as["sudo_user"]
+    return None
+
+
+def read_text(path):
+    """Read a text file, using sudo if the path belongs to a sudo_user source."""
+    su = _get_sudo_user_for_path(path)
+    if su:
+        return sudo_read_text(path, su)
+    if not path.exists():
+        return None
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        return f.read()
+
+
+def path_exists(path):
+    """Check if a path exists, using sudo if needed."""
+    su = _get_sudo_user_for_path(path)
+    if su:
+        return sudo_path_exists(path, su)
+    return path.exists()
+
+
+def sudo_read_text(path, sudo_user):
+    """Read a file as another user via sudo. Returns text content or None on error."""
+    try:
+        r = subprocess.run(
+            ["sudo", "-u", sudo_user, "cat", str(path)],
+            capture_output=True, text=True, timeout=30,
+        )
+        return r.stdout if r.returncode == 0 else None
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+
+
+def sudo_path_exists(path, sudo_user):
+    """Check if a path exists as another user via sudo."""
+    r = subprocess.run(
+        ["sudo", "-u", sudo_user, "test", "-e", str(path)],
+        capture_output=True, timeout=5,
+    )
+    return r.returncode == 0
+
+
+def sudo_list_dir(path, sudo_user):
+    """List directory entries as another user. Returns list of Path objects."""
+    r = subprocess.run(
+        ["sudo", "-u", sudo_user, "find", str(path), "-maxdepth", "1", "-mindepth", "1"],
+        capture_output=True, text=True, timeout=30,
+    )
+    if r.returncode != 0:
+        return []
+    return [Path(p) for p in r.stdout.strip().split("\n") if p]
+
+
+def sudo_find_files(path, pattern, sudo_user):
+    """Find files matching a pattern as another user. Returns list of Path objects."""
+    r = subprocess.run(
+        ["sudo", "-u", sudo_user, "find", str(path), "-name", pattern, "-type", "f"],
+        capture_output=True, text=True, timeout=60,
+    )
+    if r.returncode != 0:
+        return []
+    return [Path(p) for p in r.stdout.strip().split("\n") if p]
+
+
+def sudo_file_size(path, sudo_user):
+    """Get file size as another user. Returns size in bytes or 0."""
+    r = subprocess.run(
+        ["sudo", "-u", sudo_user, "stat", "-c", "%s", str(path)],
+        capture_output=True, text=True, timeout=5,
+    )
+    try:
+        return int(r.stdout.strip()) if r.returncode == 0 else 0
+    except ValueError:
+        return 0
 
 VERSION = "0.7.0"
 
@@ -224,16 +313,22 @@ def load_stats_cache():
         sources.append(_as["stats_cache"])
     sources.append(STATS_CACHE)
     for path in sources:
-        if path and path.exists():
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            # Additive merge of numeric counters
-            for key in ("totalSessions", "totalMessages"):
-                merged[key] = merged.get(key, 0) + data.get(key, 0)
-            # Keep other fields from latest source
-            for key, val in data.items():
-                if key not in ("totalSessions", "totalMessages"):
-                    merged[key] = val
+        if not path:
+            continue
+        content = read_text(path)
+        if content is None:
+            continue
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            continue
+        # Additive merge of numeric counters
+        for key in ("totalSessions", "totalMessages"):
+            merged[key] = merged.get(key, 0) + data.get(key, 0)
+        # Keep other fields from latest source
+        for key, val in data.items():
+            if key not in ("totalSessions", "totalMessages"):
+                merged[key] = val
     return merged
 
 
@@ -247,11 +342,18 @@ def load_dot_claude():
         if _as["dot_claude_json"]:
             sources.append(_as["dot_claude_json"])
     sources.append(DOT_CLAUDE_JSON)
+    _dot_claude_cache = {}
     for path in sources:
-        if not path or not path.exists():
+        if not path:
             continue
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        content = read_text(path)
+        if content is None:
+            continue
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            continue
+        _dot_claude_cache[str(path)] = data
         # Merge projects dict (both sources contribute)
         if "projects" in data:
             merged.setdefault("projects", {}).update(data["projects"])
@@ -262,10 +364,9 @@ def load_dot_claude():
     # Sum numStartups from both
     total_startups = 0
     for path in sources:
-        if not path or not path.exists():
+        data = _dot_claude_cache.get(str(path))
+        if not data:
             continue
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
         total_startups += data.get("numStartups", 0)
     if total_startups:
         merged["numStartups"] = total_startups
@@ -283,28 +384,30 @@ def load_history():
         sources.append(_as["history_jsonl"])
     sources.append(HISTORY_JSONL)
     for path in sources:
-        if not path or not path.exists():
+        if not path:
             continue
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
+        content = read_text(path)
+        if content is None:
+            continue
+        for line in content.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                # Deduplicate by sessionId + timestamp
+                dedup_key = (obj.get("sessionId", ""), obj.get("timestamp", 0))
+                if dedup_key in seen_ids:
                     continue
-                try:
-                    obj = json.loads(line)
-                    # Deduplicate by sessionId + timestamp
-                    dedup_key = (obj.get("sessionId", ""), obj.get("timestamp", 0))
-                    if dedup_key in seen_ids:
-                        continue
-                    seen_ids.add(dedup_key)
-                    prompts.append({
-                        "display": obj.get("display", ""),
-                        "timestamp": obj.get("timestamp", 0),
-                        "project": obj.get("project", ""),
-                        "sessionId": obj.get("sessionId", ""),
-                    })
-                except json.JSONDecodeError:
-                    continue
+                seen_ids.add(dedup_key)
+                prompts.append({
+                    "display": obj.get("display", ""),
+                    "timestamp": obj.get("timestamp", 0),
+                    "project": obj.get("project", ""),
+                    "sessionId": obj.get("sessionId", ""),
+                })
+            except json.JSONDecodeError:
+                continue
     prompts.sort(key=lambda p: p["timestamp"])
     return prompts
 
@@ -766,30 +869,40 @@ def parse_session_transcripts():
     total_files = 0
     total_lines = 0
 
-    sources = []
+    sources = []  # (label, projects_dir, sudo_user_or_None)
     if MIGRATION_ENABLED and MIGRATION_PROJECTS_DIR and MIGRATION_PROJECTS_DIR.exists():
-        sources.append(("migration", MIGRATION_PROJECTS_DIR))
+        sources.append((MIGRATION_LABEL, MIGRATION_PROJECTS_DIR, None))
     for _as in ADDITIONAL_SOURCES:
-        if _as["projects_dir"].exists():
-            sources.append((_as["label"], _as["projects_dir"]))
+        _su = _as.get("sudo_user")
+        if _su:
+            if sudo_path_exists(_as["projects_dir"], _su):
+                sources.append((_as["label"], _as["projects_dir"], _su))
+        elif _as["projects_dir"].exists():
+            sources.append((_as["label"], _as["projects_dir"], None))
     if PROJECTS_DIR.exists():
-        sources.append(("current", PROJECTS_DIR))
+        sources.append((SOURCE_LABEL, PROJECTS_DIR, None))
 
     if not sources:
         print(f"  WARNING: No projects directories found")
         return sessions
 
-    for source_label, projects_dir in sources:
-        print(f"  Source: {source_label} ({projects_dir})")
-        project_dirs = sorted(projects_dir.iterdir())
+    for source_label, projects_dir, sudo_user in sources:
+        print(f"  Source: {source_label} ({projects_dir}){' [sudo:'+sudo_user+']' if sudo_user else ''}")
+        if sudo_user:
+            project_dirs = sorted(sudo_list_dir(projects_dir, sudo_user))
+        else:
+            project_dirs = sorted(projects_dir.iterdir())
         total_dirs = len(project_dirs)
 
         for idx, project_dir in enumerate(project_dirs):
-            if not project_dir.is_dir():
+            if not sudo_user and not project_dir.is_dir():
                 continue
 
             project_name = project_dir.name
-            jsonl_files = sorted(project_dir.rglob("*.jsonl"))
+            if sudo_user:
+                jsonl_files = sorted(sudo_find_files(project_dir, "*.jsonl", sudo_user))
+            else:
+                jsonl_files = sorted(project_dir.rglob("*.jsonl"))
 
             if not jsonl_files:
                 continue
@@ -799,7 +912,10 @@ def parse_session_transcripts():
             for jsonl_file in jsonl_files:
                 total_files += 1
                 file_session_id = jsonl_file.stem
-                file_size = jsonl_file.stat().st_size
+                if sudo_user:
+                    file_size = sudo_file_size(jsonl_file, sudo_user)
+                else:
+                    file_size = jsonl_file.stat().st_size
 
                 # Detect subagent sessions
                 is_subagent = "/subagents/" in str(jsonl_file)
@@ -808,13 +924,20 @@ def parse_session_transcripts():
                     parent_id = jsonl_file.parent.parent.name
 
                 # Skip if this session was already fully parsed from migration
-                if file_session_id in sessions and source_label == "current":
+                if file_session_id in sessions and source_label == SOURCE_LABEL:
                     # Same session file in both sources — skip duplicate
                     continue
 
                 try:
-                    with open(jsonl_file, "r", encoding="utf-8", errors="replace") as f:
-                        for line in f:
+                    if sudo_user:
+                        _content = sudo_read_text(jsonl_file, sudo_user)
+                        if _content is None:
+                            continue
+                        _line_iter = _content.split("\n")
+                    else:
+                        _line_iter = open(jsonl_file, "r", encoding="utf-8", errors="replace").readlines()
+
+                    for line in _line_iter:
                             total_lines += 1
                             line = line.strip()
                             if not line:
@@ -1051,8 +1174,8 @@ def parse_session_transcripts():
             })
         del sessions[sub_id]
 
-    migration_count = sum(1 for s in sessions.values() if s.get("source") == "migration")
-    current_count = sum(1 for s in sessions.values() if s.get("source") == "current")
+    migration_count = sum(1 for s in sessions.values() if s.get("source") == MIGRATION_LABEL)
+    current_count = sum(1 for s in sessions.values() if s.get("source") == SOURCE_LABEL)
     print(f"  Parsed {total_files} files, {total_lines} lines, {len(sessions)} sessions"
           f" (migration: {migration_count}, current: {current_count})")
     return sessions
@@ -1063,33 +1186,55 @@ def extract_session_messages(session_id, project_dir_name):
     messages = []
 
     # Search for the JSONL file
-    sources = []
+    sources = []  # (projects_dir, sudo_user_or_None)
     if MIGRATION_ENABLED and MIGRATION_PROJECTS_DIR and MIGRATION_PROJECTS_DIR.exists():
-        sources.append(MIGRATION_PROJECTS_DIR)
+        sources.append((MIGRATION_PROJECTS_DIR, None))
     for _as in ADDITIONAL_SOURCES:
-        if _as["projects_dir"].exists():
-            sources.append(_as["projects_dir"])
+        _su = _as.get("sudo_user")
+        if _su:
+            sources.append((_as["projects_dir"], _su))
+        elif _as["projects_dir"].exists():
+            sources.append((_as["projects_dir"], None))
     if PROJECTS_DIR.exists():
-        sources.append(PROJECTS_DIR)
+        sources.append((PROJECTS_DIR, None))
 
     jsonl_path = None
-    for projects_dir in sources:
+    found_sudo_user = None
+    for projects_dir, su in sources:
         candidate = projects_dir / project_dir_name / f"{session_id}.jsonl"
-        if candidate.exists():
-            jsonl_path = candidate
-            break
-        # Also search subdirectories
-        for f in (projects_dir / project_dir_name).rglob(f"{session_id}.jsonl"):
-            jsonl_path = f
-            break
-        if jsonl_path:
-            break
+        if su:
+            if sudo_path_exists(candidate, su):
+                jsonl_path = candidate
+                found_sudo_user = su
+                break
+            # Also search subdirectories
+            found = sudo_find_files(projects_dir / project_dir_name, f"{session_id}.jsonl", su)
+            if found:
+                jsonl_path = found[0]
+                found_sudo_user = su
+                break
+        else:
+            if candidate.exists():
+                jsonl_path = candidate
+                break
+            # Also search subdirectories
+            for f in (projects_dir / project_dir_name).rglob(f"{session_id}.jsonl"):
+                jsonl_path = f
+                break
+            if jsonl_path:
+                break
 
     if not jsonl_path:
         return messages
 
-    with open(jsonl_path, "r", encoding="utf-8", errors="replace") as f:
-        for line in f:
+    if found_sudo_user:
+        _content = sudo_read_text(jsonl_path, found_sudo_user)
+        _lines = _content.split("\n") if _content else []
+    else:
+        with open(jsonl_path, "r", encoding="utf-8", errors="replace") as f:
+            _lines = f.readlines()
+
+    for line in _lines:
             line = line.strip()
             if not line:
                 continue
@@ -1377,7 +1522,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         "sessions": 0, "messages": 0, "cost": 0.0,
         "input_tokens": 0, "output_tokens": 0,
         "cache_read_tokens": 0, "cache_write_tokens": 0,
-        "file_size": 0
+        "file_size": 0, "sources": set()
     })
     model_totals = defaultdict(lambda: {
         "input_tokens": 0, "output_tokens": 0,
@@ -1462,6 +1607,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         ps["cache_read_tokens"] += session_cache_read
         ps["cache_write_tokens"] += session_cache_write
         ps["file_size"] += sess["file_size"]
+        ps["sources"].add(sess.get("source", SOURCE_LABEL))
 
         daily_messages[date_str] += sess["message_count"]
         daily_sessions[date_str] += 1
@@ -1508,6 +1654,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "errors": [{"message": e["message"], "tool": e.get("tool", "unknown"), "category": e.get("category", "other"), "timestamp": e.get("timestamp", "")} for e in sess.get("errors", [])],
             "file_ops_count": len(sess.get("file_ops", [])),
             "git_ops": sess.get("git_ops", []),
+            "source": sess.get("source", SOURCE_LABEL),
         })
 
     session_list.sort(key=lambda s: s["start"])
@@ -1560,6 +1707,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "cache_read_tokens": pdata["cache_read_tokens"],
             "cache_write_tokens": pdata["cache_write_tokens"],
             "file_size_mb": round(pdata["file_size"] / 1_048_576, 1),
+            "sources": sorted(pdata["sources"]),
         })
 
     model_summary = []
@@ -1881,6 +2029,7 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .model-badge.opus { background:rgba(168,85,247,0.2); color:var(--purple); }
 .model-badge.sonnet { background:rgba(59,130,246,0.2); color:var(--blue); }
 .model-badge.haiku { background:rgba(34,197,94,0.2); color:var(--green); }
+.source-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:500; letter-spacing:0.3px; margin-left:6px; vertical-align:middle; }
 
 .pagination { display:flex; gap:8px; justify-content:center; margin-top:16px; align-items:center; }
 .pagination button { background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; cursor:pointer; }
@@ -2064,6 +2213,7 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
       <table class="data-table sortable" id="projectTable">
         <thead><tr>
           <th data-sort="name">__L_projects_th_project__</th>
+          <th data-sort="sources">Source</th>
           <th data-sort="sessions" class="num">__L_projects_th_sessions__</th>
           <th data-sort="messages" class="num">__L_projects_th_messages__</th>
           <th data-sort="cost" class="num">__L_projects_th_api_value__</th>
@@ -2078,6 +2228,7 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
   <div class="tab-content" id="tab-sessions">
     <div class="session-filters">
       <select id="filterProject"><option value="">__L_sessions_tab_all_projects__</option></select>
+      <select id="filterSource"><option value="">All Sources</option></select>
       <select id="filterSort">
         <option value="date-desc">__L_sessions_tab_sort_date_desc__</option>
         <option value="date-asc">__L_sessions_tab_sort_date_asc__</option>
@@ -2213,6 +2364,32 @@ const MODEL_COLORS = {
   'Unknown': '#6b7280'
 };
 
+const SOURCE_COLORS = [
+  {bg:'rgba(245,158,11,0.15)', fg:'#f59e0b'},
+  {bg:'rgba(6,182,212,0.15)', fg:'#06b6d4'},
+  {bg:'rgba(168,85,247,0.15)', fg:'#a855f7'},
+  {bg:'rgba(34,197,94,0.15)', fg:'#22c55e'},
+  {bg:'rgba(239,68,68,0.15)', fg:'#ef4444'},
+  {bg:'rgba(59,130,246,0.15)', fg:'#3b82f6'},
+  {bg:'rgba(236,72,153,0.15)', fg:'#ec4899'},
+];
+const _sourceColorMap = {};
+function sourceColor(label) {
+  if (!_sourceColorMap[label]) {
+    let h = 0; for (let i = 0; i < label.length; i++) h = ((h << 5) - h + label.charCodeAt(i)) | 0;
+    _sourceColorMap[label] = SOURCE_COLORS[Math.abs(h) % SOURCE_COLORS.length];
+  }
+  return _sourceColorMap[label];
+}
+function makeSourceBadge(label) {
+  const c = sourceColor(label);
+  const span = document.createElement('span');
+  span.className = 'source-badge';
+  span.style.background = c.bg; span.style.color = c.fg;
+  span.textContent = label;
+  return span;
+}
+
 Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = '#1e293b';
 
@@ -2326,15 +2503,16 @@ function filterData(days, projectFilter) {
   // Recalculate projects from filtered sessions
   const projMap = {};
   F.sessions.forEach(s => {
-    if (!projMap[s.project]) projMap[s.project] = {name: s.project, sessions:0, messages:0, cost:0, output_tokens:0, file_size_mb: 0};
+    if (!projMap[s.project]) projMap[s.project] = {name: s.project, sessions:0, messages:0, cost:0, output_tokens:0, file_size_mb: 0, sources: new Set()};
     const p = projMap[s.project];
     p.sessions++;
     p.messages += s.messages || 0;
     p.cost += s.cost || 0;
     p.output_tokens += s.output_tokens || 0;
     p.file_size_mb = Math.max(p.file_size_mb, s.file_size_mb || 0);
+    if (s.source) p.sources.add(s.source);
   });
-  F.projects = Object.values(projMap).sort((a, b) => b.cost - a.cost);
+  F.projects = Object.values(projMap).map(p => { p.sources = [...p.sources].sort(); return p; }).sort((a, b) => b.cost - a.cost);
 
   // Recalculate hourly_distribution
   const hourly = Array.from({length:24}, (_, i) => ({hour: i, messages: 0}));
@@ -2782,8 +2960,13 @@ function renderProjectTable(sortKey, sortDir) {
     const slug = D.project_slugs && D.project_slugs[p.name];
     const dispPName = anonMode ? anonName(p.name) : p.name;
     const nameCell = (!anonMode && slug) ? '<a href="projects/'+slug+'.html">'+escHtml(dispPName)+'</a>' : escHtml(dispPName);
+    const sourceCell = (p.sources || []).map(function(src) {
+      const c = sourceColor(src);
+      return '<span class="source-badge" style="background:'+c.bg+';color:'+c.fg+'">'+escHtml(src)+'</span>';
+    }).join(' ');
     const cells = [
       {html: nameCell, cls: ''},
+      {html: sourceCell, cls: ''},
       {val: p.sessions, cls: 'num'},
       {val: fmt(p.messages), cls: 'num'},
       {val: fmtUSD(p.cost), cls: 'num'},
@@ -2807,10 +2990,12 @@ const SESSION_PER_PAGE = 20;
 function getFilteredSessions() {
   let list = [...F.sessions];
   const proj = document.getElementById('filterProject').value;
+  const src = document.getElementById('filterSource').value;
   const search = document.getElementById('filterSearch').value.toLowerCase();
   const sort = document.getElementById('filterSort').value;
 
   if (proj) list = list.filter(s => s.project === proj);
+  if (src) list = list.filter(s => s.source === src);
   if (search) list = list.filter(s =>
     (s.first_prompt || '').toLowerCase().includes(search) ||
     s.project.toLowerCase().includes(search));
@@ -2838,6 +3023,19 @@ function renderSessions() {
   });
   // Restore selection if still valid
   if (projects.includes(currentVal)) sel.value = currentVal;
+
+  // Source filter
+  const srcSel = document.getElementById('filterSource');
+  const currentSrc = srcSel.value;
+  while (srcSel.options.length > 1) srcSel.remove(1);
+  const sources = [...new Set(F.sessions.map(s => s.source).filter(Boolean))].sort();
+  sources.forEach(src => {
+    const o = document.createElement('option');
+    o.value = src; o.textContent = src;
+    srcSel.appendChild(o);
+  });
+  if (sources.includes(currentSrc)) srcSel.value = currentSrc;
+
   sessionPage = 0;
   renderSessionList();
 }
@@ -2862,7 +3060,8 @@ function buildSessionCard(s) {
     rightGroup.appendChild(chatLink);
   }
   rightGroup.appendChild(costSpan);
-  top.appendChild(projSpan); top.appendChild(rightGroup);
+  top.appendChild(projSpan);
+  top.appendChild(rightGroup);
   card.appendChild(top);
 
   // Info row
@@ -2876,6 +3075,7 @@ function buildSessionCard(s) {
   infoParts.forEach(t => { const sp = document.createElement('span'); sp.textContent = t; info.appendChild(sp); });
   const badge = document.createElement('span'); badge.className = 'model-badge ' + modelClass; badge.textContent = s.primary_model;
   info.appendChild(badge);
+  if (s.source) info.appendChild(makeSourceBadge(s.source));
   if (s.compactions > 0) {
     const compSpan = document.createElement('span'); compSpan.style.color = 'var(--amber)';
     compSpan.innerHTML = '&#9889; ' + s.compactions;
@@ -3473,6 +3673,7 @@ document.querySelectorAll('.sortable th[data-sort]').forEach(th => {
 
 // ── Filter events ──────────────────────────────────────────────────────
 document.getElementById('filterProject').addEventListener('change', () => { sessionPage = 0; renderSessionList(); });
+document.getElementById('filterSource').addEventListener('change', () => { sessionPage = 0; renderSessionList(); });
 document.getElementById('filterSort').addEventListener('change', () => { sessionPage = 0; renderSessionList(); });
 document.getElementById('filterSearch').addEventListener('input', () => { sessionPage = 0; renderSessionList(); });
 document.getElementById('hideEmptySessions').addEventListener('change', () => { applyFilter(currentDays); });

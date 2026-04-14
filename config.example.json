@@ -1,6 +1,7 @@
 {
   "language": "en",
   "display_name": "",
+  "source_label": "",
   "plan_history": [
     {
       "plan": "Pro",
@@ -21,6 +22,7 @@
   ],
   "migration": {
     "enabled": false,
+    "label": "",
     "dir": null,
     "claude_dir_name": ".claude-windows",
     "dot_claude_json_name": ".claude-windows.json"

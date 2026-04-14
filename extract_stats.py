@@ -127,7 +127,7 @@ def sudo_read_text(path, sudo_user):
     """Read a file as another user via sudo. Returns text content or None on error."""
     try:
         r = subprocess.run(
-            ["sudo", "-u", sudo_user, "cat", str(path)],
+            ["sudo", "-n", "-u", sudo_user, "cat", str(path)],
             capture_output=True, text=True, timeout=30,
         )
         return r.stdout if r.returncode == 0 else None
@@ -138,7 +138,7 @@ def sudo_read_text(path, sudo_user):
 def sudo_path_exists(path, sudo_user):
     """Check if a path exists as another user via sudo."""
     r = subprocess.run(
-        ["sudo", "-u", sudo_user, "test", "-e", str(path)],
+        ["sudo", "-n", "-u", sudo_user, "test", "-e", str(path)],
         capture_output=True, timeout=5,
     )
     return r.returncode == 0
@@ -147,10 +147,11 @@ def sudo_path_exists(path, sudo_user):
 def sudo_list_dir(path, sudo_user):
     """List directory entries as another user. Returns list of Path objects."""
     r = subprocess.run(
-        ["sudo", "-u", sudo_user, "find", str(path), "-maxdepth", "1", "-mindepth", "1"],
+        ["sudo", "-n", "-u", sudo_user, "find", str(path), "-maxdepth", "1", "-mindepth", "1"],
         capture_output=True, text=True, timeout=30,
     )
     if r.returncode != 0:
+        print(f"    WARNING: sudo_list_dir failed for {path} (rc={r.returncode}): {r.stderr.strip()}")
         return []
     return [Path(p) for p in r.stdout.strip().split("\n") if p]
 
@@ -158,7 +159,7 @@ def sudo_list_dir(path, sudo_user):
 def sudo_find_files(path, pattern, sudo_user):
     """Find files matching a pattern as another user. Returns list of Path objects."""
     r = subprocess.run(
-        ["sudo", "-u", sudo_user, "find", str(path), "-name", pattern, "-type", "f"],
+        ["sudo", "-n", "-u", sudo_user, "find", str(path), "-name", pattern, "-type", "f"],
         capture_output=True, text=True, timeout=60,
     )
     if r.returncode != 0:
@@ -169,7 +170,7 @@ def sudo_find_files(path, pattern, sudo_user):
 def sudo_file_size(path, sudo_user):
     """Get file size as another user. Returns size in bytes or 0."""
     r = subprocess.run(
-        ["sudo", "-u", sudo_user, "stat", "-c", "%s", str(path)],
+        ["sudo", "-n", "-u", sudo_user, "stat", "-c", "%s", str(path)],
         capture_output=True, text=True, timeout=5,
     )
     try:

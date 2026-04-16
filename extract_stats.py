@@ -128,7 +128,7 @@ def sudo_read_text(path, sudo_user):
     try:
         r = subprocess.run(
             ["sudo", "-n", "-u", sudo_user, "cat", str(path)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=30, cwd="/",
         )
         return r.stdout if r.returncode == 0 else None
     except (subprocess.TimeoutExpired, OSError):
@@ -139,7 +139,7 @@ def sudo_path_exists(path, sudo_user):
     """Check if a path exists as another user via sudo."""
     r = subprocess.run(
         ["sudo", "-n", "-u", sudo_user, "test", "-e", str(path)],
-        capture_output=True, timeout=5,
+        capture_output=True, timeout=5, cwd="/",
     )
     return r.returncode == 0
 
@@ -148,7 +148,7 @@ def sudo_list_dir(path, sudo_user):
     """List directory entries as another user. Returns list of Path objects."""
     r = subprocess.run(
         ["sudo", "-n", "-u", sudo_user, "find", str(path), "-maxdepth", "1", "-mindepth", "1"],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True, text=True, timeout=30, cwd="/",
     )
     if r.returncode != 0:
         print(f"    WARNING: sudo_list_dir failed for {path} (rc={r.returncode}): {r.stderr.strip()}")
@@ -160,7 +160,7 @@ def sudo_find_files(path, pattern, sudo_user):
     """Find files matching a pattern as another user. Returns list of Path objects."""
     r = subprocess.run(
         ["sudo", "-n", "-u", sudo_user, "find", str(path), "-name", pattern, "-type", "f"],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True, text=True, timeout=60, cwd="/",
     )
     if r.returncode != 0:
         return []
@@ -171,7 +171,7 @@ def sudo_file_size(path, sudo_user):
     """Get file size as another user. Returns size in bytes or 0."""
     r = subprocess.run(
         ["sudo", "-n", "-u", sudo_user, "stat", "-c", "%s", str(path)],
-        capture_output=True, text=True, timeout=5,
+        capture_output=True, text=True, timeout=5, cwd="/",
     )
     try:
         return int(r.stdout.strip()) if r.returncode == 0 else 0

@@ -100,6 +100,12 @@ PLAN_HISTORY = CONFIG.get("plan_history", [])
 
 # ── Pricing (USD per 1M tokens) ───────────────────────────────────────────
 PRICING = {
+    # Claude 4.7
+    "claude-opus-4-7": {
+        "input": 5.00, "output": 25.00,
+        "cache_read": 0.50, "cache_write_5m": 6.25, "cache_write_1h": 10.00,
+        "display": "Opus 4.7"
+    },
     # Claude 4.6
     "claude-opus-4-6": {
         "input": 5.00, "output": 25.00,

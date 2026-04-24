@@ -178,7 +178,7 @@ def sudo_file_size(path, sudo_user):
     except ValueError:
         return 0
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
@@ -2138,6 +2138,16 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
   .chart-box canvas { max-height:280px; }
 }
 </style>
+<script>
+// URL-loop guard: if a server catch-all served this page at a path with
+// repeated /sessions/ segments, our relative "Chat" links would feed the
+// loop on every click. Redirect to root before anything else runs.
+(function() {
+  if (location.pathname.split('/sessions/').length > 2) {
+    location.replace(location.origin + '/');
+  }
+})();
+</script>
 </head>
 <body>
 
@@ -3258,9 +3268,14 @@ async function bulkDownloadSessions() {
         const resp = await fetch('sessions/' + sessions[i].session_id + '.html');
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const text = await resp.text();
-        const m = text.match(/const S = (\\{[\\s\\S]*?\\});\\s*\\nconst FLOW/);
-        if (!m) throw new Error('Session JSON not found in HTML');
-        const data = JSON.parse(m[1]);
+        const startMarker = '\\nconst S = ';
+        const endMarker = '};\\nconst FLOW';
+        const startIdx = text.indexOf(startMarker);
+        if (startIdx === -1) throw new Error('Session JSON not found in HTML');
+        const jsonStart = startIdx + startMarker.length;
+        const endIdx = text.indexOf(endMarker, jsonStart);
+        if (endIdx === -1) throw new Error('Session JSON end marker not found');
+        const data = JSON.parse(text.slice(jsonStart, endIdx + 1));
         const md = buildMarkdown(data.session, data.messages);
         let name = mdFilename(data.session);
         if (usedNames.has(name)) {

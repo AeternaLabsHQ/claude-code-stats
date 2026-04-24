@@ -5746,7 +5746,7 @@ if (FLOW && FLOW.agents && FLOW.agents.length > 0 && FLOW.events && FLOW.events.
 document.querySelectorAll(".msg,.marker").forEach(function(el) {
   el.addEventListener("click", function() {
     if (!window._sessionFlow) return;
-    var match = (el.id || "").match(/(?:msg|marker)-(\d+)/);
+    var match = (el.id || "").match(/(?:msg|marker)-(\\d+)/);
     var idx = match ? parseInt(match[1]) : NaN;
     if (isNaN(idx)) return;
     var sf = window._sessionFlow;

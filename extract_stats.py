@@ -3240,50 +3240,52 @@ async function bulkDownloadSessions() {
   btn.dataset.busy = '1';
   btn.disabled = true;
 
-  try { await loadJSZip(); }
-  catch (e) {
-    alert('ZIP-Bibliothek konnte nicht geladen werden (offline?).');
+  let errors = 0;
+  try {
+    try { await loadJSZip(); }
+    catch (e) {
+      alert('ZIP-Bibliothek konnte nicht geladen werden (offline?).');
+      return;
+    }
+
+    const zip = new JSZip();
+    const usedNames = new Set();
+
+    for (let i = 0; i < sessions.length; i++) {
+      btn.textContent = 'Loading ' + (i + 1) + '/' + sessions.length + '\\u2026';
+      try {
+        const resp = await fetch('sessions/' + sessions[i].session_id + '.html');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const text = await resp.text();
+        const m = text.match(/const S = (\\{[\\s\\S]*?\\});\\s*\\nconst FLOW/);
+        if (!m) throw new Error('Session JSON not found in HTML');
+        const data = JSON.parse(m[1]);
+        const md = buildMarkdown(data.session, data.messages);
+        let name = mdFilename(data.session);
+        if (usedNames.has(name)) {
+          let n = 2;
+          let candidate;
+          do { candidate = name.replace(/\\.md$/, '-' + n + '.md'); n++; } while (usedNames.has(candidate));
+          name = candidate;
+        }
+        usedNames.add(name);
+        zip.file(name, md);
+      } catch (e) {
+        errors++;
+        console.warn('Session ' + sessions[i].session_id + ' failed:', e);
+      }
+    }
+
+    if (usedNames.size > 0) {
+      btn.textContent = 'Zipping\\u2026';
+      const blob = await zip.generateAsync({type: 'blob'});
+      const today = new Date().toISOString().slice(0, 10);
+      triggerDownload('claude-sessions-' + today + '.zip', blob, 'application/zip');
+    }
+  } finally {
     delete btn.dataset.busy;
     updateBulkBtnLabel();
-    return;
   }
-
-  const zip = new JSZip();
-  const usedNames = new Set();
-  let errors = 0;
-
-  for (let i = 0; i < sessions.length; i++) {
-    btn.textContent = 'Loading ' + (i + 1) + '/' + sessions.length + '\\u2026';
-    try {
-      const resp = await fetch('sessions/' + sessions[i].session_id + '.html');
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const text = await resp.text();
-      const m = text.match(/const S = (\\{[\\s\\S]*?\\});\\s*\\nconst FLOW/);
-      if (!m) throw new Error('Session JSON not found in HTML');
-      const data = JSON.parse(m[1]);
-      const md = buildMarkdown(data.session, data.messages);
-      let name = mdFilename(data.session);
-      if (usedNames.has(name)) {
-        let n = 2;
-        let candidate;
-        do { candidate = name.replace(/\\.md$/, '-' + n + '.md'); n++; } while (usedNames.has(candidate));
-        name = candidate;
-      }
-      usedNames.add(name);
-      zip.file(name, md);
-    } catch (e) {
-      errors++;
-      console.warn('Session ' + sessions[i].session_id + ' failed:', e);
-    }
-  }
-
-  btn.textContent = 'Zipping\\u2026';
-  const blob = await zip.generateAsync({type: 'blob'});
-  const today = new Date().toISOString().slice(0, 10);
-  triggerDownload('claude-sessions-' + today + '.zip', blob, 'application/zip');
-
-  delete btn.dataset.busy;
-  updateBulkBtnLabel();
 
   if (errors > 0) {
     alert(errors + ' sessions konnten nicht geladen werden \\u2014 siehe Konsole.');

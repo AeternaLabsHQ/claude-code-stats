@@ -2138,6 +2138,16 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
   .chart-box canvas { max-height:280px; }
 }
 </style>
+<script>
+// URL-loop guard: if a server catch-all served this page at a path with
+// repeated /sessions/ segments, our relative "Chat" links would feed the
+// loop on every click. Redirect to root before anything else runs.
+(function() {
+  if (location.pathname.split('/sessions/').length > 2) {
+    location.replace(location.origin + '/');
+  }
+})();
+</script>
 </head>
 <body>
 

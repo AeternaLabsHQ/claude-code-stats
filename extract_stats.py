@@ -178,7 +178,7 @@ def sudo_file_size(path, sudo_user):
     except ValueError:
         return 0
 
-VERSION = "0.7.0"
+VERSION = "0.8.0"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
@@ -2020,6 +2020,9 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .session-filters { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
 .session-filters select, .session-filters input { background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-size:13px; }
 .session-filters select { min-width:200px; }
+.bulk-download-btn { padding: 6px 14px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--bg2); color: var(--text2); cursor: pointer; border-radius: 6px; transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
+.bulk-download-btn:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
+.bulk-download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .session-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px; cursor:pointer; transition:border-color .2s; }
 .session-card:hover { border-color:var(--accent); }
 .session-card .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
@@ -2249,6 +2252,7 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
       </select>
       <input type="text" id="filterSearch" placeholder="__L_sessions_tab_search_placeholder__">
       <span class="meta" id="sessionCount"></span>
+      <button id="bulkDownloadBtn" class="bulk-download-btn" style="margin-left:auto" title="Download all currently filtered sessions as a ZIP of Markdown files">&#11015; Download all (0)</button>
     </div>
     <div id="sessionList"></div>
     <div class="pagination" id="sessionPagination"></div>
@@ -2998,6 +3002,87 @@ function renderProjectTable(sortKey, sortDir) {
 let sessionPage = 0;
 const SESSION_PER_PAGE = 20;
 
+// ─── Markdown export helpers ───────────────────────────────────────────
+function sanitizeProjectSlug(p) {
+  const s = (p || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return s || 'unknown';
+}
+function mdFilename(session) {
+  const date = session.date || (session.start ? String(session.start).slice(0,10) : '0000-00-00');
+  const slug = sanitizeProjectSlug(session.project);
+  const id8 = (session.session_id || '').slice(0, 8);
+  return date + '-' + slug + '-' + id8 + '.md';
+}
+function yamlEscape(v) {
+  if (v == null) return '';
+  const str = String(v);
+  if (/[:#"\\n]/.test(str)) return '"' + str.replace(/"/g, '\\\\"') + '"';
+  return str;
+}
+function buildMarkdown(session, messages) {
+  const lines = [];
+  lines.push('---');
+  lines.push('session_id: ' + yamlEscape(session.session_id));
+  lines.push('project: ' + yamlEscape(session.project));
+  lines.push('date: ' + yamlEscape(session.date));
+  let startIso = '';
+  if (session.start) {
+    try { startIso = new Date(session.start).toISOString().replace(/\\.\\d{3}Z$/, 'Z'); } catch(e) { startIso = String(session.start); }
+  }
+  lines.push('start: ' + yamlEscape(startIso));
+  lines.push('duration_min: ' + (session.duration_min != null ? session.duration_min : 0));
+  lines.push('model: ' + yamlEscape(session.primary_model));
+  lines.push('messages: ' + (session.messages != null ? session.messages : 0));
+  lines.push('cost_usd: ' + (typeof session.cost === 'number' ? session.cost.toFixed(4) : '0.0000'));
+  if (session.source) lines.push('source: ' + yamlEscape(session.source));
+  lines.push('---');
+  lines.push('');
+
+  let title = ((session.first_prompt || '').split('\\n')[0] || '').trim();
+  if (title.length > 80) title = title.slice(0, 80) + '\\u2026';
+  if (!title) title = 'Session ' + ((session.session_id || '').slice(0, 8));
+  lines.push('# ' + title);
+  lines.push('');
+
+  messages.forEach(m => {
+    if (m.role !== 'user' && m.role !== 'assistant') return;
+    if (!(m.content || '').trim()) return;
+    let ts = '';
+    if (m.timestamp) {
+      try { ts = new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); } catch(e) {}
+    }
+    if (m.role === 'user') {
+      lines.push('## User' + (ts ? ' \\u2014 ' + ts : ''));
+    } else {
+      const model = m.model ? ' (' + m.model + ')' : '';
+      lines.push('## Assistant' + model + (ts ? ' \\u2014 ' + ts : ''));
+    }
+    lines.push('');
+    lines.push(m.content || '');
+    lines.push('');
+  });
+  return lines.join('\\n');
+}
+function triggerDownload(filename, content, mimeType) {
+  const blob = content instanceof Blob ? content : new Blob([content], {type: mimeType || 'text/markdown;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+function loadJSZip() {
+  if (window.JSZip) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Failed to load JSZip'));
+    document.head.appendChild(s);
+  });
+}
+
 function getFilteredSessions() {
   let list = [...F.sessions];
   const proj = document.getElementById('filterProject').value;
@@ -3064,7 +3149,7 @@ function buildSessionCard(s) {
   const projSpan = document.createElement('span'); projSpan.className = 'project'; projSpan.textContent = anonMode ? anonName(s.project) : s.project;
   const costSpan = document.createElement('span'); costSpan.className = 'cost'; costSpan.textContent = fmtUSD(s.cost);
   const rightGroup = document.createElement('span'); rightGroup.style.display = 'flex'; rightGroup.style.alignItems = 'center';
-  if (!anonMode) {
+  if (!anonMode && s.has_chat !== false) {
     const chatLink = document.createElement('a'); chatLink.href = 'sessions/' + s.session_id + '.html';
     chatLink.textContent = 'Chat'; chatLink.addEventListener('click', function(e) { e.stopPropagation(); });
     chatLink.style.cssText = 'color:var(--accent2);font-size:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:6px;margin-right:8px;text-decoration:none';
@@ -3138,6 +3223,76 @@ function buildSessionCard(s) {
   return card;
 }
 
+function updateBulkBtnLabel() {
+  const btn = document.getElementById('bulkDownloadBtn');
+  if (!btn) return;
+  const n = getFilteredSessions().length;
+  if (!btn.dataset.busy) {
+    btn.textContent = '\\u2B07 Download all (' + n + ')';
+    btn.disabled = (n === 0);
+  }
+}
+async function bulkDownloadSessions() {
+  const btn = document.getElementById('bulkDownloadBtn');
+  const sessions = getFilteredSessions().filter(s => s.has_chat !== false);
+  if (sessions.length === 0) return;
+  if (sessions.length > 100 && !confirm(sessions.length + ' Sessions als ZIP herunterladen? Das kann einen Moment dauern.')) return;
+
+  btn.dataset.busy = '1';
+  btn.disabled = true;
+
+  let errors = 0;
+  try {
+    try { await loadJSZip(); }
+    catch (e) {
+      alert('ZIP-Bibliothek konnte nicht geladen werden (offline?).');
+      return;
+    }
+
+    const zip = new JSZip();
+    const usedNames = new Set();
+
+    for (let i = 0; i < sessions.length; i++) {
+      btn.textContent = 'Loading ' + (i + 1) + '/' + sessions.length + '\\u2026';
+      try {
+        const resp = await fetch('sessions/' + sessions[i].session_id + '.html');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const text = await resp.text();
+        const m = text.match(/const S = (\\{[\\s\\S]*?\\});\\s*\\nconst FLOW/);
+        if (!m) throw new Error('Session JSON not found in HTML');
+        const data = JSON.parse(m[1]);
+        const md = buildMarkdown(data.session, data.messages);
+        let name = mdFilename(data.session);
+        if (usedNames.has(name)) {
+          let n = 2;
+          let candidate;
+          do { candidate = name.replace(/\\.md$/, '-' + n + '.md'); n++; } while (usedNames.has(candidate));
+          name = candidate;
+        }
+        usedNames.add(name);
+        zip.file(name, md);
+      } catch (e) {
+        errors++;
+        console.warn('Session ' + sessions[i].session_id + ' failed:', e);
+      }
+    }
+
+    if (usedNames.size > 0) {
+      btn.textContent = 'Zipping\\u2026';
+      const blob = await zip.generateAsync({type: 'blob'});
+      const today = new Date().toISOString().slice(0, 10);
+      triggerDownload('claude-sessions-' + today + '.zip', blob, 'application/zip');
+    }
+  } finally {
+    delete btn.dataset.busy;
+    updateBulkBtnLabel();
+  }
+
+  if (errors > 0) {
+    alert(errors + ' sessions konnten nicht geladen werden \\u2014 siehe Konsole.');
+  }
+}
+
 function renderSessionList() {
   const filtered = getFilteredSessions();
   const total = filtered.length;
@@ -3175,6 +3330,7 @@ function renderSessionList() {
       pagDiv.appendChild(next); pagDiv.appendChild(last);
     }
   }
+  updateBulkBtnLabel();
 }
 
 // ── Tab 5: Plan & Billing ──────────────────────────────────────────────
@@ -3703,6 +3859,7 @@ renderCosts();
 renderActivity();
 renderProjects();
 renderSessions();
+document.getElementById('bulkDownloadBtn').addEventListener('click', bulkDownloadSessions);
 renderPlan();
 renderInsights();
 renderAgentsTab();
@@ -3908,7 +4065,9 @@ def generate_session_pages(sessions, session_list):
         messages = extract_session_messages(sid, project_dir)
 
         if not messages:
+            sess_data["has_chat"] = False
             continue
+        sess_data["has_chat"] = True
 
         flow_data = build_session_flow(messages)
 
@@ -4065,6 +4224,7 @@ a:hover { text-decoration:underline; }
           <button class="filter-btn" data-filter="agent-dispatch">Subagents</button>
         </div>
         <button class="copy-btn" id="copyBtn">&#128203; Copy</button>
+        <button class="copy-btn" id="downloadBtn" style="margin-left:6px" title="Download filtered messages as Markdown">&#11015; Download</button>
       </div>
       <div class="chat-messages" id="chatPanel"></div>
     </div>
@@ -4187,6 +4347,77 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
   });
 });
 
+// ─── Markdown export helpers ───────────────────────────────────────────
+function sanitizeProjectSlug(p) {
+  const s = (p || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return s || 'unknown';
+}
+function mdFilename(session) {
+  const date = session.date || (session.start ? String(session.start).slice(0,10) : '0000-00-00');
+  const slug = sanitizeProjectSlug(session.project);
+  const id8 = (session.session_id || '').slice(0, 8);
+  return date + '-' + slug + '-' + id8 + '.md';
+}
+function yamlEscape(v) {
+  if (v == null) return '';
+  const str = String(v);
+  if (/[:#"\\n]/.test(str)) return '"' + str.replace(/"/g, '\\\\"') + '"';
+  return str;
+}
+function buildMarkdown(session, messages) {
+  const lines = [];
+  lines.push('---');
+  lines.push('session_id: ' + yamlEscape(session.session_id));
+  lines.push('project: ' + yamlEscape(session.project));
+  lines.push('date: ' + yamlEscape(session.date));
+  let startIso = '';
+  if (session.start) {
+    try { startIso = new Date(session.start).toISOString().replace(/\\.\\d{3}Z$/, 'Z'); } catch(e) { startIso = String(session.start); }
+  }
+  lines.push('start: ' + yamlEscape(startIso));
+  lines.push('duration_min: ' + (session.duration_min != null ? session.duration_min : 0));
+  lines.push('model: ' + yamlEscape(session.primary_model));
+  lines.push('messages: ' + (session.messages != null ? session.messages : 0));
+  lines.push('cost_usd: ' + (typeof session.cost === 'number' ? session.cost.toFixed(4) : '0.0000'));
+  if (session.source) lines.push('source: ' + yamlEscape(session.source));
+  lines.push('---');
+  lines.push('');
+
+  let title = ((session.first_prompt || '').split('\\n')[0] || '').trim();
+  if (title.length > 80) title = title.slice(0, 80) + '\\u2026';
+  if (!title) title = 'Session ' + ((session.session_id || '').slice(0, 8));
+  lines.push('# ' + title);
+  lines.push('');
+
+  messages.forEach(m => {
+    if (m.role !== 'user' && m.role !== 'assistant') return;
+    if (!(m.content || '').trim()) return;
+    let ts = '';
+    if (m.timestamp) {
+      try { ts = new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); } catch(e) {}
+    }
+    if (m.role === 'user') {
+      lines.push('## User' + (ts ? ' \\u2014 ' + ts : ''));
+    } else {
+      const model = m.model ? ' (' + m.model + ')' : '';
+      lines.push('## Assistant' + model + (ts ? ' \\u2014 ' + ts : ''));
+    }
+    lines.push('');
+    lines.push(m.content || '');
+    lines.push('');
+  });
+  return lines.join('\\n');
+}
+function triggerDownload(filename, content, mimeType) {
+  const blob = content instanceof Blob ? content : new Blob([content], {type: mimeType || 'text/markdown;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
 // Copy to clipboard
 document.getElementById('copyBtn').addEventListener('click', function() {
   const btn = this;
@@ -4208,6 +4439,23 @@ document.getElementById('copyBtn').addEventListener('click', function() {
     btn.classList.add('copied');
     setTimeout(() => { btn.innerHTML = '&#128203; Copy'; btn.classList.remove('copied'); }, 2000);
   });
+});
+
+// Download filtered chat as Markdown
+document.getElementById('downloadBtn').addEventListener('click', function() {
+  const btn = this;
+  const visible = [];
+  document.querySelectorAll('#chatPanel > .msg').forEach(el => {
+    if (el.style.display === 'none') return;
+    const m = el.id.match(/^msg-(\\d+)$/);
+    if (m) visible.push(parseInt(m[1], 10));
+  });
+  const filtered = visible.map(i => msgs[i]).filter(m => m && (m.role === 'user' || m.role === 'assistant'));
+  const md = buildMarkdown(sess, filtered);
+  triggerDownload(mdFilename(sess), md);
+  btn.innerHTML = '&#10003; Downloaded!';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.innerHTML = '&#11015; Download'; btn.classList.remove('copied'); }, 2000);
 });
 
 // Sidebar
@@ -5502,7 +5750,7 @@ if (FLOW && FLOW.agents && FLOW.agents.length > 0 && FLOW.events && FLOW.events.
 document.querySelectorAll(".msg,.marker").forEach(function(el) {
   el.addEventListener("click", function() {
     if (!window._sessionFlow) return;
-    var match = (el.id || "").match(/(?:msg|marker)-(\d+)/);
+    var match = (el.id || "").match(/(?:msg|marker)-(\\d+)/);
     var idx = match ? parseInt(match[1]) : NaN;
     if (isNaN(idx)) return;
     var sf = window._sessionFlow;
@@ -5989,6 +6237,13 @@ def main():
         telemetry=telemetry, tasks=tasks, memories=memories,
     )
 
+    print(f"\nGenerating session pages...")
+    generate_session_pages(sessions, data["sessions"])
+
+    print(f"\nGenerating project pages...")
+    project_slugs = generate_project_pages(data["sessions"], data=data)
+    data["project_slugs"] = project_slugs
+
     print(f"\nWriting {DASHBOARD_DATA}...")
     with open(DASHBOARD_DATA, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -5997,15 +6252,6 @@ def main():
     print(f"\nGenerating {DASHBOARD_HTML}...")
     generate_dashboard(data)
     print(f"  Size: {DASHBOARD_HTML.stat().st_size / 1024:.1f} KB")
-
-    print(f"\nGenerating session pages...")
-    generate_session_pages(sessions, data["sessions"])
-
-    print(f"\nGenerating project pages...")
-    project_slugs = generate_project_pages(data["sessions"], data=data)
-    data["project_slugs"] = project_slugs
-    # Re-generate dashboard with project slug mapping
-    generate_dashboard(data)
 
     elapsed = time.time() - t0
     print(f"\n{'=' * 50}")

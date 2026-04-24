@@ -16,7 +16,7 @@ A comprehensive analytics dashboard for [Claude Code](https://docs.anthropic.com
 - **Activity** -- Message patterns, hourly distribution, weekday distribution
 - **Agents** -- Subagent type distribution, error breakdown by category and tool, task management
 - **Projects** -- Top projects by cost, detailed project pages with memories and workflow timeline
-- **Sessions** -- Filterable/searchable session details with chat replay and subagent prompt viewer
+- **Sessions** -- Filterable/searchable session details with chat replay and subagent prompt viewer; export individual chats or the entire filtered set as Markdown (ZIP)
 - **Plan & Billing** -- Cost savings analysis vs. your subscription plan, split into monthly billing cycles
 - **Insights** -- Tool usage, storage breakdown, git ops, telemetry, performance metrics
 - **Privacy** -- F2 anonymization mode, configurable display name, empty session filter

@@ -3046,6 +3046,7 @@ function buildMarkdown(session, messages) {
 
   messages.forEach(m => {
     if (m.role !== 'user' && m.role !== 'assistant') return;
+    if (!(m.content || '').trim()) return;
     let ts = '';
     if (m.timestamp) {
       try { ts = new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); } catch(e) {}
@@ -4388,6 +4389,7 @@ function buildMarkdown(session, messages) {
 
   messages.forEach(m => {
     if (m.role !== 'user' && m.role !== 'assistant') return;
+    if (!(m.content || '').trim()) return;
     let ts = '';
     if (m.timestamp) {
       try { ts = new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); } catch(e) {}

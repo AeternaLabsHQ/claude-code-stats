@@ -2366,7 +2366,7 @@ function escHtml(s) {
 }
 
 const MODEL_COLORS = {
-  'Opus 4.6': '#a855f7', 'Opus 4.5': '#7c3aed',
+  'Opus 4.7': '#c084fc', 'Opus 4.6': '#a855f7', 'Opus 4.5': '#7c3aed',
   'Sonnet 4.5': '#3b82f6', 'Haiku 4.5': '#22c55e',
   'Unknown': '#6b7280'
 };

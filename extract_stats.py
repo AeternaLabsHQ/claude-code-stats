@@ -3149,7 +3149,7 @@ function buildSessionCard(s) {
   const projSpan = document.createElement('span'); projSpan.className = 'project'; projSpan.textContent = anonMode ? anonName(s.project) : s.project;
   const costSpan = document.createElement('span'); costSpan.className = 'cost'; costSpan.textContent = fmtUSD(s.cost);
   const rightGroup = document.createElement('span'); rightGroup.style.display = 'flex'; rightGroup.style.alignItems = 'center';
-  if (!anonMode) {
+  if (!anonMode && s.has_chat !== false) {
     const chatLink = document.createElement('a'); chatLink.href = 'sessions/' + s.session_id + '.html';
     chatLink.textContent = 'Chat'; chatLink.addEventListener('click', function(e) { e.stopPropagation(); });
     chatLink.style.cssText = 'color:var(--accent2);font-size:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:6px;margin-right:8px;text-decoration:none';
@@ -3234,7 +3234,7 @@ function updateBulkBtnLabel() {
 }
 async function bulkDownloadSessions() {
   const btn = document.getElementById('bulkDownloadBtn');
-  const sessions = getFilteredSessions();
+  const sessions = getFilteredSessions().filter(s => s.has_chat !== false);
   if (sessions.length === 0) return;
   if (sessions.length > 100 && !confirm(sessions.length + ' Sessions als ZIP herunterladen? Das kann einen Moment dauern.')) return;
 
@@ -4065,7 +4065,9 @@ def generate_session_pages(sessions, session_list):
         messages = extract_session_messages(sid, project_dir)
 
         if not messages:
+            sess_data["has_chat"] = False
             continue
+        sess_data["has_chat"] = True
 
         flow_data = build_session_flow(messages)
 
@@ -6235,6 +6237,13 @@ def main():
         telemetry=telemetry, tasks=tasks, memories=memories,
     )
 
+    print(f"\nGenerating session pages...")
+    generate_session_pages(sessions, data["sessions"])
+
+    print(f"\nGenerating project pages...")
+    project_slugs = generate_project_pages(data["sessions"], data=data)
+    data["project_slugs"] = project_slugs
+
     print(f"\nWriting {DASHBOARD_DATA}...")
     with open(DASHBOARD_DATA, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -6243,15 +6252,6 @@ def main():
     print(f"\nGenerating {DASHBOARD_HTML}...")
     generate_dashboard(data)
     print(f"  Size: {DASHBOARD_HTML.stat().st_size / 1024:.1f} KB")
-
-    print(f"\nGenerating session pages...")
-    generate_session_pages(sessions, data["sessions"])
-
-    print(f"\nGenerating project pages...")
-    project_slugs = generate_project_pages(data["sessions"], data=data)
-    data["project_slugs"] = project_slugs
-    # Re-generate dashboard with project slug mapping
-    generate_dashboard(data)
 
     elapsed = time.time() - t0
     print(f"\n{'=' * 50}")

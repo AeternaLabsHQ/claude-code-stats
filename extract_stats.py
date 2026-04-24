@@ -4065,6 +4065,7 @@ a:hover { text-decoration:underline; }
           <button class="filter-btn" data-filter="agent-dispatch">Subagents</button>
         </div>
         <button class="copy-btn" id="copyBtn">&#128203; Copy</button>
+        <button class="copy-btn" id="downloadBtn" style="margin-left:6px" title="Download filtered messages as Markdown">&#11015; Download</button>
       </div>
       <div class="chat-messages" id="chatPanel"></div>
     </div>
@@ -4187,6 +4188,76 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
   });
 });
 
+// ─── Markdown export helpers ───────────────────────────────────────────
+function sanitizeProjectSlug(p) {
+  const s = (p || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return s || 'unknown';
+}
+function mdFilename(session) {
+  const date = session.date || (session.start ? String(session.start).slice(0,10) : '0000-00-00');
+  const slug = sanitizeProjectSlug(session.project);
+  const id8 = (session.session_id || '').slice(0, 8);
+  return date + '-' + slug + '-' + id8 + '.md';
+}
+function yamlEscape(v) {
+  if (v == null) return '';
+  const str = String(v);
+  if (/[:#"\\n]/.test(str)) return '"' + str.replace(/"/g, '\\\\"') + '"';
+  return str;
+}
+function buildMarkdown(session, messages) {
+  const lines = [];
+  lines.push('---');
+  lines.push('session_id: ' + yamlEscape(session.session_id));
+  lines.push('project: ' + yamlEscape(session.project));
+  lines.push('date: ' + yamlEscape(session.date));
+  let startIso = '';
+  if (session.start) {
+    try { startIso = new Date(session.start).toISOString().replace(/\\.\\d{3}Z$/, 'Z'); } catch(e) { startIso = String(session.start); }
+  }
+  lines.push('start: ' + yamlEscape(startIso));
+  lines.push('duration_min: ' + (session.duration_min != null ? session.duration_min : 0));
+  lines.push('model: ' + yamlEscape(session.primary_model));
+  lines.push('messages: ' + (session.messages != null ? session.messages : 0));
+  lines.push('cost_usd: ' + (typeof session.cost === 'number' ? session.cost.toFixed(4) : '0.0000'));
+  if (session.source) lines.push('source: ' + yamlEscape(session.source));
+  lines.push('---');
+  lines.push('');
+
+  let title = ((session.first_prompt || '').split('\\n')[0] || '').trim();
+  if (title.length > 80) title = title.slice(0, 80) + '\\u2026';
+  if (!title) title = 'Session ' + ((session.session_id || '').slice(0, 8));
+  lines.push('# ' + title);
+  lines.push('');
+
+  messages.forEach(m => {
+    if (m.role !== 'user' && m.role !== 'assistant') return;
+    let ts = '';
+    if (m.timestamp) {
+      try { ts = new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); } catch(e) {}
+    }
+    if (m.role === 'user') {
+      lines.push('## User' + (ts ? ' \\u2014 ' + ts : ''));
+    } else {
+      const model = m.model ? ' (' + m.model + ')' : '';
+      lines.push('## Assistant' + model + (ts ? ' \\u2014 ' + ts : ''));
+    }
+    lines.push('');
+    lines.push(m.content || '');
+    lines.push('');
+  });
+  return lines.join('\\n');
+}
+function triggerDownload(filename, content, mimeType) {
+  const blob = content instanceof Blob ? content : new Blob([content], {type: mimeType || 'text/markdown;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
 // Copy to clipboard
 document.getElementById('copyBtn').addEventListener('click', function() {
   const btn = this;
@@ -4208,6 +4279,23 @@ document.getElementById('copyBtn').addEventListener('click', function() {
     btn.classList.add('copied');
     setTimeout(() => { btn.innerHTML = '&#128203; Copy'; btn.classList.remove('copied'); }, 2000);
   });
+});
+
+// Download filtered chat as Markdown
+document.getElementById('downloadBtn').addEventListener('click', function() {
+  const btn = this;
+  const visible = [];
+  document.querySelectorAll('#chatPanel > .msg').forEach(el => {
+    if (el.style.display === 'none') return;
+    const m = el.id.match(/^msg-(\\d+)$/);
+    if (m) visible.push(parseInt(m[1], 10));
+  });
+  const filtered = visible.map(i => msgs[i]).filter(m => m && (m.role === 'user' || m.role === 'assistant'));
+  const md = buildMarkdown(sess, filtered);
+  triggerDownload(mdFilename(sess), md);
+  btn.innerHTML = '&#10003; Downloaded!';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.innerHTML = '&#11015; Download'; btn.classList.remove('copied'); }, 2000);
 });
 
 // Sidebar

@@ -2079,6 +2079,10 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .misc-stat { padding:16px; background:var(--bg3); border-radius:8px; text-align:center; }
 .misc-stat .ms-val { font-size:24px; font-weight:700; color:var(--accent2); }
 .misc-stat .ms-label { font-size:12px; color:var(--text2); margin-top:4px; }
+.sidebar-row { display:flex; justify-content:space-between; padding:4px 0; font-size:13px; }
+.sidebar-row .label { color:var(--text2); }
+.sidebar-row .label::after { content:':'; margin-right:0.5em; }
+.sidebar-row .val { font-weight:600; font-variant-numeric:tabular-nums; }
 .plugin-status { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
 .plugin-status.active { background:rgba(34,197,94,0.2); color:var(--green); }
 .plugin-status.inactive { background:rgba(239,68,68,0.2); color:var(--red); }

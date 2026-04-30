@@ -552,10 +552,22 @@ function renderCosts() {
   }
 }
 
+function _vcAccentRgb() {
+  // Read --vc-accent from a .vc element; convert hex -> "r,g,b"
+  const probe = document.querySelector('.vc') || document.documentElement;
+  const hex = (getComputedStyle(probe).getPropertyValue('--vc-accent').trim() || '#b04a2f').replace('#', '');
+  if (hex.length !== 6) return '176,74,47';
+  const r = parseInt(hex.substr(0,2), 16);
+  const g = parseInt(hex.substr(2,2), 16);
+  const b = parseInt(hex.substr(4,2), 16);
+  return r + ',' + g + ',' + b;
+}
+
 function renderHeatmap() {
   const container = document.getElementById('activityHeatmap');
   const monthsEl = document.getElementById('heatmapMonths');
   if (!container) return;
+  const accentRgb = _vcAccentRgb();
   const msgMap = {};
   F.daily_messages.forEach(d => { msgMap[d.date] = d.messages; });
   const today = new Date();
@@ -580,7 +592,15 @@ function renderHeatmap() {
       else if (r > 0.2) bg = 'rgba(99,102,241,0.4)';
       else bg = 'rgba(99,102,241,0.2)';
     }
-    cw.push('<div class="heatmap-cell" style="background:'+bg+'" data-tip="'+k+': '+m+' messages"></div>');
+    // Variant-C heatmap: single-accent terracotta with opacity gradient
+    if (m > 0 && maxMsg > 0) {
+      const r = m / maxMsg;
+      const opacity = (0.08 + r * 0.92).toFixed(3);
+      bg = 'rgba(' + accentRgb + ',' + opacity + ')';
+    } else {
+      bg = 'transparent';
+    }
+    cw.push('<div class="heatmap-cell" style="background:'+bg+'" data-tip="'+k+': '+m+' messages" data-intensity="'+(maxMsg>0?(m/maxMsg).toFixed(2):0)+'"></div>');
     if (d.getDay()===0) { while(cw.length<7) cw.push('<div class="heatmap-cell" style="background:transparent"></div>'); weeks.push(cw); cw=[]; }
     d.setDate(d.getDate()+1);
   }

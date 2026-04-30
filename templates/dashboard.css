@@ -179,6 +179,35 @@ body.anon-mode .anon-blur {
   .vc-kpi:last-child { border-bottom: none; }
 }
 
+/* Variant-C heatmap polish */
+.vc .heatmap-cell {
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+.vc .vc-heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--vc-font-mono);
+  font-size: 10px;
+  color: var(--vc-fg-3);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-top: 12px;
+}
+.vc .vc-heatmap-legend .cell {
+  width: 12px; height: 12px;
+  border: 1px solid var(--vc-grid);
+  border-radius: 0 !important;
+  background: rgba(176, 74, 47, var(--legend-opacity, 0.5));
+}
+.vc .vc-heatmap-legend .cell[data-i="0.10"] { --legend-opacity: 0.10; }
+.vc .vc-heatmap-legend .cell[data-i="0.30"] { --legend-opacity: 0.30; }
+.vc .vc-heatmap-legend .cell[data-i="0.50"] { --legend-opacity: 0.50; }
+.vc .vc-heatmap-legend .cell[data-i="0.70"] { --legend-opacity: 0.70; }
+.vc .vc-heatmap-legend .cell[data-i="0.95"] { --legend-opacity: 0.95; }
+.vc .heatmap-container { padding: 18px; }
+
 /* ── Variant-C overrides for legacy components inside .vc scope ─────
    Re-skins the existing chart-box, data-table, kpi-card, etc. with
    Terminal tokens. This avoids a full markup rewrite while delivering

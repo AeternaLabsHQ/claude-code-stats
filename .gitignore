@@ -1,9 +1,9 @@
 # Generated output
 public/
 
-# Legacy output location (before public/ migration)
-dashboard.html
-dashboard_data.json
+# Legacy output location (before public/ migration) — anchored to root only
+/dashboard.html
+/dashboard_data.json
 
 # Personal config (copy config.example.json to config.json)
 config.json

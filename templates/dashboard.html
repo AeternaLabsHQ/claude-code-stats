@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="__L_html_lang__">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code Dashboard</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<!-- STYLES -->
+<script>
+// URL-loop guard: if a server catch-all served this page at a path with
+// repeated /sessions/ segments, our relative "Chat" links would feed the
+// loop on every click. Redirect to root before anything else runs.
+(function() {
+  if (location.pathname.split('/sessions/').length > 2) {
+    location.replace(location.origin + '/');
+  }
+})();
+</script>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>__L_header_title_prefix__</span> __L_header_title_suffix__</h1>
+  <div class="time-filter" id="timeFilter"></div>
+  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none" title="__L_header_hide_empty_hint__">
+    <input type="checkbox" id="hideEmptySessions" checked style="accent-color:var(--accent);cursor:pointer" />
+    __L_header_hide_empty__
+  </label>
+  <input type="text" id="projectFilter" placeholder="Filter projects..." style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:12px;width:180px;outline:none;" />
+  <div class="meta" id="headerMeta"></div>
+</div>
+
+<div class="container">
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <div class="tabs" id="tabBar"></div>
+
+  <div class="tab-content active" id="tab-costs">
+    <div class="chart-grid full">
+      <div class="chart-box"><h3>__L_costs_daily_cost__</h3><canvas id="chartDailyCost"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_costs_cumulative__</h3><canvas id="chartCumCost"></canvas></div>
+      <div class="chart-box"><h3>__L_costs_model_dist__</h3><canvas id="chartModelDist"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_costs_token_type__</h3><canvas id="chartTokenType"></canvas></div>
+      <div class="chart-box">
+        <h3>__L_costs_model_detail__</h3>
+        <table class="data-table" id="modelTable">
+          <thead><tr>
+            <th>__L_costs_th_model__</th><th class="num">__L_costs_th_api_value__</th><th class="num">__L_costs_th_output__</th>
+            <th class="num">__L_costs_th_input__</th><th class="num">__L_costs_th_cache_read__</th><th class="num">__L_costs_th_api_calls__</th>
+          </tr></thead>
+          <tbody id="modelTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box" id="cacheEfficiency">
+        <h3>__L_costs_cache_efficiency__</h3>
+        <div class="kpi-grid" id="cacheKpi"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-activity">
+    <div class="chart-box heatmap-container">
+      <h3>__L_activity_heatmap__</h3>
+      <div class="heatmap-scroll">
+        <div id="heatmapMonths" class="heatmap-months"></div>
+        <div style="display:flex">
+          <div class="heatmap-labels"><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span></div>
+          <div id="activityHeatmap" class="heatmap-grid"></div>
+        </div>
+      </div>
+      <div class="heatmap-legend">
+        <span>Less</span>
+        <div class="cell" style="background:var(--bg3)"></div>
+        <div class="cell" style="background:rgba(99,102,241,0.2)"></div>
+        <div class="cell" style="background:rgba(99,102,241,0.4)"></div>
+        <div class="cell" style="background:rgba(99,102,241,0.7)"></div>
+        <div class="cell" style="background:var(--accent)"></div>
+        <span>More</span>
+      </div>
+    </div>
+    <div class="chart-grid full">
+      <div class="chart-box"><h3>__L_activity_daily_messages__</h3><canvas id="chartDailyMsgs"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_activity_hourly__</h3><canvas id="chartHourly"></canvas></div>
+      <div class="chart-box"><h3>__L_activity_weekday__</h3><canvas id="chartWeekday"></canvas></div>
+    </div>
+    <div class="chart-grid full">
+      <div class="chart-box"><h3>__L_activity_daily_sessions__</h3><canvas id="chartDailySessions"></canvas></div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-projects">
+    <div class="chart-grid full">
+      <div class="chart-box tall"><h3>__L_projects_top15__</h3><canvas id="chartProjectCost"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>__L_projects_all_projects__</h3>
+      <table class="data-table sortable" id="projectTable">
+        <thead><tr>
+          <th data-sort="name">__L_projects_th_project__</th>
+          <th data-sort="sources">Source</th>
+          <th data-sort="sessions" class="num">__L_projects_th_sessions__</th>
+          <th data-sort="messages" class="num">__L_projects_th_messages__</th>
+          <th data-sort="cost" class="num">__L_projects_th_api_value__</th>
+          <th data-sort="output_tokens" class="num">__L_projects_th_output_tokens__</th>
+          <th data-sort="file_size_mb" class="num">__L_projects_th_file_size__</th>
+        </tr></thead>
+        <tbody id="projectTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-sessions">
+    <div class="session-filters">
+      <select id="filterProject"><option value="">__L_sessions_tab_all_projects__</option></select>
+      <select id="filterSource"><option value="">All Sources</option></select>
+      <select id="filterSort">
+        <option value="date-desc">__L_sessions_tab_sort_date_desc__</option>
+        <option value="date-asc">__L_sessions_tab_sort_date_asc__</option>
+        <option value="cost-desc">__L_sessions_tab_sort_cost_desc__</option>
+        <option value="cost-asc">__L_sessions_tab_sort_cost_asc__</option>
+        <option value="messages-desc">__L_sessions_tab_sort_messages_desc__</option>
+      </select>
+      <input type="text" id="filterSearch" placeholder="__L_sessions_tab_search_placeholder__">
+      <span class="meta" id="sessionCount"></span>
+      <button id="bulkDownloadBtn" class="bulk-download-btn" style="margin-left:auto" title="Download all currently filtered sessions as a ZIP of Markdown files">&#11015; Download all (0)</button>
+    </div>
+    <div id="sessionList"></div>
+    <div class="pagination" id="sessionPagination"></div>
+  </div>
+
+  <div class="tab-content" id="tab-plan">
+    <div class="plan-highlight" id="planKpi"></div>
+    <div class="billing-progress" id="billingProgress"></div>
+    <div class="plan-comparison" id="planComparison">
+      <h3>__L_plan_comparison_title__</h3>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_plan_savings_by_period__</h3><canvas id="chartPlanSavings"></canvas></div>
+      <div class="chart-box"><h3>__L_plan_avg_cost_per_day__</h3><canvas id="chartCostPerDay"></canvas></div>
+    </div>
+    <div class="chart-box" style="margin-top:20px">
+      <h3>__L_plan_period_detail__</h3>
+      <table class="data-table" id="planTable">
+        <thead><tr>
+          <th>__L_plan_th_period__</th><th>__L_plan_th_plan__</th><th class="num">__L_plan_th_days__</th>
+          <th class="num">__L_plan_th_api_cost__</th><th class="num">__L_plan_th_plan_cost__</th>
+          <th class="num">__L_plan_th_savings__</th><th class="num">__L_plan_th_roi__</th>
+          <th class="num">__L_plan_th_sessions__</th><th class="num">__L_plan_th_messages__</th>
+        </tr></thead>
+        <tbody id="planTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-insights">
+    <div class="chart-grid">
+      <div class="chart-box tall"><h3>__L_insights_tool_usage__</h3><canvas id="chartToolUsage"></canvas></div>
+      <div class="chart-box"><h3>__L_insights_storage__</h3><canvas id="chartStorage"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box">
+        <h3>__L_insights_plugins__</h3>
+        <table class="data-table" id="pluginTable">
+          <thead><tr>
+            <th>__L_insights_th_plugin__</th><th>__L_insights_th_status__</th><th>__L_insights_th_version__</th>
+            <th class="num">__L_insights_th_global_installs__</th><th>__L_insights_th_installed_at__</th>
+          </tr></thead>
+          <tbody id="pluginTableBody"></tbody>
+        </table>
+      </div>
+      <div class="chart-box">
+        <h3>__L_insights_configuration__</h3>
+        <div id="configInfo"></div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box">
+        <h3>__L_insights_plan_mode_plans__</h3>
+        <table class="data-table" id="plansTable">
+          <thead><tr>
+            <th>__L_insights_th_title__</th><th>__L_insights_th_created__</th><th class="num">__L_insights_th_lines__</th><th class="num">__L_insights_th_kb__</th>
+          </tr></thead>
+          <tbody id="plansTableBody"></tbody>
+        </table>
+      </div>
+      <div class="chart-box">
+        <h3>__L_insights_file_snapshots_title__</h3>
+        <div id="miscStats"></div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box">
+        <h3>__L_insights_skills__</h3>
+        <div id="skillsList"></div>
+      </div>
+      <div class="chart-box">
+        <h3>__L_insights_hooks__</h3>
+        <div id="hooksList"></div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_insights_system_info__</h3><div id="systemInfo"></div></div>
+      <div class="chart-box"><h3>__L_insights_git_ops__</h3><div id="gitOpsInfo"></div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_insights_error_rate_over_time__</h3><canvas id="errorRateChart" height="200"></canvas></div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-agents">
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_agents_subagent_types__</h3><canvas id="agentTypesChart" height="250"></canvas></div>
+      <div class="chart-box"><h3>__L_agents_top_descriptions__</h3><canvas id="agentDescsChart" height="250"></canvas></div>
+    </div>
+    <div class="kpi-grid" id="agentKpis"></div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_agents_task_overview__</h3><div id="taskOverview"></div></div>
+      <div class="chart-box"><h3>__L_agents_error_overview__</h3><div id="errorOverview"></div></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>__L_agents_errors_by_category__</h3><canvas id="errorByCategoryChart" height="250"></canvas></div>
+      <div class="chart-box"><h3>__L_agents_errors_by_tool__</h3><canvas id="errorByToolChart" height="250"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPTS -->
+<div style="text-align:center;padding:24px 0 8px;color:#475569;font-size:11px;">v__VERSION__</div>
+<div style="text-align:center;padding:0 0 16px;color:#64748b;font-size:10px;">Contains private data &mdash; do not share publicly | Press F2 to toggle anonymization | <a href="https://github.com/AeternaLabsHQ/claude-code-stats" style="color:#818cf8" target="_blank">GitHub</a></div>
+</body>
+</html>

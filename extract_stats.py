@@ -178,7 +178,7 @@ def sudo_file_size(path, sudo_user):
     except ValueError:
         return 0
 
-VERSION = "0.8.1"
+VERSION = "0.8.2"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
@@ -1593,7 +1593,9 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
 
             model_breakdown[display_model] = {
                 "cost": round(mdata["cost"], 4),
+                "input_tokens": mdata["input_tokens"],
                 "output_tokens": mdata["output_tokens"],
+                "cache_read_tokens": mdata["cache_read_input_tokens"],
                 "calls": mdata["calls"],
             }
 

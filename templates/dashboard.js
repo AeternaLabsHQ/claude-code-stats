@@ -1794,3 +1794,74 @@ if (typeof applyFilter === 'function') {
     return r;
   };
 }
+
+// ── Variant-C shared render helpers ───────────────────────────────
+function vcSection(title, meta) {
+  const h = document.createElement('div');
+  h.className = 'vc-tab-h';
+  const t = document.createElement('div'); t.className = 'vc-tab-h-title';
+  const b = document.createElement('b'); b.textContent = '↳';
+  t.appendChild(b); t.appendChild(document.createTextNode(' ' + title));
+  const r = document.createElement('div'); r.className = 'vc-tab-h-rule';
+  const m = document.createElement('div'); m.className = 'vc-tab-h-meta'; m.textContent = meta || '';
+  h.appendChild(t); h.appendChild(r); h.appendChild(m);
+  return h;
+}
+
+function vcDistbar(rows, opts) {
+  opts = opts || {};
+  const max = opts.max || Math.max.apply(null, rows.map(function(r){return r.value||0}).concat([1]));
+  const series = opts.series || 1;
+  const seriesClass = series === 2 ? 's2' : (series === 3 ? 's3' : '');
+  const c = document.createElement('div'); c.className = 'vc-distbar';
+  rows.forEach(function(r){
+    const row = document.createElement('div'); row.className = 'vc-distbar-row';
+    const n = document.createElement('div'); n.className = 'vc-distbar-name'; n.textContent = r.name;
+    if (opts.anonName) n.classList.add('anon-blur');
+    const t = document.createElement('div'); t.className = 'vc-distbar-track';
+    const f = document.createElement('div'); f.className = 'vc-distbar-fill ' + seriesClass;
+    const v = (r.value || 0);
+    f.style.width = (max > 0 ? (v / max * 100) : 0).toFixed(1) + '%';
+    t.appendChild(f);
+    const val = document.createElement('div'); val.className = 'vc-distbar-val';
+    val.textContent = r.label != null ? r.label : v.toLocaleString('en-US');
+    row.appendChild(n); row.appendChild(t); row.appendChild(val);
+    c.appendChild(row);
+  });
+  return c;
+}
+
+function vcStatRows(rows) {
+  const c = document.createDocumentFragment();
+  rows.forEach(function(r){
+    const row = document.createElement('div'); row.className = 'vc-stat-row';
+    const k = document.createElement('div'); k.className = 'k'; k.textContent = r.k;
+    const v = document.createElement('div'); v.className = 'v' + (r.acc ? ' acc' : '');
+    if (r.html) { v.innerHTML = r.html; } else { v.textContent = r.v; }
+    if (r.title) row.title = r.title;
+    row.appendChild(k); row.appendChild(v);
+    c.appendChild(row);
+  });
+  return c;
+}
+
+function vcMiscGrid(items) {
+  const c = document.createElement('div'); c.className = 'vc-misc-grid';
+  items.forEach(function(it){
+    const m = document.createElement('div'); m.className = 'vc-misc';
+    const v = document.createElement('div'); v.className = 'v' + (it.acc ? ' acc' : '');
+    v.textContent = it.v;
+    const l = document.createElement('div'); l.className = 'l'; l.textContent = it.l;
+    m.appendChild(v); m.appendChild(l);
+    c.appendChild(m);
+  });
+  return c;
+}
+
+// Wrap unpredictable text content (for anon-mode CSS blur)
+function vcAnonWrap(text) {
+  const s = document.createElement('span');
+  s.className = 'anon-blur';
+  s.textContent = text;
+  return s;
+}

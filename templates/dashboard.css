@@ -124,6 +124,86 @@ body.anon-mode .anon-blur {
   .vc-top-center, .vc-top-right { justify-self: stretch; flex-wrap: wrap; }
 }
 
+/* ── Variant-C primary nav ─────────────────────────────────────── */
+.vc-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--vc-grid);
+  background: var(--vc-bg);
+  font-family: var(--vc-font-mono);
+}
+.vc-nav-tabs { display: flex; }
+.vc-tab {
+  padding: 14px 18px;
+  font-family: var(--vc-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--vc-fg-3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  position: relative;
+}
+.vc-tab:hover { color: var(--vc-fg-2); }
+.vc-tab.active { color: var(--vc-fg); }
+.vc-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 12px; right: 12px; bottom: -1px;
+  height: 2px;
+  background: var(--vc-accent);
+}
+.vc-nav-right { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.vc-filter {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--vc-grid);
+  padding: 0 8px;
+  font-family: var(--vc-font-mono);
+  font-size: 11px;
+  height: 28px;
+  background: var(--vc-panel);
+}
+.vc-filter-prompt { color: var(--vc-accent); margin-right: 6px; font-weight: 600; }
+.vc-filter-input {
+  background: transparent;
+  border: none;
+  color: var(--vc-fg);
+  font-family: var(--vc-font-mono);
+  font-size: 11px;
+  outline: none;
+  min-width: 140px;
+  width: 180px;
+}
+.vc-filter-input::placeholder { color: var(--vc-fg-3); }
+.vc-range { display: flex; border: 1px solid var(--vc-grid); height: 28px; background: var(--vc-panel); }
+.vc-range-btn {
+  padding: 0 12px;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--vc-grid);
+  color: var(--vc-fg-3);
+  font-family: var(--vc-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  height: 100%;
+}
+.vc-range-btn:first-child { border-left: none; }
+.vc-range-btn:hover { color: var(--vc-fg-2); }
+.vc-range-btn.active { color: var(--vc-accent); font-weight: 600; }
+
+@media (max-width: 960px) {
+  .vc-nav { flex-direction: column; padding: 0; align-items: stretch; }
+  .vc-nav-tabs { overflow-x: auto; padding: 0 12px; }
+  .vc-nav-right { padding: 12px; border-top: 1px solid var(--vc-grid); flex-wrap: wrap; justify-content: flex-start; }
+}
+
 /* ================================================================
    Legacy theme below — keeps existing dashboard rendering intact
    while Variant-C components are progressively introduced.

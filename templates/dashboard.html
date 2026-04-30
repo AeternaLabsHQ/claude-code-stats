@@ -46,6 +46,24 @@
   </div>
 </div>
 
+<!-- Variant-C primary nav (tabs left, filter + range right) -->
+<div class="vc vc-nav">
+  <div class="vc-nav-tabs" id="vcTabs"></div>
+  <div class="vc-nav-right">
+    <div class="vc-filter">
+      <span class="vc-filter-prompt">&gt;</span>
+      <input type="text" id="vcQuickFilter" class="vc-filter-input" placeholder="__L_filter_placeholder__" />
+    </div>
+    <div class="vc-range" id="vcRange">
+      <button class="vc-range-btn active" data-days="0">All</button>
+      <button class="vc-range-btn" data-days="7">7D</button>
+      <button class="vc-range-btn" data-days="30">30D</button>
+      <button class="vc-range-btn" data-days="90">90D</button>
+      <button class="vc-range-btn" data-days="365">1Y</button>
+    </div>
+  </div>
+</div>
+
 <!-- Legacy header — hidden, kept for JS compatibility (timeFilter, projectFilter, headerMeta) -->
 <div class="header" style="display:none">
   <h1><span>__L_header_title_prefix__</span> __L_header_title_suffix__</h1>

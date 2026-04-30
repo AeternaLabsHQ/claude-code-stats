@@ -1601,3 +1601,57 @@ document.addEventListener('keydown', function(e) {
   }
 })();
 
+
+// ── Variant-C primary nav wiring ──────────────────────────────────
+(function() {
+  const tabsEl = document.getElementById('vcTabs');
+  if (!tabsEl) return;
+  // Tabs: clone TAB_NAMES into vcTabs
+  TAB_NAMES.forEach((t, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'vc-tab' + (i === 0 ? ' active' : '');
+    btn.textContent = (t.label || '').toUpperCase();
+    btn.dataset.tab = t.id;
+    btn.addEventListener('click', () => {
+      tabsEl.querySelectorAll('.vc-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      // Drive legacy switchTab via the corresponding hidden tab-btn (simpler than calling switchTab(id, btn) which expects the legacy btn)
+      const legacy = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.textContent === t.label);
+      if (legacy) {
+        switchTab(t.id, legacy);
+      } else {
+        // Fallback: directly toggle tab-content
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        const target = document.getElementById('tab-' + t.id);
+        if (target) target.classList.add('active');
+      }
+    });
+    tabsEl.appendChild(btn);
+  });
+
+  // Range buttons
+  const rangeEl = document.getElementById('vcRange');
+  rangeEl?.querySelectorAll('.vc-range-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      rangeEl.querySelectorAll('.vc-range-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const days = parseInt(btn.dataset.days, 10) || 0;
+      // Update top-bar RANGE display
+      const rEl = document.getElementById('vcTopRange');
+      if (rEl) rEl.textContent = days === 0 ? 'all' : days + 'd';
+      applyFilter(days);
+    });
+  });
+
+  // Quick filter — drives the same handler as #projectFilter (debounced)
+  let pfTimer;
+  const qf = document.getElementById('vcQuickFilter');
+  qf?.addEventListener('input', function() {
+    clearTimeout(pfTimer);
+    pfTimer = setTimeout(() => {
+      const legacy = document.getElementById('projectFilter');
+      if (legacy) legacy.value = qf.value;
+      applyFilter(undefined, qf.value);
+    }, 300);
+  });
+})();

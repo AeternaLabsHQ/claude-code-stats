@@ -1655,3 +1655,86 @@ document.addEventListener('keydown', function(e) {
     }, 300);
   });
 })();
+
+// ── Variant-C KPI strip rendering ─────────────────────────────────
+function fmtVcUsd(n) {
+  return '$' + (n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+function fmtVcTok(n) {
+  if (!n) return '0';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(Math.round(n));
+}
+
+function renderVcKpis() {
+  const k = (typeof F !== 'undefined' && F.kpi) ? F.kpi : (D && D.kpi) || {};
+  if (!k) return;
+
+  const apiEq = k.total_cost || 0;
+  const paid = k.actual_plan_cost || 0;
+  const savePct = apiEq > 0 ? ((apiEq - paid) / apiEq * 100) : 0;
+  const apiEqEl = document.getElementById('vcKpiApiEq');
+  if (apiEqEl) apiEqEl.textContent = fmtVcUsd(apiEq);
+  const apiSubEl = document.getElementById('vcKpiApiEqSub');
+  if (apiSubEl) apiSubEl.innerHTML = 'paid <b>' + fmtVcUsd(paid) + '</b> &middot; save <b>' + savePct.toFixed(1) + '%</b>';
+  const deltaEl = document.getElementById('vcKpiSavePct');
+  if (deltaEl) {
+    if (savePct >= 0) {
+      deltaEl.innerHTML = '&#9650; ' + savePct.toFixed(1) + '%';
+    } else {
+      deltaEl.innerHTML = '&#9660; ' + (-savePct).toFixed(1) + '%';
+    }
+  }
+
+  const sessions = k.total_sessions || 0;
+  // Avg duration: compute from F.sessions if available
+  let avgMin = 0;
+  if (typeof F !== 'undefined' && F.sessions && F.sessions.length > 0) {
+    const durs = F.sessions
+      .filter(s => s.start && s.end)
+      .map(s => (new Date(s.end) - new Date(s.start)) / 60000);
+    if (durs.length > 0) {
+      avgMin = durs.reduce((a, b) => a + b, 0) / durs.length;
+    }
+  }
+  const sessEl = document.getElementById('vcKpiSessions');
+  if (sessEl) sessEl.textContent = sessions.toLocaleString('en-US');
+  const sessSub = document.getElementById('vcKpiSessionsSub');
+  if (sessSub) sessSub.innerHTML = 'avg <b>' + Math.round(avgMin) + 'm</b>';
+
+  const msgs = k.total_messages || 0;
+  const perSession = sessions > 0 ? Math.round(msgs / sessions) : 0;
+  const msgEl = document.getElementById('vcKpiMessages');
+  if (msgEl) msgEl.textContent = msgs.toLocaleString('en-US');
+  const msgSub = document.getElementById('vcKpiMessagesSub');
+  if (msgSub) msgSub.innerHTML = '<b>' + perSession + '</b>/session';
+
+  const output = k.total_output_tokens || 0;
+  const input = k.total_input_tokens || 0;
+  const cacheRead = k.total_cache_read_tokens || 0;
+  const cacheWrite = k.total_cache_write_tokens || 0;
+  const outEl = document.getElementById('vcKpiOutput');
+  if (outEl) outEl.textContent = fmtVcTok(output);
+  const outSub = document.getElementById('vcKpiOutputSub');
+  if (outSub) outSub.innerHTML = 'in <b>' + fmtVcTok(input) + '</b>';
+
+  const totalIn = input + cacheRead + cacheWrite;
+  const cacheHit = totalIn > 0 ? (cacheRead / totalIn * 100) : 0;
+  const chEl = document.getElementById('vcKpiCacheHit');
+  if (chEl) chEl.innerHTML = cacheHit.toFixed(1) + '<span class="vc-kpi-pct">%</span>';
+  const chSub = document.getElementById('vcKpiCacheHitSub');
+  if (chSub) chSub.innerHTML = 'read <b>' + fmtVcTok(cacheRead) + '</b>';
+}
+// Initial render
+if (typeof F !== 'undefined') renderVcKpis();
+// Re-render on filter change: hook into applyFilter via wrapper
+if (typeof applyFilter === 'function') {
+  const _origApplyFilter = applyFilter;
+  applyFilter = function(...args) {
+    const r = _origApplyFilter.apply(this, args);
+    try { renderVcKpis(); } catch (e) { console.warn('renderVcKpis failed', e); }
+    return r;
+  };
+}

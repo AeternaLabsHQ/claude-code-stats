@@ -72,8 +72,40 @@
   <div class="meta" id="headerMeta"></div>
 </div>
 
+<!-- Variant-C KPI strip -->
+<div class="vc vc-kpis-wrap">
+  <div class="vc-kpis">
+    <div class="vc-kpi vc-kpi-primary">
+      <div class="vc-kpi-label">API EQUIVALENT<span class="vc-kpi-delta" id="vcKpiSavePct"></span></div>
+      <div class="vc-kpi-value" id="vcKpiApiEq">$0.00</div>
+      <div class="vc-kpi-sub" id="vcKpiApiEqSub">paid <b>$0.00</b> &middot; save <b>0.0%</b></div>
+    </div>
+    <div class="vc-kpi">
+      <div class="vc-kpi-label">SESSIONS</div>
+      <div class="vc-kpi-value" id="vcKpiSessions">0</div>
+      <div class="vc-kpi-sub" id="vcKpiSessionsSub">avg <b>0m</b></div>
+    </div>
+    <div class="vc-kpi">
+      <div class="vc-kpi-label">MESSAGES</div>
+      <div class="vc-kpi-value" id="vcKpiMessages">0</div>
+      <div class="vc-kpi-sub" id="vcKpiMessagesSub"><b>0</b>/session</div>
+    </div>
+    <div class="vc-kpi">
+      <div class="vc-kpi-label">OUTPUT TOKENS</div>
+      <div class="vc-kpi-value" id="vcKpiOutput">0</div>
+      <div class="vc-kpi-sub" id="vcKpiOutputSub">in <b>0</b></div>
+    </div>
+    <div class="vc-kpi">
+      <div class="vc-kpi-label">CACHE HIT</div>
+      <div class="vc-kpi-value" id="vcKpiCacheHit">0<span class="vc-kpi-pct">%</span></div>
+      <div class="vc-kpi-sub" id="vcKpiCacheHitSub">read <b>0</b></div>
+    </div>
+  </div>
+</div>
+
 <div class="container">
-  <div class="kpi-grid" id="kpiGrid"></div>
+  <!-- Legacy kpiGrid hidden (replaced by .vc-kpis above) -->
+  <div class="kpi-grid" id="kpiGrid" style="display:none"></div>
 
   <div class="tabs" id="tabBar"></div>
 

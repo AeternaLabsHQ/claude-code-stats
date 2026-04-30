@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Detail</title>
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<!-- STYLES -->
+</head>
+<body>
+<div class="header">
+  <div class="header-top">
+    <a href="../index.html">&larr; Back to Dashboard</a>
+    <h1 id="sessionTitle"></h1>
+  </div>
+  <div class="session-meta" id="sessionMeta"></div>
+</div>
+<div class="stats-bar" id="statsBar"></div>
+<div class="main-layout">
+  <div class="left-column">
+    <div class="flow-container">
+      <canvas id="flow-canvas"></canvas>
+      <div class="flow-toolbar">
+        <button id="flow-rewind" title="Restart">&#9198;</button>
+        <button id="flow-play" class="active" title="Play/Pause">&#9654;</button>
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+        <button class="speed-btn" data-speed="5">5x</button>
+        <button class="speed-btn" data-speed="0" title="Skip to end">&#9199;</button>
+        <button class="speed-btn" id="flow-showall" title="Show all nodes">&#9673;</button>
+      </div>
+      <div class="flow-fitall"><button id="flow-fullscreen" title="Fullscreen">&#x26F6;</button><button id="flow-fit" title="Fit all nodes">&#8982;</button></div>
+      <div class="flow-progress"><div class="flow-progress-bar" id="flow-progress"></div></div>
+      <div class="flow-tooltip" id="flow-tooltip"></div>
+    </div>
+    <button class="flow-toggle" id="flow-toggle">Show Flow</button>
+    <div class="chat-panel">
+      <div class="chat-toolbar">
+        <div class="filter-group">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="user">User</button>
+          <button class="filter-btn" data-filter="assistant">Agent</button>
+          <button class="filter-btn" data-filter="agent-dispatch">Subagents</button>
+        </div>
+        <button class="copy-btn" id="copyBtn">&#128203; Copy</button>
+        <button class="copy-btn" id="downloadBtn" style="margin-left:6px" title="Download filtered messages as Markdown">&#11015; Download</button>
+      </div>
+      <div class="chat-messages" id="chatPanel"></div>
+    </div>
+  </div>
+  <div class="sidebar" id="sidebar"></div>
+</div>
+<!-- SCRIPTS -->
+</body>
+</html>

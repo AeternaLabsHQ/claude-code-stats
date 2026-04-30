@@ -414,7 +414,7 @@ function renderToolUsageChart() {
       type: 'bar',
       data: { labels: tools.map(t => t.name),
         datasets: [{ label: D.locale.insights.tool_calls, data: tools.map(t => t.count),
-          backgroundColor: tools.map((_, i) => 'hsl(' + (i * 18) + ',60%,55%)'), borderRadius: 4 }] },
+          backgroundColor: tools.map((_, i) => 'hsl(' + (i * 18) + ',60%,55%)'), borderRadius: 0 }] },
       options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
         plugins: { legend: { display: false } },
         scales: { x: { ...scaleDefaults.x, title: { display: true, text: D.locale.insights.tool_calls, color: '#64748b' } },
@@ -518,7 +518,7 @@ function renderCosts() {
         label: m,
         data: F.daily_costs.map(d => d[m] || 0),
         backgroundColor: MODEL_COLORS[m] || '#6b7280',
-        borderRadius: 2,
+        borderRadius: 0,
       }))
     },
     options: {
@@ -558,7 +558,7 @@ function renderCosts() {
     data: {
       labels: ['Input', 'Output', 'Cache Read', 'Cache Write'],
       datasets: [{ data: [cbt.input, cbt.output, cbt.cache_read, cbt.cache_write],
-        backgroundColor: ['#3b82f6', '#a855f7', '#22c55e', vcColor(1)], borderRadius: 6 }]
+        backgroundColor: [vcColor(0), vcRgba(0, 0.7), vcColor(1), vcColor(2)], borderRadius: 0 }]
     },
     options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
       plugins: { legend: { display: false } },
@@ -669,7 +669,7 @@ function renderActivity() {
   charts.dailyMsgs = new Chart(document.getElementById('chartDailyMsgs'), {
     type: 'bar',
     data: { labels: F.daily_messages.map(d => d.date),
-      datasets: [{ label: D.locale.activity.messages_label, data: F.daily_messages.map(d => d.messages), backgroundColor: vcColor(0), borderRadius: 3 }] },
+      datasets: [{ label: D.locale.activity.messages_label, data: F.daily_messages.map(d => d.messages), backgroundColor: vcColor(0), borderRadius: 0 }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: scaleDefaults }
   });
@@ -690,7 +690,7 @@ function renderActivity() {
     type: 'bar',
     data: { labels: F.weekday_distribution.map(d => d.day),
       datasets: [{ label: D.locale.activity.messages_label, data: F.weekday_distribution.map(d => d.messages),
-        backgroundColor: F.weekday_distribution.map((d, i) => i >= 5 ? vcColor(1) : vcColor(0)), borderRadius: 4 }] },
+        backgroundColor: F.weekday_distribution.map((d, i) => i >= 5 ? vcColor(1) : vcColor(0)), borderRadius: 0 }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } }, scales: scaleDefaults }
   });
@@ -698,7 +698,7 @@ function renderActivity() {
   charts.dailySessions = new Chart(document.getElementById('chartDailySessions'), {
     type: 'bar',
     data: { labels: F.daily_messages.map(d => d.date),
-      datasets: [{ label: D.locale.activity.sessions_label, data: F.daily_messages.map(d => d.sessions), backgroundColor: vcColor(2), borderRadius: 3 }] },
+      datasets: [{ label: D.locale.activity.sessions_label, data: F.daily_messages.map(d => d.sessions), backgroundColor: vcColor(2), borderRadius: 0 }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: scaleDefaults }
   });
@@ -711,7 +711,7 @@ function renderProjects() {
   charts.projectCost = new Chart(document.getElementById('chartProjectCost'), {
     type: 'bar',
     data: { labels: top.map(p => anonMode ? anonName(p.name) : p.name.split('/').pop()),
-      datasets: [{ label: D.locale.projects.top15_label, data: top.map(p => p.cost), backgroundColor: vcColor(0), borderRadius: 4 }] },
+      datasets: [{ label: D.locale.projects.top15_label, data: top.map(p => p.cost), backgroundColor: vcColor(0), borderRadius: 0 }] },
     options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
       plugins: { legend: { display: false } },
       scales: { x: { ...scaleDefaults.x, title: { display: true, text: 'USD', color: '#64748b' } },
@@ -1208,8 +1208,8 @@ function renderPlan() {
     data: {
       labels: periodLabels,
       datasets: [
-        {label: D.locale.plan.api_cost_label, data: plan.periods.map(p => p.api_cost), backgroundColor: vcRgba(1, 0.7), borderRadius: 4},
-        {label: D.locale.plan.plan_cost_label, data: plan.periods.map(p => p.plan_cost_usd), backgroundColor: vcRgba(0, 0.7), borderRadius: 4},
+        {label: D.locale.plan.api_cost_label, data: plan.periods.map(p => p.api_cost), backgroundColor: vcRgba(1, 0.7), borderRadius: 0},
+        {label: D.locale.plan.plan_cost_label, data: plan.periods.map(p => p.plan_cost_usd), backgroundColor: vcRgba(0, 0.7), borderRadius: 0},
       ]
     },
     options: { responsive: true, maintainAspectRatio: false,
@@ -1223,7 +1223,7 @@ function renderPlan() {
       labels: periodLabels,
       datasets: [{ label: D.locale.plan.api_cost_per_day_label, data: plan.periods.map(p => p.cost_per_day),
         backgroundColor: plan.periods.map(p => p.plan === 'Max' ? vcRgba(2, 0.7) : vcRgba(1, 0.7)),
-        borderRadius: 4 }]
+        borderRadius: 0 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },

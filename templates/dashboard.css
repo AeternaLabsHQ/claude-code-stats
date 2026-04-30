@@ -1,4 +1,77 @@
 
+/* ================================================================
+   Variant-C "Terminal" design tokens (scoped to .vc class).
+   Defined here so new components can be progressively introduced
+   alongside the legacy multi-color theme, without conflicting.
+   Light mode is default; dark mode kicks in via prefers-color-scheme
+   or explicit .theme-dark on <html>.
+================================================================ */
+.vc {
+  --vc-bg: #f4f1ec;
+  --vc-panel: #fbfaf6;
+  --vc-grid: #d8d2c4;
+  --vc-grid-2: #e8e3d6;
+  --vc-fg: #1c1a17;
+  --vc-fg-2: #4d4a42;
+  --vc-fg-3: #918a7a;
+  --vc-accent: #b04a2f;
+  --vc-accent-soft: #f1d9cd;
+  --vc-font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --vc-font-sans: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: var(--vc-font-mono);
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+  color: var(--vc-fg);
+}
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) .vc {
+    --vc-bg: #0e0d0b;
+    --vc-panel: #15140f;
+    --vc-grid: #2a2620;
+    --vc-grid-2: #1f1d18;
+    --vc-fg: #ece7da;
+    --vc-fg-2: #b3ad9b;
+    --vc-fg-3: #76705f;
+    --vc-accent: #d97757;
+    --vc-accent-soft: #2c1c14;
+  }
+}
+html.theme-dark .vc {
+  --vc-bg: #0e0d0b;
+  --vc-panel: #15140f;
+  --vc-grid: #2a2620;
+  --vc-grid-2: #1f1d18;
+  --vc-fg: #ece7da;
+  --vc-fg-2: #b3ad9b;
+  --vc-fg-3: #76705f;
+  --vc-accent: #d97757;
+  --vc-accent-soft: #2c1c14;
+}
+html.theme-light .vc {
+  --vc-bg: #f4f1ec;
+  --vc-panel: #fbfaf6;
+  --vc-grid: #d8d2c4;
+  --vc-grid-2: #e8e3d6;
+  --vc-fg: #1c1a17;
+  --vc-fg-2: #4d4a42;
+  --vc-fg-3: #918a7a;
+  --vc-accent: #b04a2f;
+  --vc-accent-soft: #f1d9cd;
+}
+.vc *, .vc *::before, .vc *::after { border-radius: 0 !important; box-sizing: border-box; }
+body.vc-page { background: var(--vc-bg, #f4f1ec); color: var(--vc-fg, #1c1a17); font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum' 1, 'zero' 1; }
+body.vc-page.theme-dark, html.theme-dark body.vc-page { background: #0e0d0b; color: #ece7da; }
+body.vc-page * { box-sizing: border-box; }
+
+/* Anonymization blur */
+body.anon-mode .anon-blur {
+  filter: blur(4px);
+  user-select: none;
+}
+
+/* ================================================================
+   Legacy theme below — keeps existing dashboard rendering intact
+   while Variant-C components are progressively introduced.
+================================================================ */
 :root {
   --bg: #0f1117;
   --bg2: #1a1d27;

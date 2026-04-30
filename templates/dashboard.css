@@ -179,6 +179,268 @@ body.anon-mode .anon-blur {
   .vc-kpi:last-child { border-bottom: none; }
 }
 
+/* ── Variant-C overrides for legacy components inside .vc scope ─────
+   Re-skins the existing chart-box, data-table, kpi-card, etc. with
+   Terminal tokens. This avoids a full markup rewrite while delivering
+   the Variant-C aesthetic. */
+.vc { background: var(--vc-bg); color: var(--vc-fg); }
+.vc h1, .vc h2, .vc h3, .vc h4, .vc h5 {
+  color: var(--vc-fg);
+  font-family: var(--vc-font-mono);
+  letter-spacing: 0.02em;
+}
+.vc .container {
+  background: var(--vc-bg);
+  font-family: var(--vc-font-mono);
+}
+.vc .chart-box {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  padding: 18px;
+  margin-bottom: 0;
+  font-family: var(--vc-font-mono);
+}
+.vc .chart-box h3 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--vc-fg);
+  margin-bottom: 14px;
+}
+.vc .chart-box.tall canvas { max-height: 420px; }
+.vc .chart-grid {
+  display: grid;
+  gap: 0;
+  grid-template-columns: 1fr 1fr;
+  border-left: 1px solid var(--vc-grid);
+  border-right: 1px solid var(--vc-grid);
+  border-top: 1px solid var(--vc-grid);
+  margin-bottom: 0;
+}
+.vc .chart-grid:last-child { border-bottom: 1px solid var(--vc-grid); margin-bottom: 24px; }
+.vc .chart-grid + .chart-grid { border-top: none; }
+.vc .chart-grid.full { grid-template-columns: 1fr; }
+.vc .chart-grid > .chart-box {
+  border: none;
+  border-right: 1px solid var(--vc-grid);
+  border-bottom: 1px solid var(--vc-grid);
+}
+.vc .chart-grid > .chart-box:last-child { border-right: none; }
+.vc .chart-grid:last-child > .chart-box { border-bottom: none; }
+@media (max-width: 960px) {
+  .vc .chart-grid { grid-template-columns: 1fr; }
+  .vc .chart-grid > .chart-box { border-right: none; }
+}
+
+/* Tabs from legacy tabBar (#tabBar inside .vc scope, used as backup) */
+.vc .tabs { display: none; }  /* Hidden — we use .vc-nav-tabs instead */
+
+/* Tab content reset */
+.vc .tab-content { padding: 16px 20px 0; }
+
+/* Data tables */
+.vc .data-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--vc-font-mono);
+}
+.vc .data-table th {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--vc-fg-3);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--vc-grid);
+  background: var(--vc-bg);
+  text-align: left;
+}
+.vc .data-table th.num { text-align: right; }
+.vc .data-table th.sort-asc::after { content:" \25B2"; font-size:9px; color: var(--vc-accent); }
+.vc .data-table th.sort-desc::after { content:" \25BC"; font-size:9px; color: var(--vc-accent); }
+.vc .data-table td {
+  font-size: 11px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--vc-grid-2);
+  color: var(--vc-fg);
+  font-feature-settings: 'tnum' 1;
+}
+.vc .data-table td.num { text-align: right; }
+.vc .data-table tr:last-child td { border-bottom: none; }
+.vc .data-table tr:hover td { background: var(--vc-accent-soft); }
+
+/* Plan highlight grid */
+.vc .plan-highlight {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--vc-grid);
+  background: var(--vc-panel);
+  margin-bottom: 24px;
+}
+.vc .plan-highlight > div {
+  padding: 16px 18px;
+  border-right: 1px solid var(--vc-grid);
+  font-family: var(--vc-font-mono);
+}
+.vc .plan-highlight > div:last-child { border-right: none; }
+.vc .plan-highlight .label,
+.vc .plan-highlight > div > div:first-child {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--vc-fg-3);
+}
+.vc .plan-highlight .value,
+.vc .plan-highlight > div > div:nth-child(2) {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--vc-fg);
+  margin: 6px 0 4px;
+  font-feature-settings: 'tnum' 1;
+}
+.vc .plan-highlight .sub {
+  font-size: 11px;
+  color: var(--vc-fg-3);
+}
+
+/* Progress / cycle bar */
+.vc .progress-bar,
+.vc .progress-track {
+  height: 28px !important;
+  border: 1px solid var(--vc-grid);
+  background: var(--vc-bg);
+  border-radius: 0 !important;
+  overflow: hidden;
+}
+.vc .progress-fill,
+.vc .progress-bar > div,
+.vc .progress-track > div {
+  height: 100%;
+  background: var(--vc-accent) !important;
+  border-radius: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  color: var(--vc-bg);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+/* Plan comparison bars */
+.vc .plan-comparison .bar {
+  background: var(--vc-bg);
+  border: 1px solid var(--vc-grid);
+  height: 12px;
+  border-radius: 0;
+}
+.vc .plan-comparison .bar > div {
+  background: var(--vc-accent) !important;
+  border-radius: 0 !important;
+  height: 100%;
+}
+.vc .plan-comparison .bar-label { color: var(--vc-fg); font-size: 11px; font-family: var(--vc-font-mono); }
+.vc .plan-comparison .bar-val { color: var(--vc-fg-2); font-size: 11px; font-family: var(--vc-font-mono); font-feature-settings: 'tnum' 1; }
+
+/* Misc / config / list / etc legacy */
+.vc .misc-stat-grid,
+.vc .config-grid {
+  font-family: var(--vc-font-mono);
+}
+.vc .stat-card,
+.vc .insight-card,
+.vc .config-card {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: 0;
+  padding: 14px 18px;
+  font-family: var(--vc-font-mono);
+}
+.vc .stat-card .value,
+.vc .insight-card .value {
+  color: var(--vc-fg);
+  font-weight: 500;
+  font-feature-settings: 'tnum' 1;
+}
+.vc .stat-card .label,
+.vc .insight-card .label {
+  color: var(--vc-fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+}
+
+/* Buttons */
+.vc button:not(.vc-tab):not(.vc-range-btn):not(.vc-icon-btn):not(.vc-page-tab) {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-mono);
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 0;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+.vc button:not(.vc-tab):not(.vc-range-btn):not(.vc-icon-btn):not(.vc-page-tab):hover {
+  background: var(--vc-accent-soft);
+  border-color: var(--vc-accent);
+}
+.vc button.active,
+.vc button:active {
+  background: var(--vc-accent);
+  border-color: var(--vc-accent);
+  color: var(--vc-bg);
+}
+
+/* Inputs */
+.vc input[type="text"],
+.vc input[type="search"],
+.vc input[type="number"],
+.vc select {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-mono);
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 0;
+  outline: none;
+}
+.vc input::placeholder { color: var(--vc-fg-3); }
+.vc input:focus, .vc select:focus { border-color: var(--vc-accent); }
+
+/* Links */
+.vc a { color: var(--vc-accent); text-decoration: none; }
+.vc a:hover { text-decoration: underline; }
+
+/* Token tags / badges */
+.vc .badge,
+.vc .tag,
+.vc .source-label,
+.vc .model-tag {
+  background: transparent;
+  border: 1px solid var(--vc-grid);
+  border-radius: 0 !important;
+  color: var(--vc-fg-2);
+  font-family: var(--vc-font-mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Footer text */
+body.vc-page > div[style*="text-align:center"] {
+  color: var(--vc-fg-3) !important;
+  font-family: var(--vc-font-mono);
+  font-size: 10px;
+}
+body.vc-page > div[style*="text-align:center"] a {
+  color: var(--vc-accent) !important;
+}
+
 /* ── Variant-C shared components (panes, distbars, tables) ───── */
 .vc-tab-h {
   display: grid;

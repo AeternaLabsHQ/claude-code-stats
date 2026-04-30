@@ -1542,3 +1542,62 @@ document.addEventListener('keydown', function(e) {
     setTimeout(() => { note.style.opacity = '0'; }, 2000);
   }
 });
+
+
+// ── Variant-C top bar wiring ──────────────────────────────────────
+(function() {
+  // Theme handling
+  function applyVcTheme(theme) {
+    document.documentElement.classList.remove('theme-light', 'theme-dark');
+    if (theme === 'light' || theme === 'dark') {
+      document.documentElement.classList.add('theme-' + theme);
+    }
+    const btn = document.getElementById('vcThemeToggle');
+    if (btn) {
+      const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      btn.innerHTML = isDark ? '&#9790;' : '&#9737;';
+    }
+    if (typeof setupVcChartDefaults === 'function') setupVcChartDefaults();
+  }
+  const savedTheme = localStorage.getItem('vc-theme') || 'system';
+  applyVcTheme(savedTheme);
+  document.getElementById('vcThemeToggle')?.addEventListener('click', () => {
+    const current = localStorage.getItem('vc-theme') || 'system';
+    const next = current === 'system' ? 'light' : (current === 'light' ? 'dark' : 'system');
+    localStorage.setItem('vc-theme', next);
+    applyVcTheme(next);
+  });
+  // React to system pref change while in 'system' mode
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const t = localStorage.getItem('vc-theme') || 'system';
+    if (t === 'system') applyVcTheme(t);
+  });
+
+  // Language toggle (config-based, alert is honest)
+  document.getElementById('vcLangToggle')?.addEventListener('click', () => {
+    alert('Language is set in config.json — edit "language" and re-run extract_stats.py to switch.');
+  });
+
+  // UTC time
+  function updateVcUtc() {
+    const el = document.getElementById('vcUtcTime');
+    if (!el) return;
+    const now = new Date();
+    el.textContent = now.toISOString().slice(11, 19) + ' UTC';
+  }
+  updateVcUtc();
+  setInterval(updateVcUtc, 1000);
+
+  // Populate USER / PLAN from DASHBOARD_DATA
+  const d = (typeof D !== 'undefined') ? D : null;
+  if (d) {
+    const userEl = document.getElementById('vcTopUser');
+    const planEl = document.getElementById('vcTopPlan');
+    if (userEl) userEl.textContent = (d.config && (d.config.display_name || d.account?.name)) || (d.account && d.account.name) || '-';
+    if (planEl) {
+      const plan = d.account?.plan || (d.config && d.config.plan) || (d.plan_summary && d.plan_summary.current_plan) || '-';
+      planEl.textContent = plan;
+    }
+  }
+})();
+

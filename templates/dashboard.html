@@ -19,16 +19,38 @@
 })();
 </script>
 </head>
-<body>
+<body class="vc-page">
 
-<div class="header">
+<!-- Variant-C top bar -->
+<div class="vc vc-top">
+  <div class="vc-top-left">
+    <span class="vc-brand-mark"></span>
+    <span class="vc-brand-name">CLAUDE.STATS</span>
+    <span class="vc-version">v__VERSION__</span>
+  </div>
+  <div class="vc-top-center">
+    <span class="vc-kv"><span class="vc-k">USER</span><span class="vc-v" id="vcTopUser">-</span></span>
+    <span class="vc-kv"><span class="vc-k">PLAN</span><span class="vc-v" id="vcTopPlan">-</span></span>
+    <span class="vc-kv"><span class="vc-k">RANGE</span><span class="vc-v" id="vcTopRange">90d</span></span>
+  </div>
+  <div class="vc-top-right">
+    <label class="vc-checkbox" title="__L_header_hide_empty_hint__">
+      <input type="checkbox" id="hideEmptySessions" checked />
+      <span>__L_header_hide_empty__</span>
+    </label>
+    <button class="vc-icon-btn" id="vcLangToggle" title="__L_top_lang_title__">__L_top_lang_label__</button>
+    <button class="vc-icon-btn" id="vcThemeToggle" title="__L_top_theme_title__">&#9737;</button>
+    <span class="vc-f2-hint">F2: ANON</span>
+    <span class="vc-live"><span class="vc-live-dot">&#9679;</span> LIVE</span>
+    <span class="vc-utc" id="vcUtcTime">--:--:-- UTC</span>
+  </div>
+</div>
+
+<!-- Legacy header — hidden, kept for JS compatibility (timeFilter, projectFilter, headerMeta) -->
+<div class="header" style="display:none">
   <h1><span>__L_header_title_prefix__</span> __L_header_title_suffix__</h1>
   <div class="time-filter" id="timeFilter"></div>
-  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none" title="__L_header_hide_empty_hint__">
-    <input type="checkbox" id="hideEmptySessions" checked style="accent-color:var(--accent);cursor:pointer" />
-    __L_header_hide_empty__
-  </label>
-  <input type="text" id="projectFilter" placeholder="Filter projects..." style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;font-size:12px;width:180px;outline:none;" />
+  <input type="text" id="projectFilter" placeholder="Filter projects..." />
   <div class="meta" id="headerMeta"></div>
 </div>
 

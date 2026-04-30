@@ -68,6 +68,62 @@ body.anon-mode .anon-blur {
   user-select: none;
 }
 
+/* ── Variant-C top bar ─────────────────────────────────────────── */
+.vc-top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: var(--vc-panel);
+  border-bottom: 1px solid var(--vc-grid);
+  font-family: var(--vc-font-mono);
+  font-size: 11px;
+  color: var(--vc-fg);
+}
+.vc-top-left { display: flex; align-items: center; gap: 10px; }
+.vc-brand-mark { display: inline-block; width: 8px; height: 8px; background: var(--vc-accent); }
+.vc-brand-name { font-weight: 600; letter-spacing: 0.02em; }
+.vc-version { color: var(--vc-fg-3); font-size: 10px; }
+.vc-top-center { display: flex; gap: 24px; justify-self: center; }
+.vc-kv { display: inline-flex; gap: 6px; align-items: baseline; }
+.vc-k { color: var(--vc-fg-3); letter-spacing: 0.14em; font-size: 10px; text-transform: uppercase; }
+.vc-v { color: var(--vc-fg); font-weight: 500; }
+.vc-top-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vc-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--vc-fg-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+.vc-checkbox input { accent-color: var(--vc-accent); cursor: pointer; }
+.vc-icon-btn {
+  background: transparent;
+  border: 1px solid var(--vc-grid);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-mono);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  height: 22px;
+  line-height: 1;
+}
+.vc-icon-btn:hover { background: var(--vc-accent-soft); border-color: var(--vc-accent); }
+.vc-f2-hint { color: var(--vc-fg-3); font-size: 10px; letter-spacing: 0.14em; }
+.vc-live { color: var(--vc-accent); letter-spacing: 0.14em; font-size: 10px; }
+.vc-live-dot { display: inline-block; }
+.vc-utc { color: var(--vc-fg-3); font-feature-settings: 'tnum' 1; }
+
+@media (max-width: 960px) {
+  .vc-top { grid-template-columns: 1fr; gap: 8px; }
+  .vc-top-center, .vc-top-right { justify-self: stretch; flex-wrap: wrap; }
+}
+
 /* ================================================================
    Legacy theme below — keeps existing dashboard rendering intact
    while Variant-C components are progressively introduced.

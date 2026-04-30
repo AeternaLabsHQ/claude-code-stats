@@ -142,3 +142,44 @@ document.querySelectorAll('.wf-filter').forEach(btn => {
 });
 
 renderWorkflow();
+
+// ── Variant-C wiring (theme + utc + meta) ────────────────────────
+(function() {
+  function v(name, fb) { return getComputedStyle(document.querySelector('.vc') || document.documentElement).getPropertyValue(name).trim() || fb; }
+  function applyTheme(t) {
+    document.documentElement.classList.remove('theme-light','theme-dark');
+    if (t === 'light' || t === 'dark') document.documentElement.classList.add('theme-' + t);
+    const btn = document.getElementById('vcThemeToggle');
+    if (btn) {
+      const isDark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      btn.innerHTML = isDark ? '&#9790;' : '&#9737;';
+    }
+  }
+  const saved = localStorage.getItem('vc-theme') || 'system';
+  applyTheme(saved);
+  document.getElementById('vcThemeToggle')?.addEventListener('click', () => {
+    const c = localStorage.getItem('vc-theme') || 'system';
+    const n = c === 'system' ? 'light' : (c === 'light' ? 'dark' : 'system');
+    localStorage.setItem('vc-theme', n);
+    applyTheme(n);
+  });
+  function utc() {
+    const el = document.getElementById('vcUtcTime');
+    if (!el) return;
+    el.textContent = new Date().toISOString().slice(11,19) + ' UTC';
+  }
+  utc();
+  setInterval(utc, 1000);
+
+  // Project name + meta
+  const nameEl = document.getElementById('vcProjectName');
+  if (nameEl && typeof P !== 'undefined' && P.name) {
+    nameEl.textContent = P.name;
+    nameEl.classList.add('anon-blur'); // Project names get blurred in anon-mode
+  }
+  const metaEl = document.getElementById('vcProjectMeta');
+  if (metaEl && typeof P !== 'undefined') {
+    const stats = P.stats || {};
+    metaEl.textContent = (stats.total_sessions || 0) + ' sessions · ' + (stats.total_messages || 0) + ' msgs · $' + (stats.total_cost || 0).toFixed(2);
+  }
+})();

@@ -7,12 +7,30 @@
 <link rel="icon" type="image/png" href="../favicon.png">
 <!-- STYLES -->
 </head>
-<body>
-<div class="header">
-  <div class="header-top"><a href="../index.html">&larr; Back to Dashboard</a></div>
+<body class="vc-page">
+<!-- Variant-C top bar -->
+<div class="vc vc-top">
+  <div class="vc-top-left">
+    <span class="vc-brand-mark"></span>
+    <span class="vc-brand-name">CLAUDE.STATS</span>
+    <a href="../index.html" class="vc-back">&larr; DASHBOARD</a>
+  </div>
+  <div></div>
+  <div class="vc-top-right">
+    <button class="vc-icon-btn" id="vcThemeToggle" title="Toggle theme">&#9737;</button>
+    <span class="vc-utc" id="vcUtcTime">--:--:-- UTC</span>
+  </div>
+</div>
+
+<div class="header vc">
   <h1 id="projectTitle"></h1>
 </div>
-<div class="container">
+<div class="container vc">
+  <div class="vc-tab-h">
+    <div class="vc-tab-h-title"><b>↳</b> <span id="vcProjectName">Project Detail</span></div>
+    <div class="vc-tab-h-rule"></div>
+    <div class="vc-tab-h-meta" id="vcProjectMeta"></div>
+  </div>
   <div class="kpi-grid" id="kpiGrid"></div>
   <div class="proj-tabs">
     <button class="proj-tab active" data-tab="overview">Overview</button>

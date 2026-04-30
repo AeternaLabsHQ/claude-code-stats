@@ -1364,7 +1364,7 @@ function renderInsights() {
   plans.forEach(p => {
     const tr = document.createElement('tr');
     const cells = [
-      {val: p.title, cls: ''},
+      {val: p.title, cls: '', anon: true},
       {val: new Date(p.created).toLocaleDateString(D.locale.locale_code), cls: ''},
       {val: String(p.lines), cls: 'num'},
       {val: String(p.size_kb), cls: 'num'},
@@ -1372,7 +1372,14 @@ function renderInsights() {
     cells.forEach(c => {
       const td = document.createElement('td');
       if (c.cls) td.className = c.cls;
-      td.textContent = c.val;
+      if (c.anon) {
+        const span = document.createElement('span');
+        span.className = 'anon-blur';
+        span.textContent = c.val;
+        td.appendChild(span);
+      } else {
+        td.textContent = c.val;
+      }
       tr.appendChild(td);
     });
     plansTbody.appendChild(tr);
@@ -1404,9 +1411,9 @@ function renderInsights() {
   const skillsEl = document.getElementById('skillsList');
   if (skillsEl && D.skill_summary && D.skill_summary.length > 0) {
     skillsEl.innerHTML = D.skill_summary.map(s =>
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border)">' +
-      '<span style="font-size:13px;color:var(--text)">' + escHtml(s.name) + '</span>' +
-      '<span class="tool-tag" style="background:rgba(168,85,247,0.2);color:var(--purple)">' + s.count + 'x</span>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--vc-grid-2,var(--border))">' +
+      '<span class="anon-blur" style="font-size:13px;color:var(--vc-fg,var(--text))">' + escHtml(s.name) + '</span>' +
+      '<span class="vc-tag acc">' + s.count + 'x</span>' +
       '</div>'
     ).join('');
   } else if (skillsEl) {
@@ -1420,8 +1427,8 @@ function renderInsights() {
       const parts = h.name.split(':');
       const event = parts[0] || '';
       const name = parts.slice(1).join(':') || h.name;
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border)">' +
-        '<div><span class="model-badge" style="background:rgba(245,158,11,0.2);color:var(--orange);font-size:10px;margin-right:6px">' + escHtml(event) + '</span><span style="font-size:13px">' + escHtml(name) + '</span></div>' +
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--vc-grid-2,var(--border))">' +
+        '<div><span class="vc-tag" style="font-size:10px;margin-right:6px">' + escHtml(event) + '</span><span class="anon-blur" style="font-size:13px;color:var(--vc-fg,var(--text))">' + escHtml(name) + '</span></div>' +
         '<span class="tool-tag">' + h.count + 'x</span>' +
         '</div>';
     }).join('');

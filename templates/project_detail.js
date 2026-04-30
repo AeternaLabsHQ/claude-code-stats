@@ -38,7 +38,7 @@ document.querySelectorAll('.proj-tab').forEach(tab => {
 // Memory
 if (P.memory) {
   document.getElementById('memorySection').innerHTML =
-    '<div class="memory-card" id="memCard"><h3 onclick="document.getElementById(\'memCard\').classList.toggle(\'expanded\')">Project Memory</h3><div class="memory-content">'+escHtml(P.memory)+'</div></div>';
+    '<div class="memory-card" id="memCard"><h3 onclick="document.getElementById(\'memCard\').classList.toggle(\'expanded\')">Project Memory</h3><div class="memory-content anon-blur">'+escHtml(P.memory)+'</div></div>';
 }
 
 // Info grid (subagents, git ops, errors)
@@ -143,7 +143,26 @@ document.querySelectorAll('.wf-filter').forEach(btn => {
 
 renderWorkflow();
 
-// ── Variant-C wiring (theme + utc + meta) ────────────────────────
+// ── Variant-C wiring (theme + utc + meta + anon F2) ──────────────
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'F2') {
+    e.preventDefault();
+    document.body.classList.toggle('anon-mode');
+    let note = document.getElementById('anonNote');
+    if (!note) {
+      note = document.createElement('div');
+      note.id = 'anonNote';
+      note.className = 'vc';
+      note.style.cssText = 'position:fixed;top:14px;right:14px;padding:8px 14px;border:1px solid var(--vc-accent,#b04a2f);background:var(--vc-panel,#fbfaf6);font-family:Geist Mono,JetBrains Mono,ui-monospace,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;z-index:9999;transition:opacity 0.3s;color:var(--vc-accent,#b04a2f);';
+      document.body.appendChild(note);
+    }
+    note.textContent = document.body.classList.contains('anon-mode') ? '> ANONYMIZATION ON' : '> ANONYMIZATION OFF';
+    note.style.opacity = '1';
+    setTimeout(() => { note.style.opacity = '0'; }, 2000);
+  }
+});
+
+
 (function() {
   function v(name, fb) { return getComputedStyle(document.querySelector('.vc') || document.documentElement).getPropertyValue(name).trim() || fb; }
   function applyTheme(t) {

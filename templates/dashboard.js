@@ -52,6 +52,62 @@ function makeSourceBadge(label) {
 Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = '#1e293b';
 
+// Variant-C Chart.js theming — overrides legacy defaults to match Terminal aesthetic
+function setupVcChartDefaults() {
+  if (typeof Chart === 'undefined') return;
+  // Read live CSS vars; falls back to embedded defaults if .vc not present
+  function v(name, fallback) {
+    const probe = document.querySelector('.vc') || document.documentElement;
+    const val = getComputedStyle(probe).getPropertyValue(name).trim();
+    return val || fallback;
+  }
+  const fg = v('--vc-fg', '#1c1a17');
+  const fg2 = v('--vc-fg-2', '#4d4a42');
+  const fg3 = v('--vc-fg-3', '#918a7a');
+  const grid = v('--vc-grid', '#d8d2c4');
+  const grid2 = v('--vc-grid-2', '#e8e3d6');
+  const accent = v('--vc-accent', '#b04a2f');
+  const panel = v('--vc-panel', '#fbfaf6');
+
+  Chart.defaults.font.family = "'Geist Mono', 'JetBrains Mono', ui-monospace, monospace";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = fg3;
+  Chart.defaults.borderColor = grid;
+  Chart.defaults.elements.line.borderWidth = 1.5;
+  Chart.defaults.elements.line.borderColor = accent;
+  Chart.defaults.elements.point.radius = 0;
+  Chart.defaults.elements.point.hoverRadius = 3;
+  Chart.defaults.elements.bar.borderRadius = 0;
+  Chart.defaults.plugins.legend.labels = Chart.defaults.plugins.legend.labels || {};
+  Chart.defaults.plugins.legend.labels.color = fg2;
+  Chart.defaults.plugins.legend.labels.font = {family: "'Geist Mono', monospace", size: 10};
+  Chart.defaults.plugins.tooltip.backgroundColor = panel;
+  Chart.defaults.plugins.tooltip.titleColor = fg;
+  Chart.defaults.plugins.tooltip.bodyColor = fg2;
+  Chart.defaults.plugins.tooltip.borderColor = grid;
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
+  Chart.defaults.plugins.tooltip.cornerRadius = 0;
+  Chart.defaults.plugins.tooltip.titleFont = {family: "'Geist Mono', monospace", size: 11, weight: '500'};
+  Chart.defaults.plugins.tooltip.bodyFont = {family: "'Geist Mono', monospace", size: 11};
+  if (Chart.defaults.scale) {
+    Chart.defaults.scale.grid = Chart.defaults.scale.grid || {};
+    Chart.defaults.scale.grid.color = grid2;
+    Chart.defaults.scale.grid.borderDash = [1, 3];
+    Chart.defaults.scale.grid.drawTicks = false;
+    Chart.defaults.scale.ticks = Chart.defaults.scale.ticks || {};
+    Chart.defaults.scale.ticks.color = fg3;
+    Chart.defaults.scale.ticks.font = {family: "'Geist Mono', monospace", size: 10};
+  }
+  // Re-render existing charts (if any)
+  if (Chart.instances) {
+    for (const id in Chart.instances) {
+      try { Chart.instances[id].update('none'); } catch {}
+    }
+  }
+}
+// Apply once at load (before any chart is built) and re-apply on theme changes
+setupVcChartDefaults();
+
 const scaleDefaults = {
   x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
   y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },

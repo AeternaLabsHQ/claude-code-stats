@@ -17,15 +17,49 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
-const MODEL_COLORS = {
-  'Opus 4.7': '#c084fc', 'Opus 4.6': '#a855f7', 'Opus 4.5': '#7c3aed',
-  'Sonnet 4.5': '#3b82f6', 'Haiku 4.5': '#22c55e',
-  'Unknown': '#6b7280'
-};
+// Variant-C single-accent palette: primary terracotta + neutral grays.
+// Values are read from the .vc element's CSS vars at runtime so they
+// adapt to light/dark mode and stay aligned with the design tokens.
+function _vcColor(name, fallback) {
+  const probe = document.querySelector('.vc') || document.documentElement;
+  return getComputedStyle(probe).getPropertyValue(name).trim() || fallback;
+}
+function vcColor(rank) {
+  // 0=accent, 1=fg-2, 2=fg-3, 3=accent-soft (mostly used as fill)
+  const palette = [
+    _vcColor('--vc-accent', '#b04a2f'),
+    _vcColor('--vc-fg-2', '#4d4a42'),
+    _vcColor('--vc-fg-3', '#918a7a'),
+    _vcColor('--vc-accent-soft', '#f1d9cd'),
+  ];
+  return palette[rank % palette.length];
+}
+function vcRgba(rank, alpha) {
+  const hex = vcColor(rank).replace('#', '');
+  if (hex.length !== 6) return vcColor(rank);
+  const r = parseInt(hex.substr(0,2), 16);
+  const g = parseInt(hex.substr(2,2), 16);
+  const b = parseInt(hex.substr(4,2), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+}
+
+// MODEL_COLORS: a function that returns a color per model name, picking
+// from the Variant-C palette by stable hash so order doesn't change
+// between filter changes. Primary model gets accent; others descend.
+const MODEL_COLORS = new Proxy({}, {
+  get(_, modelName) {
+    if (modelName === 'Unknown') return vcColor(2);
+    // Stable color by name hash modulo palette length
+    let h = 0;
+    const s = String(modelName);
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return vcColor(Math.abs(h) % 3); // 3 main slots (accent, fg-2, fg-3)
+  }
+});
 
 const SOURCE_COLORS = [
-  {bg:'rgba(245,158,11,0.15)', fg:'#f59e0b'},
-  {bg:'rgba(6,182,212,0.15)', fg:'#06b6d4'},
+  {bg:vcRgba(1, 0.15), fg:vcColor(1)},
+  {bg:'rgba(6,182,212,0.15)', fg:vcColor(2)},
   {bg:'rgba(168,85,247,0.15)', fg:'#a855f7'},
   {bg:'rgba(34,197,94,0.15)', fg:'#22c55e'},
   {bg:'rgba(239,68,68,0.15)', fg:'#ef4444'},
@@ -119,7 +153,18 @@ const charts = {};
 let currentDays = 0;
 let anonMode = false;
 let agentTypesChartInstance, agentDescsChartInstance, errorByCatChartInstance, errorByToolChartInstance;
-const chartColors = ['#6366f1','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#ec4899','#3b82f6','#f97316','#14b8a6'];
+// Variant-C: 10-slot palette using accent + fg shades cycled.
+const chartColors = new Proxy([], {
+  get(_, idx) {
+    const i = parseInt(idx, 10);
+    if (Number.isNaN(i)) return undefined;
+    // accent for primaries, then alternating fg-2/fg-3 with descending opacity
+    if (i === 0) return vcColor(0);
+    if (i === 1) return vcColor(1);
+    if (i === 2) return vcColor(2);
+    return vcRgba(0, Math.max(0.15, 1 - i * 0.1));
+  }
+});
 let currentProjectFilter = '';
 
 function calcFilteredPlanCost(filteredDates) {
@@ -488,7 +533,7 @@ function renderCosts() {
     data: {
       labels: F.cumulative_costs.map(d => d.date),
       datasets: [{ label: D.locale.costs.cumulative_label, data: F.cumulative_costs.map(d => d.cost),
-        borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 2 }]
+        borderColor: vcColor(1), backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#94a3b8' } } },
@@ -513,7 +558,7 @@ function renderCosts() {
     data: {
       labels: ['Input', 'Output', 'Cache Read', 'Cache Write'],
       datasets: [{ data: [cbt.input, cbt.output, cbt.cache_read, cbt.cache_write],
-        backgroundColor: ['#3b82f6', '#a855f7', '#22c55e', '#f59e0b'], borderRadius: 6 }]
+        backgroundColor: ['#3b82f6', '#a855f7', '#22c55e', vcColor(1)], borderRadius: 6 }]
     },
     options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
       plugins: { legend: { display: false } },
@@ -584,15 +629,8 @@ function renderHeatmap() {
   while (d <= today) {
     const k = d.toISOString().slice(0,10);
     const m = msgMap[k]||0;
-    let bg = 'var(--bg3)';
-    if (m > 0 && maxMsg > 0) {
-      const r = m/maxMsg;
-      if (r > 0.7) bg = 'var(--accent)';
-      else if (r > 0.4) bg = 'rgba(99,102,241,0.7)';
-      else if (r > 0.2) bg = 'rgba(99,102,241,0.4)';
-      else bg = 'rgba(99,102,241,0.2)';
-    }
     // Variant-C heatmap: single-accent terracotta with opacity gradient
+    let bg;
     if (m > 0 && maxMsg > 0) {
       const r = m / maxMsg;
       const opacity = (0.08 + r * 0.92).toFixed(3);
@@ -631,7 +669,7 @@ function renderActivity() {
   charts.dailyMsgs = new Chart(document.getElementById('chartDailyMsgs'), {
     type: 'bar',
     data: { labels: F.daily_messages.map(d => d.date),
-      datasets: [{ label: D.locale.activity.messages_label, data: F.daily_messages.map(d => d.messages), backgroundColor: '#6366f1', borderRadius: 3 }] },
+      datasets: [{ label: D.locale.activity.messages_label, data: F.daily_messages.map(d => d.messages), backgroundColor: vcColor(0), borderRadius: 3 }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: scaleDefaults }
   });
@@ -641,7 +679,7 @@ function renderActivity() {
     type: 'polarArea',
     data: { labels: F.hourly_distribution.map(h => h.hour + ':00'),
       datasets: [{ data: F.hourly_distribution.map(h => h.messages),
-        backgroundColor: F.hourly_distribution.map(h => 'rgba(99,102,241,' + (0.3 + 0.7 * (h.messages / maxHourly)) + ')'),
+        backgroundColor: F.hourly_distribution.map(h => vcRgba(0, 0.3 + 0.7 * (h.messages / maxHourly))),
         borderWidth: 1, borderColor: '#2d3348' }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
@@ -652,7 +690,7 @@ function renderActivity() {
     type: 'bar',
     data: { labels: F.weekday_distribution.map(d => d.day),
       datasets: [{ label: D.locale.activity.messages_label, data: F.weekday_distribution.map(d => d.messages),
-        backgroundColor: F.weekday_distribution.map((d, i) => i >= 5 ? '#f59e0b' : '#6366f1'), borderRadius: 4 }] },
+        backgroundColor: F.weekday_distribution.map((d, i) => i >= 5 ? vcColor(1) : vcColor(0)), borderRadius: 4 }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } }, scales: scaleDefaults }
   });
@@ -660,7 +698,7 @@ function renderActivity() {
   charts.dailySessions = new Chart(document.getElementById('chartDailySessions'), {
     type: 'bar',
     data: { labels: F.daily_messages.map(d => d.date),
-      datasets: [{ label: D.locale.activity.sessions_label, data: F.daily_messages.map(d => d.sessions), backgroundColor: '#06b6d4', borderRadius: 3 }] },
+      datasets: [{ label: D.locale.activity.sessions_label, data: F.daily_messages.map(d => d.sessions), backgroundColor: vcColor(2), borderRadius: 3 }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: scaleDefaults }
   });
@@ -673,7 +711,7 @@ function renderProjects() {
   charts.projectCost = new Chart(document.getElementById('chartProjectCost'), {
     type: 'bar',
     data: { labels: top.map(p => anonMode ? anonName(p.name) : p.name.split('/').pop()),
-      datasets: [{ label: D.locale.projects.top15_label, data: top.map(p => p.cost), backgroundColor: '#6366f1', borderRadius: 4 }] },
+      datasets: [{ label: D.locale.projects.top15_label, data: top.map(p => p.cost), backgroundColor: vcColor(0), borderRadius: 4 }] },
     options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
       plugins: { legend: { display: false } },
       scales: { x: { ...scaleDefaults.x, title: { display: true, text: 'USD', color: '#64748b' } },
@@ -1170,8 +1208,8 @@ function renderPlan() {
     data: {
       labels: periodLabels,
       datasets: [
-        {label: D.locale.plan.api_cost_label, data: plan.periods.map(p => p.api_cost), backgroundColor: 'rgba(245,158,11,0.7)', borderRadius: 4},
-        {label: D.locale.plan.plan_cost_label, data: plan.periods.map(p => p.plan_cost_usd), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 4},
+        {label: D.locale.plan.api_cost_label, data: plan.periods.map(p => p.api_cost), backgroundColor: vcRgba(1, 0.7), borderRadius: 4},
+        {label: D.locale.plan.plan_cost_label, data: plan.periods.map(p => p.plan_cost_usd), backgroundColor: vcRgba(0, 0.7), borderRadius: 4},
       ]
     },
     options: { responsive: true, maintainAspectRatio: false,
@@ -1184,7 +1222,7 @@ function renderPlan() {
     data: {
       labels: periodLabels,
       datasets: [{ label: D.locale.plan.api_cost_per_day_label, data: plan.periods.map(p => p.cost_per_day),
-        backgroundColor: plan.periods.map(p => p.plan === 'Max' ? 'rgba(34,197,94,0.7)' : 'rgba(245,158,11,0.7)'),
+        backgroundColor: plan.periods.map(p => p.plan === 'Max' ? vcRgba(2, 0.7) : vcRgba(1, 0.7)),
         borderRadius: 4 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
@@ -1462,7 +1500,7 @@ function renderAgentsTab() {
       type: 'bar',
       data: {
         labels: tds.map(d => d.desc.length > 30 ? d.desc.slice(0,30)+'...' : d.desc),
-        datasets: [{ data: tds.map(d => d.count), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius:4 }]
+        datasets: [{ data: tds.map(d => d.count), backgroundColor: vcRgba(0, 0.7), borderRadius:4 }]
       },
       options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#94a3b8'}}, y:{ticks:{color:'#94a3b8',font:{size:10}}} } }
     });
@@ -1500,7 +1538,7 @@ function renderAgentsTab() {
       '</div>';
     new Chart(document.getElementById('taskDonut'), {
       type: 'doughnut',
-      data: { labels:['Completed','Pending','In Progress'], datasets:[{data:[tasks.completed,tasks.pending||0,tasks.in_progress||0], backgroundColor:['#22c55e','#94a3b8','#6366f1']}] },
+      data: { labels:['Completed','Pending','In Progress'], datasets:[{data:[tasks.completed,tasks.pending||0,tasks.in_progress||0], backgroundColor:['#22c55e','#94a3b8',vcColor(0)]}] },
       options: { cutout:'70%', responsive:true, plugins:{legend:{display:false}} }
     });
   } else {
@@ -1524,7 +1562,7 @@ function renderAgentsTab() {
   const ebc = es.by_category || [];
   if (errorByCatChartInstance) errorByCatChartInstance.destroy();
   if (ebc.length > 0) {
-    const errColors = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#64748b','#78716c','#84cc16','#14b8a6','#f43f5e'];
+    const errColors = ['#ef4444','#f97316','#eab308','#22c55e',vcColor(2),vcColor(0),'#a855f7','#ec4899','#64748b','#78716c','#84cc16','#14b8a6','#f43f5e'];
     errorByCatChartInstance = new Chart(document.getElementById('errorByCategoryChart'), {
       type: 'doughnut',
       data: {

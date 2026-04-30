@@ -1557,3 +1557,60 @@ if (flowToggle && flowContainer) {
     }
   });
 }
+
+// ── Variant-C wiring (theme + utc) ────────────────────────────────
+(function() {
+  function applyTheme(t) {
+    document.documentElement.classList.remove('theme-light','theme-dark');
+    if (t === 'light' || t === 'dark') document.documentElement.classList.add('theme-' + t);
+    const btn = document.getElementById('vcThemeToggle');
+    if (btn) {
+      const isDark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      btn.innerHTML = isDark ? '&#9790;' : '&#9737;';
+    }
+  }
+  const saved = localStorage.getItem('vc-theme') || 'system';
+  applyTheme(saved);
+  document.getElementById('vcThemeToggle')?.addEventListener('click', () => {
+    const c = localStorage.getItem('vc-theme') || 'system';
+    const n = c === 'system' ? 'light' : (c === 'light' ? 'dark' : 'system');
+    localStorage.setItem('vc-theme', n);
+    applyTheme(n);
+  });
+  function utc() {
+    const el = document.getElementById('vcUtcTime');
+    if (!el) return;
+    el.textContent = new Date().toISOString().slice(11,19) + ' UTC';
+  }
+  utc();
+  setInterval(utc, 1000);
+
+  // Anon-blur the session title (it's typically a project-derived title with potentially unpredictable text)
+  const titleEl = document.getElementById('sessionTitle');
+  if (titleEl) titleEl.classList.add('anon-blur');
+
+  // Anon-blur message content (user prompts and assistant outputs are unpredictable)
+  function blurMessages() {
+    document.querySelectorAll('.message-content, .message-text, .chat-messages .message').forEach(el => {
+      if (!el.classList.contains('anon-blur') && !el.querySelector('.anon-blur')) {
+        // Only wrap text-containing nodes, not whole message wrappers
+        if (el.classList.contains('message')) {
+          el.querySelectorAll('p, pre, code, span, div').forEach(child => {
+            if (child.children.length === 0 && child.textContent.trim() && !child.classList.contains('anon-blur')) {
+              child.classList.add('anon-blur');
+            }
+          });
+        } else {
+          el.classList.add('anon-blur');
+        }
+      }
+    });
+  }
+  // Run after chat panel initializes (give it a moment)
+  setTimeout(blurMessages, 500);
+  // Re-run when chat content changes (filter switch)
+  const chat = document.getElementById('chatPanel');
+  if (chat) {
+    new MutationObserver(() => setTimeout(blurMessages, 100)).observe(chat, {childList: true, subtree: true});
+  }
+})();

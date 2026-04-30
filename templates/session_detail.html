@@ -9,16 +9,29 @@
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
 <!-- STYLES -->
 </head>
-<body>
-<div class="header">
+<body class="vc-page">
+<!-- Variant-C top bar -->
+<div class="vc vc-top">
+  <div class="vc-top-left">
+    <span class="vc-brand-mark"></span>
+    <span class="vc-brand-name">CLAUDE.STATS</span>
+    <a href="../index.html" class="vc-back">&larr; DASHBOARD</a>
+  </div>
+  <div></div>
+  <div class="vc-top-right">
+    <button class="vc-icon-btn" id="vcThemeToggle" title="Toggle theme">&#9737;</button>
+    <span class="vc-utc" id="vcUtcTime">--:--:-- UTC</span>
+  </div>
+</div>
+
+<div class="header vc">
   <div class="header-top">
-    <a href="../index.html">&larr; Back to Dashboard</a>
     <h1 id="sessionTitle"></h1>
   </div>
   <div class="session-meta" id="sessionMeta"></div>
 </div>
-<div class="stats-bar" id="statsBar"></div>
-<div class="main-layout">
+<div class="stats-bar vc" id="statsBar"></div>
+<div class="main-layout vc">
   <div class="left-column">
     <div class="flow-container">
       <canvas id="flow-canvas"></canvas>

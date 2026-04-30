@@ -110,6 +110,11 @@
   <div class="tabs" id="tabBar"></div>
 
   <div class="tab-content active" id="tab-costs">
+    <div class="vc-tab-h">
+      <div class="vc-tab-h-title"><b>↳</b> Token &amp; API Value</div>
+      <div class="vc-tab-h-rule"></div>
+      <div class="vc-tab-h-meta" id="vcCostMeta">daily &middot; USD</div>
+    </div>
     <div class="chart-grid full">
       <div class="chart-box"><h3>__L_costs_daily_cost__</h3><canvas id="chartDailyCost"></canvas></div>
     </div>
@@ -139,6 +144,11 @@
   </div>
 
   <div class="tab-content" id="tab-activity">
+    <div class="vc-tab-h">
+      <div class="vc-tab-h-title"><b>↳</b> Activity</div>
+      <div class="vc-tab-h-rule"></div>
+      <div class="vc-tab-h-meta">last 24 weeks &middot; messages</div>
+    </div>
     <div class="chart-box heatmap-container">
       <h3>__L_activity_heatmap__</h3>
       <div class="heatmap-scroll">
@@ -171,6 +181,11 @@
   </div>
 
   <div class="tab-content" id="tab-projects">
+    <div class="vc-tab-h">
+      <div class="vc-tab-h-title"><b>↳</b> Projects</div>
+      <div class="vc-tab-h-rule"></div>
+      <div class="vc-tab-h-meta" id="vcProjectsMeta"></div>
+    </div>
     <div class="chart-grid full">
       <div class="chart-box tall"><h3>__L_projects_top15__</h3><canvas id="chartProjectCost"></canvas></div>
     </div>
@@ -192,6 +207,11 @@
   </div>
 
   <div class="tab-content" id="tab-sessions">
+    <div class="vc-tab-h">
+      <div class="vc-tab-h-title"><b>↳</b> Sessions</div>
+      <div class="vc-tab-h-rule"></div>
+      <div class="vc-tab-h-meta" id="vcSessionsMeta"></div>
+    </div>
     <div class="session-filters">
       <select id="filterProject"><option value="">__L_sessions_tab_all_projects__</option></select>
       <select id="filterSource"><option value="">All Sources</option></select>
@@ -211,6 +231,11 @@
   </div>
 
   <div class="tab-content" id="tab-plan">
+    <div class="vc-tab-h">
+      <div class="vc-tab-h-title"><b>↳</b> Plan &amp; Billing</div>
+      <div class="vc-tab-h-rule"></div>
+      <div class="vc-tab-h-meta" id="vcPlanMeta"></div>
+    </div>
     <div class="plan-highlight" id="planKpi"></div>
     <div class="billing-progress" id="billingProgress"></div>
     <div class="plan-comparison" id="planComparison">
@@ -235,6 +260,11 @@
   </div>
 
   <div class="tab-content" id="tab-insights">
+    <div class="vc-tab-h">
+      <div class="vc-tab-h-title"><b>↳</b> Insights</div>
+      <div class="vc-tab-h-rule"></div>
+      <div class="vc-tab-h-meta">tools &middot; storage &middot; config</div>
+    </div>
     <div class="chart-grid">
       <div class="chart-box tall"><h3>__L_insights_tool_usage__</h3><canvas id="chartToolUsage"></canvas></div>
       <div class="chart-box"><h3>__L_insights_storage__</h3><canvas id="chartStorage"></canvas></div>
@@ -290,6 +320,11 @@
   </div>
 
   <div class="tab-content" id="tab-agents">
+    <div class="vc-tab-h">
+      <div class="vc-tab-h-title"><b>↳</b> Agents</div>
+      <div class="vc-tab-h-rule"></div>
+      <div class="vc-tab-h-meta">subagent activity &middot; errors</div>
+    </div>
     <div class="chart-grid">
       <div class="chart-box"><h3>__L_agents_subagent_types__</h3><canvas id="agentTypesChart" height="250"></canvas></div>
       <div class="chart-box"><h3>__L_agents_top_descriptions__</h3><canvas id="agentDescsChart" height="250"></canvas></div>

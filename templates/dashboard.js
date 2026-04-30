@@ -1923,3 +1923,30 @@ function vcAnonWrap(text) {
   s.textContent = text;
   return s;
 }
+
+// ── Variant-C tab section meta wiring ─────────────────────────────
+function _vcMeta(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+function updateVcTabMetas() {
+  const k = (typeof F !== 'undefined' && F.kpi) ? F.kpi : (D && D.kpi) || {};
+  const range = (function() {
+    const active = document.querySelector('.vc-range-btn.active');
+    return active ? (active.dataset.days === '0' ? 'all' : active.dataset.days + 'd') : 'all';
+  })();
+  _vcMeta('vcCostMeta', range + ' · daily · USD');
+  _vcMeta('vcProjectsMeta', (F && F.projects ? F.projects.length : 0) + ' projects · ' + range);
+  _vcMeta('vcSessionsMeta', (F && F.sessions ? F.sessions.length : 0) + ' sessions · ' + range);
+  _vcMeta('vcPlanMeta', (D && D.plan_summary && D.plan_summary.current_plan) || '');
+}
+updateVcTabMetas();
+// Re-run on filter change via wrapping
+if (typeof applyFilter === 'function') {
+  const _origAF2 = applyFilter;
+  applyFilter = function(...args) {
+    const r = _origAF2.apply(this, args);
+    try { updateVcTabMetas(); } catch (e) {}
+    return r;
+  };
+}

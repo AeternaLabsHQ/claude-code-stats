@@ -314,6 +314,17 @@ body.anon-mode .anon-blur {
   font-family: var(--vc-font-mono);
   letter-spacing: 0.02em;
 }
+/* Normalize all in-content h3 (chart-box / billing-progress / sections /
+   info-card etc.) to the same Terminal-style scale: 11px uppercase 600
+   weight with wide letter-spacing. Avoids the 15px bold h3 in
+   .billing-progress that visually clashed with the 11px h3 elsewhere. */
+.vc h3 {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.14em !important;
+  margin-bottom: 14px;
+}
 .vc .container {
   background: var(--vc-bg);
   font-family: var(--vc-font-mono);
@@ -361,8 +372,11 @@ body.anon-mode .anon-blur {
 /* Tabs from legacy tabBar (#tabBar inside .vc scope, used as backup) */
 .vc .tabs { display: none; }  /* Hidden — we use .vc-nav-tabs instead */
 
-/* Tab content reset */
-.vc .tab-content { padding: 16px 20px 0; }
+/* Tab content: no extra LR padding — .container already provides it,
+   and the KPI strip above uses the same 20px LR offset, so they line up. */
+.vc .tab-content { padding: 16px 0 0; }
+/* .container already has padding: 20px from legacy CSS; keep it so the
+   tab-content edge equals the visible KPI grid edge (both = max-1400 - 20). */
 
 /* Data tables */
 .vc .data-table {

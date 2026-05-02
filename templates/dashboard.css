@@ -69,17 +69,22 @@ body.anon-mode .anon-blur {
 }
 
 /* ── Variant-C top bar ─────────────────────────────────────────── */
+/* Full-width strip with bg/border, inner content constrained */
 .vc-top {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 20px;
   background: var(--vc-panel);
   border-bottom: 1px solid var(--vc-grid);
   font-family: var(--vc-font-mono);
   font-size: 11px;
   color: var(--vc-fg);
+}
+.vc-top-inner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 .vc-top-left { display: flex; align-items: center; gap: 10px; }
 .vc-brand-mark { display: inline-block; width: 8px; height: 8px; background: var(--vc-accent); }
@@ -120,14 +125,18 @@ body.anon-mode .anon-blur {
 .vc-utc { color: var(--vc-fg-3); font-feature-settings: 'tnum' 1; }
 
 @media (max-width: 960px) {
-  .vc-top { grid-template-columns: 1fr; gap: 8px; }
+  .vc-top-inner { grid-template-columns: 1fr; gap: 8px; }
   .vc-top-center, .vc-top-right { justify-self: stretch; flex-wrap: wrap; }
 }
 
 /* ── Variant-C KPI strip ───────────────────────────────────────── */
 .vc-kpis-wrap {
-  padding: 24px 20px 0;
   background: var(--vc-bg);
+}
+.vc-kpis-inner {
+  padding: 24px 20px 0;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 .vc-kpis {
   display: grid;
@@ -662,13 +671,17 @@ body.vc-page > div[style*="text-align:center"] a {
 
 /* ── Variant-C primary nav ─────────────────────────────────────── */
 .vc-nav {
+  background: var(--vc-bg);
+  border-bottom: 1px solid var(--vc-grid);
+  font-family: var(--vc-font-mono);
+}
+.vc-nav-inner {
   display: flex;
   justify-content: space-between;
   align-items: stretch;
   padding: 0 20px;
-  border-bottom: 1px solid var(--vc-grid);
-  background: var(--vc-bg);
-  font-family: var(--vc-font-mono);
+  max-width: 1400px;
+  margin: 0 auto;
 }
 .vc-nav-tabs { display: flex; }
 .vc-tab {
@@ -735,7 +748,7 @@ body.vc-page > div[style*="text-align:center"] a {
 .vc-range-btn.active { color: var(--vc-accent); font-weight: 600; }
 
 @media (max-width: 960px) {
-  .vc-nav { flex-direction: column; padding: 0; align-items: stretch; }
+  .vc-nav-inner { flex-direction: column; padding: 0; align-items: stretch; }
   .vc-nav-tabs { overflow-x: auto; padding: 0 12px; }
   .vc-nav-right { padding: 12px; border-top: 1px solid var(--vc-grid); flex-wrap: wrap; justify-content: flex-start; }
 }

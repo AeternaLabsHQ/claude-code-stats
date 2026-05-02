@@ -1583,7 +1583,9 @@ document.addEventListener('keydown', function(e) {
     if (t === 'light' || t === 'dark') document.documentElement.classList.add('theme-' + t);
     const btn = document.getElementById('vcThemeToggle');
     if (btn) {
-      const isDark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      let prefersDark = false;
+      try { prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; } catch(e) {}
+      const isDark = t === 'dark' || (t === 'system' && prefersDark);
       btn.innerHTML = isDark ? '&#9790;' : '&#9737;';
     }
   }

@@ -17,22 +17,24 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
-// Variant-C single-accent palette: primary terracotta + neutral grays.
-// Values are read from the .vc element's CSS vars at runtime so they
-// adapt to light/dark mode and stay aligned with the design tokens.
-function _vcColor(name, fallback) {
-  const probe = document.querySelector('.vc') || document.documentElement;
-  return getComputedStyle(probe).getPropertyValue(name).trim() || fallback;
+// Variant-C single-accent palette. Values mirror the CSS custom
+// properties on .vc and are kept in sync with the dark/light theme
+// via a refresh on theme toggle. Hardcoded fallback ensures chart
+// dataset declarations at module-load time always have a real color.
+const _VC_PALETTE_LIGHT = ['#b04a2f', '#4d4a42', '#918a7a', '#f1d9cd'];
+const _VC_PALETTE_DARK  = ['#d97757', '#b3ad9b', '#76705f', '#2c1c14'];
+function vcCurrentPalette() {
+  if (typeof document !== 'undefined') {
+    const cls = document.documentElement.classList;
+    if (cls.contains('theme-dark')) return _VC_PALETTE_DARK;
+    if (cls.contains('theme-light')) return _VC_PALETTE_LIGHT;
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return _VC_PALETTE_DARK;
+  }
+  return _VC_PALETTE_LIGHT;
 }
 function vcColor(rank) {
-  // 0=accent, 1=fg-2, 2=fg-3, 3=accent-soft (mostly used as fill)
-  const palette = [
-    _vcColor('--vc-accent', '#b04a2f'),
-    _vcColor('--vc-fg-2', '#4d4a42'),
-    _vcColor('--vc-fg-3', '#918a7a'),
-    _vcColor('--vc-accent-soft', '#f1d9cd'),
-  ];
-  return palette[rank % palette.length];
+  const p = vcCurrentPalette();
+  return p[rank % p.length];
 }
 function vcRgba(rank, alpha) {
   const hex = vcColor(rank).replace('#', '');
@@ -43,18 +45,21 @@ function vcRgba(rank, alpha) {
   return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
 }
 
-// MODEL_COLORS: a function that returns a color per model name, picking
-// from the Variant-C palette by stable hash so order doesn't change
-// between filter changes. Primary model gets accent; others descend.
-const MODEL_COLORS = new Proxy({}, {
-  get(_, modelName) {
-    if (modelName === 'Unknown') return vcColor(2);
-    // Stable color by name hash modulo palette length
-    let h = 0;
-    const s = String(modelName);
-    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-    return vcColor(Math.abs(h) % 3); // 3 main slots (accent, fg-2, fg-3)
-  }
+// MODEL_COLORS: stable mapping of model name → palette slot, computed
+// at runtime so theme changes propagate through chart re-renders.
+function vcModelColor(modelName) {
+  if (!modelName || modelName === 'Unknown') return vcColor(2);
+  let h = 0;
+  const s = String(modelName);
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return vcColor(Math.abs(h) % 3);
+}
+// Backwards-compat shim: MODEL_COLORS[m] still works for existing code.
+const MODEL_COLORS = {
+  get _proxy() { return true; },
+};
+['Opus 4.7', 'Opus 4.6', 'Opus 4.5', 'Sonnet 4.6', 'Sonnet 4.5', 'Sonnet 4.0', 'Haiku 4.5', 'Haiku 3.5', 'Unknown'].forEach(m => {
+  Object.defineProperty(MODEL_COLORS, m, { get() { return vcModelColor(m); }, enumerable: true });
 });
 
 const SOURCE_COLORS = [
@@ -154,17 +159,14 @@ let currentDays = 0;
 let anonMode = false;
 let agentTypesChartInstance, agentDescsChartInstance, errorByCatChartInstance, errorByToolChartInstance;
 // Variant-C: 10-slot palette using accent + fg shades cycled.
-const chartColors = new Proxy([], {
-  get(_, idx) {
-    const i = parseInt(idx, 10);
-    if (Number.isNaN(i)) return undefined;
-    // accent for primaries, then alternating fg-2/fg-3 with descending opacity
-    if (i === 0) return vcColor(0);
-    if (i === 1) return vcColor(1);
-    if (i === 2) return vcColor(2);
-    return vcRgba(0, Math.max(0.15, 1 - i * 0.1));
-  }
-});
+// Plain array rebuilt on demand to avoid Proxy-array compat issues with Chart.js.
+function buildVcChartColors(n) {
+  n = n || 10;
+  const out = [vcColor(0), vcColor(1), vcColor(2)];
+  for (let i = 3; i < n; i++) out.push(vcRgba(0, Math.max(0.15, 1 - i * 0.1)));
+  return out;
+}
+const chartColors = buildVcChartColors(13);
 let currentProjectFilter = '';
 
 function calcFilteredPlanCost(filteredDates) {
@@ -598,9 +600,8 @@ function renderCosts() {
 }
 
 function _vcAccentRgb() {
-  // Read --vc-accent from a .vc element; convert hex -> "r,g,b"
-  const probe = document.querySelector('.vc') || document.documentElement;
-  const hex = (getComputedStyle(probe).getPropertyValue('--vc-accent').trim() || '#b04a2f').replace('#', '');
+  // Use the active palette (theme-aware), no DOM dependency
+  const hex = vcColor(0).replace('#', '');
   if (hex.length !== 6) return '176,74,47';
   const r = parseInt(hex.substr(0,2), 16);
   const g = parseInt(hex.substr(2,2), 16);
@@ -1674,7 +1675,9 @@ document.addEventListener('keydown', function(e) {
     }
     const btn = document.getElementById('vcThemeToggle');
     if (btn) {
-      const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      let prefersDark = false;
+      try { prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; } catch(e) {}
+      const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
       btn.innerHTML = isDark ? '&#9790;' : '&#9737;';
     }
     if (typeof setupVcChartDefaults === 'function') setupVcChartDefaults();
@@ -1687,11 +1690,16 @@ document.addEventListener('keydown', function(e) {
     localStorage.setItem('vc-theme', next);
     applyVcTheme(next);
   });
-  // React to system pref change while in 'system' mode
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    const t = localStorage.getItem('vc-theme') || 'system';
-    if (t === 'system') applyVcTheme(t);
-  });
+  // React to system pref change while in 'system' mode (defensive: older browsers use addListener)
+  try {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => {
+      const t = localStorage.getItem('vc-theme') || 'system';
+      if (t === 'system') applyVcTheme(t);
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  } catch (e) { /* matchMedia missing — skip */ }
 
   // Language toggle (config-based, alert is honest)
   document.getElementById('vcLangToggle')?.addEventListener('click', () => {

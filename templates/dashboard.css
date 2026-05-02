@@ -58,8 +58,17 @@ html.theme-light .vc {
   --vc-accent-soft: #f1d9cd;
 }
 .vc *, .vc *::before, .vc *::after { border-radius: 0 !important; box-sizing: border-box; }
-body.vc-page { background: var(--vc-bg, #f4f1ec); color: var(--vc-fg, #1c1a17); font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum' 1, 'zero' 1; }
-body.vc-page.theme-dark, html.theme-dark body.vc-page { background: #0e0d0b; color: #ece7da; }
+body.vc-page {
+  background: #f4f1ec;
+  color: #1c1a17;
+  font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) body.vc-page { background: #0e0d0b; color: #ece7da; }
+}
+html.theme-dark body.vc-page { background: #0e0d0b; color: #ece7da; }
+html.theme-light body.vc-page { background: #f4f1ec; color: #1c1a17; }
 body.vc-page * { box-sizing: border-box; }
 
 /* Remap LEGACY CSS variables to Variant-C tokens when on .vc-page.
@@ -297,7 +306,7 @@ body.anon-mode .anon-blur {
    Re-skins the existing chart-box, data-table, kpi-card, etc. with
    Terminal tokens. This avoids a full markup rewrite while delivering
    the Variant-C aesthetic. */
-.vc { background: var(--vc-bg); color: var(--vc-fg); }
+.vc.container { background: var(--vc-bg); color: var(--vc-fg); }
 .vc h1, .vc h2, .vc h3, .vc h4, .vc h5 {
   color: var(--vc-fg);
   font-family: var(--vc-font-mono);

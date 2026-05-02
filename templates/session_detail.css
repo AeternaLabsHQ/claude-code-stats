@@ -29,6 +29,10 @@ body.vc-page {
   font-feature-settings: 'tnum' 1, 'zero' 1;
 }
 body.vc-page.theme-dark, html.theme-dark body.vc-page { background: #0e0d0b !important; color: #ece7da !important; }
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) body.vc-page { background: #0e0d0b !important; color: #ece7da !important; }
+}
+html.theme-light body.vc-page { background: #f4f1ec !important; color: #1c1a17 !important; }
 body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 
 /* Remap legacy vars on .vc-page so dynamically rendered legacy markup

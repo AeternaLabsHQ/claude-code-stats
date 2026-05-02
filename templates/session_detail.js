@@ -1578,22 +1578,22 @@ document.addEventListener('keydown', function(e) {
 });
 
 (function() {
+  function vcSystemPrefersDark() {
+    try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
+    catch (e) { return false; }
+  }
   function applyTheme(t) {
     document.documentElement.classList.remove('theme-light','theme-dark');
-    if (t === 'light' || t === 'dark') document.documentElement.classList.add('theme-' + t);
+    document.documentElement.classList.add('theme-' + t);
     const btn = document.getElementById('vcThemeToggle');
-    if (btn) {
-      let prefersDark = false;
-      try { prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; } catch(e) {}
-      const isDark = t === 'dark' || (t === 'system' && prefersDark);
-      btn.innerHTML = isDark ? '&#9790;' : '&#9737;';
-    }
+    if (btn) btn.innerHTML = t === 'dark' ? '&#9790;' : '&#9737;';
   }
-  const saved = localStorage.getItem('vc-theme') || 'system';
-  applyTheme(saved);
+  const saved = localStorage.getItem('vc-theme');
+  const initial = (saved === 'light' || saved === 'dark') ? saved : (vcSystemPrefersDark() ? 'dark' : 'light');
+  applyTheme(initial);
   document.getElementById('vcThemeToggle')?.addEventListener('click', () => {
-    const c = localStorage.getItem('vc-theme') || 'system';
-    const n = c === 'system' ? 'light' : (c === 'light' ? 'dark' : 'system');
+    const cur = document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light';
+    const n = cur === 'dark' ? 'light' : 'dark';
     localStorage.setItem('vc-theme', n);
     applyTheme(n);
   });

@@ -154,13 +154,17 @@ body.anon-mode .anon-blur {
 }
 
 /* ── Variant-C top bar ─────────────────────────────────────────── */
-/* Full-width strip with bg/border, inner content constrained */
+/* Constrained-width strip aligned with the .container max-width so the
+   menu, nav, KPI strip and main content all share the same horizontal
+   bounds on wide monitors. */
 .vc-top {
   background: var(--vc-panel);
   border-bottom: 1px solid var(--vc-grid);
   font-family: var(--vc-font-mono);
   font-size: 11px;
   color: var(--vc-fg);
+  max-width: 1400px;
+  margin: 0 auto;
 }
 .vc-top-inner {
   display: grid;
@@ -168,8 +172,6 @@ body.anon-mode .anon-blur {
   align-items: center;
   gap: 16px;
   padding: 10px 20px;
-  max-width: 1400px;
-  margin: 0 auto;
 }
 .vc-top-left { display: flex; align-items: center; gap: 10px; }
 .vc-brand-mark { display: inline-block; width: 8px; height: 8px; background: var(--vc-accent); }
@@ -217,11 +219,11 @@ body.anon-mode .anon-blur {
 /* ── Variant-C KPI strip ───────────────────────────────────────── */
 .vc-kpis-wrap {
   background: var(--vc-bg);
+  max-width: 1400px;
+  margin: 0 auto;
 }
 .vc-kpis-inner {
   padding: 24px 20px 0;
-  max-width: 1400px;
-  margin: 0 auto;
 }
 .vc-kpis {
   display: grid;
@@ -759,14 +761,14 @@ body.vc-page > div[style*="text-align:center"] a {
   background: var(--vc-bg);
   border-bottom: 1px solid var(--vc-grid);
   font-family: var(--vc-font-mono);
+  max-width: 1400px;
+  margin: 0 auto;
 }
 .vc-nav-inner {
   display: flex;
   justify-content: space-between;
   align-items: stretch;
   padding: 0 20px;
-  max-width: 1400px;
-  margin: 0 auto;
 }
 .vc-nav-tabs { display: flex; }
 .vc-tab {

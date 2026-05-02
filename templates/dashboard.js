@@ -108,6 +108,17 @@ function setupVcChartDefaults() {
   const accent = v('--vc-accent', '#b04a2f');
   const panel = v('--vc-panel', '#fbfaf6');
 
+  // Disable all chart animations (entrance, hover, update) — the
+  // single-accent Terminal aesthetic feels snappier without them.
+  Chart.defaults.animation = false;
+  Chart.defaults.animations = { colors: false, x: false, y: false };
+  Chart.defaults.transitions = {
+    active: { animation: { duration: 0 } },
+    resize: { animation: { duration: 0 } },
+    show: { animations: { x: { from: 0 }, y: { from: 0 } } },
+    hide: { animations: { x: { to: 0 }, y: { to: 0 } } },
+  };
+
   Chart.defaults.font.family = "'Geist Mono', 'JetBrains Mono', ui-monospace, monospace";
   Chart.defaults.font.size = 11;
   Chart.defaults.color = fg3;
@@ -1667,39 +1678,31 @@ document.addEventListener('keydown', function(e) {
 
 // ── Variant-C top bar wiring ──────────────────────────────────────
 (function() {
-  // Theme handling
+  // Theme handling — two-state toggle (light/dark). System pref only used
+  // for the very first render when no saved preference exists; once the
+  // user clicks the toggle, their choice is locked.
+  function vcSystemPrefersDark() {
+    try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
+    catch (e) { return false; }
+  }
   function applyVcTheme(theme) {
     document.documentElement.classList.remove('theme-light', 'theme-dark');
-    if (theme === 'light' || theme === 'dark') {
-      document.documentElement.classList.add('theme-' + theme);
-    }
+    document.documentElement.classList.add('theme-' + theme);
     const btn = document.getElementById('vcThemeToggle');
-    if (btn) {
-      let prefersDark = false;
-      try { prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; } catch(e) {}
-      const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
-      btn.innerHTML = isDark ? '&#9790;' : '&#9737;';
-    }
+    if (btn) btn.innerHTML = theme === 'dark' ? '&#9790;' : '&#9737;';
     if (typeof setupVcChartDefaults === 'function') setupVcChartDefaults();
   }
-  const savedTheme = localStorage.getItem('vc-theme') || 'system';
-  applyVcTheme(savedTheme);
+  const saved = localStorage.getItem('vc-theme');
+  const initialTheme = (saved === 'light' || saved === 'dark')
+    ? saved
+    : (vcSystemPrefersDark() ? 'dark' : 'light');
+  applyVcTheme(initialTheme);
   document.getElementById('vcThemeToggle')?.addEventListener('click', () => {
-    const current = localStorage.getItem('vc-theme') || 'system';
-    const next = current === 'system' ? 'light' : (current === 'light' ? 'dark' : 'system');
+    const cur = document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light';
+    const next = cur === 'dark' ? 'light' : 'dark';
     localStorage.setItem('vc-theme', next);
     applyVcTheme(next);
   });
-  // React to system pref change while in 'system' mode (defensive: older browsers use addListener)
-  try {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = () => {
-      const t = localStorage.getItem('vc-theme') || 'system';
-      if (t === 'system') applyVcTheme(t);
-    };
-    if (mq.addEventListener) mq.addEventListener('change', onChange);
-    else if (mq.addListener) mq.addListener(onChange);
-  } catch (e) { /* matchMedia missing — skip */ }
 
   // Language toggle (config-based, alert is honest)
   document.getElementById('vcLangToggle')?.addEventListener('click', () => {

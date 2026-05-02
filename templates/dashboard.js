@@ -1721,9 +1721,11 @@ document.addEventListener('keydown', function(e) {
   if (d) {
     const userEl = document.getElementById('vcTopUser');
     const planEl = document.getElementById('vcTopPlan');
-    if (userEl) userEl.textContent = (d.config && (d.config.display_name || d.account?.name)) || (d.account && d.account.name) || '-';
+    if (userEl) userEl.textContent = (d.account && d.account.name) || '-';
     if (planEl) {
-      const plan = d.account?.plan || (d.config && d.config.plan) || (d.plan_summary && d.plan_summary.current_plan) || '-';
+      const plan = (d.plan && d.plan.current_billing && d.plan.current_billing.plan)
+        || (d.account && d.account.plan)
+        || '-';
       planEl.textContent = plan;
     }
   }

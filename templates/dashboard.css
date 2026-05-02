@@ -62,6 +62,82 @@ body.vc-page { background: var(--vc-bg, #f4f1ec); color: var(--vc-fg, #1c1a17); 
 body.vc-page.theme-dark, html.theme-dark body.vc-page { background: #0e0d0b; color: #ece7da; }
 body.vc-page * { box-sizing: border-box; }
 
+/* Remap LEGACY CSS variables to Variant-C tokens when on .vc-page.
+   This catches dynamically rendered elements that use var(--bg), var(--bg2),
+   var(--text), var(--accent) etc. inline (e.g. innerHTML strings in
+   renderSessions / renderInsights / renderAgentsTab). Light mode is default;
+   theme-dark and prefers-color-scheme dark override. */
+body.vc-page {
+  --bg: #f4f1ec;
+  --bg2: #fbfaf6;
+  --bg3: #ece6d8;
+  --border: #d8d2c4;
+  --text: #1c1a17;
+  --text2: #4d4a42;
+  --accent: #b04a2f;
+  --accent2: #c46141;
+  --green: #6b8e23;
+  --orange: #b04a2f;
+  --red: #b54a3a;
+  --blue: #4d4a42;
+  --purple: #918a7a;
+  --cyan: #918a7a;
+  --amber: #b04a2f;
+}
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) body.vc-page {
+    --bg: #0e0d0b;
+    --bg2: #15140f;
+    --bg3: #1f1d18;
+    --border: #2a2620;
+    --text: #ece7da;
+    --text2: #b3ad9b;
+    --accent: #d97757;
+    --accent2: #ec8b6a;
+    --green: #93b85e;
+    --orange: #d97757;
+    --red: #e07d65;
+    --blue: #b3ad9b;
+    --purple: #76705f;
+    --cyan: #76705f;
+    --amber: #d97757;
+  }
+}
+html.theme-dark body.vc-page {
+  --bg: #0e0d0b;
+  --bg2: #15140f;
+  --bg3: #1f1d18;
+  --border: #2a2620;
+  --text: #ece7da;
+  --text2: #b3ad9b;
+  --accent: #d97757;
+  --accent2: #ec8b6a;
+  --green: #93b85e;
+  --orange: #d97757;
+  --red: #e07d65;
+  --blue: #b3ad9b;
+  --purple: #76705f;
+  --cyan: #76705f;
+  --amber: #d97757;
+}
+html.theme-light body.vc-page {
+  --bg: #f4f1ec;
+  --bg2: #fbfaf6;
+  --bg3: #ece6d8;
+  --border: #d8d2c4;
+  --text: #1c1a17;
+  --text2: #4d4a42;
+  --accent: #b04a2f;
+  --accent2: #c46141;
+  --green: #6b8e23;
+  --orange: #b04a2f;
+  --red: #b54a3a;
+  --blue: #4d4a42;
+  --purple: #918a7a;
+  --cyan: #918a7a;
+  --amber: #b04a2f;
+}
+
 /* Anonymization blur */
 body.anon-mode .anon-blur {
   filter: blur(4px);

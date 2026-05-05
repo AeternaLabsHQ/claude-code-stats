@@ -45,14 +45,45 @@ function vcRgba(rank, alpha) {
   return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
 }
 
-// MODEL_COLORS: stable mapping of model name → palette slot, computed
-// at runtime so theme changes propagate through chart re-renders.
+// MODEL_COLORS: explicit per-model palette built around three on-brand
+// earth-tone hues (terracotta / sage / ochre) so families are clearly
+// distinguishable, with three lightness steps per family for versions.
+// Unknown / unmatched models fall back to a neutral warm gray.
+const _VC_MODEL_LIGHT = {
+  'Opus 4.7':   '#b04a2f',
+  'Opus 4.6':   '#8e3b25',
+  'Opus 4.5':   '#6e2d1c',
+  'Sonnet 4.6': '#5b8a7a',
+  'Sonnet 4.5': '#467267',
+  'Sonnet 4.0': '#345b54',
+  'Haiku 4.5':  '#c89a4a',
+  'Haiku 3.5':  '#a37b35',
+  'Unknown':    '#7a766b',
+};
+const _VC_MODEL_DARK = {
+  'Opus 4.7':   '#d97757',
+  'Opus 4.6':   '#bb5e3f',
+  'Opus 4.5':   '#9d4a30',
+  'Sonnet 4.6': '#7eb09e',
+  'Sonnet 4.5': '#629581',
+  'Sonnet 4.0': '#487a67',
+  'Haiku 4.5':  '#d4a55c',
+  'Haiku 3.5':  '#b48742',
+  'Unknown':    '#9e9a8c',
+};
+const _VC_FAMILY_FALLBACK_LIGHT = { opus: '#b04a2f', sonnet: '#5b8a7a', haiku: '#c89a4a' };
+const _VC_FAMILY_FALLBACK_DARK  = { opus: '#d97757', sonnet: '#7eb09e', haiku: '#d4a55c' };
 function vcModelColor(modelName) {
-  if (!modelName || modelName === 'Unknown') return vcColor(2);
-  let h = 0;
-  const s = String(modelName);
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return vcColor(Math.abs(h) % 3);
+  const isDark = vcCurrentPalette() === _VC_PALETTE_DARK;
+  const map = isDark ? _VC_MODEL_DARK : _VC_MODEL_LIGHT;
+  const fam = isDark ? _VC_FAMILY_FALLBACK_DARK : _VC_FAMILY_FALLBACK_LIGHT;
+  if (!modelName) return map['Unknown'];
+  if (map[modelName]) return map[modelName];
+  const lower = String(modelName).toLowerCase();
+  if (lower.includes('opus'))   return fam.opus;
+  if (lower.includes('sonnet')) return fam.sonnet;
+  if (lower.includes('haiku'))  return fam.haiku;
+  return map['Unknown'];
 }
 // Backwards-compat shim: MODEL_COLORS[m] still works for existing code.
 const MODEL_COLORS = {
@@ -148,20 +179,56 @@ function setupVcChartDefaults() {
     Chart.defaults.scale.ticks.color = fg3;
     Chart.defaults.scale.ticks.font = {family: "'Geist Mono', monospace", size: 10};
   }
-  // Re-render existing charts (if any)
+  // Mutate the per-chart scaleDefaults object in place so charts that spread
+  // {...scaleDefaults.x} or reference scaleDefaults.x directly pick up the
+  // theme's soft grid color instead of the legacy slate (#1e293b).
+  if (typeof scaleDefaults !== 'undefined') {
+    scaleDefaults.x.grid.color = grid2;
+    scaleDefaults.y.grid.color = grid2;
+    scaleDefaults.x.ticks.color = fg3;
+    scaleDefaults.y.ticks.color = fg3;
+  }
+  // Expose the resolved grid color so chart configs built later (e.g. radar)
+  // can use it without re-reading CSS vars.
+  window.__vcGrid2 = grid2;
+  window.__vcFg3 = fg3;
+  // Re-render existing charts (if any). Chart.js caches scale options on
+  // each instance at creation, so updating Chart.defaults / scaleDefaults
+  // alone does NOT recolor already-built charts on theme toggle. Mutate
+  // each instance's scales/border colors explicitly before update().
   if (Chart.instances) {
     for (const id in Chart.instances) {
-      try { Chart.instances[id].update('none'); } catch {}
+      try {
+        const c = Chart.instances[id];
+        if (c.options) {
+          if (c.options.borderColor !== undefined) c.options.borderColor = grid;
+          if (c.options.scales) {
+            Object.keys(c.options.scales).forEach(k => {
+              const s = c.options.scales[k];
+              if (!s) return;
+              if (s.grid)       s.grid.color       = grid2;
+              if (s.ticks)      s.ticks.color      = fg3;
+              if (s.angleLines) s.angleLines.color = grid2;
+            });
+          }
+        }
+        c.update('none');
+      } catch {}
     }
   }
 }
+// scaleDefaults is shared by chart configs below. Declared *before* the
+// first setupVcChartDefaults() call so the function can sync its grid/tick
+// colors to the active --vc-grid-2 / --vc-fg-3 values (and re-sync on
+// theme switch). Initial values are warm light-mode placeholders; they're
+// immediately overwritten by setupVcChartDefaults().
+const scaleDefaults = {
+  x: { ticks: { color: '#918a7a' }, grid: { color: '#e8e3d6' } },
+  y: { ticks: { color: '#918a7a' }, grid: { color: '#e8e3d6' } },
+};
+
 // Apply once at load (before any chart is built) and re-apply on theme changes
 setupVcChartDefaults();
-
-const scaleDefaults = {
-  x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
-  y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
-};
 
 // ── Filtered Data & Time Filter ────────────────────────────────────────
 let F = {};
@@ -530,7 +597,7 @@ function renderCosts() {
       datasets: models.map(m => ({
         label: m,
         data: F.daily_costs.map(d => d[m] || 0),
-        backgroundColor: MODEL_COLORS[m] || '#6b7280',
+        backgroundColor: vcModelColor(m),
         borderRadius: 0,
       }))
     },
@@ -558,7 +625,7 @@ function renderCosts() {
     data: {
       labels: F.model_summary.map(m => m.model),
       datasets: [{ data: F.model_summary.map(m => m.cost),
-        backgroundColor: F.model_summary.map(m => MODEL_COLORS[m.model] || '#6b7280'), borderWidth: 0 }]
+        backgroundColor: F.model_summary.map(m => vcModelColor(m.model)), borderWidth: 0 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16 } },
@@ -695,7 +762,7 @@ function renderActivity() {
         borderWidth: 1, borderColor: '#2d3348' }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
-      scales: { r: { ticks: { color: '#64748b', backdropColor: 'transparent' }, grid: { color: '#1e293b' } } } }
+      scales: { r: { ticks: { color: window.__vcFg3 || '#918a7a', backdropColor: 'transparent' }, grid: { color: window.__vcGrid2 || '#e8e3d6' }, angleLines: { color: window.__vcGrid2 || '#e8e3d6' } } } }
   });
 
   charts.weekday = new Chart(document.getElementById('chartWeekday'), {

@@ -1903,6 +1903,24 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     tool_ranking = sorted(global_tools.items(), key=lambda x: -x[1])
     tool_summary = [{"name": n, "count": c} for n, c in tool_ranking]
 
+    # Global Tool Token Aggregation (cost + output tokens per tool)
+    global_tool_tokens = {}
+    global_reasoning_output = 0
+    global_reasoning_cost = 0.0
+    for s in session_list:
+        for tname, td in (s.get("tool_tokens") or {}).items():
+            agg = global_tool_tokens.setdefault(tname, {"calls": 0, "output_tokens": 0, "cost": 0.0})
+            agg["calls"] += td.get("calls", 0)
+            agg["output_tokens"] += td.get("output_tokens", 0)
+            agg["cost"] += td.get("cost", 0.0)
+        global_reasoning_output += s.get("reasoning_output_tokens", 0)
+        global_reasoning_cost += s.get("reasoning_cost", 0.0)
+
+    tool_token_summary = sorted(
+        [{"name": n, **v, "cost": round(v["cost"], 4)} for n, v in global_tool_tokens.items()],
+        key=lambda x: -x["output_tokens"],
+    )
+
     # Global Skills Aggregation
     global_skills = defaultdict(int)
     for s in session_list:
@@ -1989,6 +2007,11 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         "projects": project_list,
         "sessions": session_list,
         "tool_summary": tool_summary,
+        "tool_token_summary": tool_token_summary,
+        "reasoning_summary": {
+            "output_tokens": global_reasoning_output,
+            "cost": round(global_reasoning_cost, 4),
+        },
         "skill_summary": skill_summary,
         "hook_summary": hook_summary,
         "agent_summary": {

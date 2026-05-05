@@ -555,6 +555,7 @@ function applyFilter(days, projectFilter) {
   renderProjects();
   renderSessions();
   renderToolUsageChart();
+  renderToolTokenChart();
   renderAgentsTab();
 }
 
@@ -572,6 +573,50 @@ function renderToolUsageChart() {
           y: { ...scaleDefaults.y, ticks: { font: { size: 11 } } } } }
     });
   }
+}
+
+function renderToolTokenChart() {
+  const data = (F.tool_token_summary || []).slice(0, 12);
+  const reasoningOut = (F.reasoning_summary || {}).output_tokens || 0;
+
+  const labels = data.map(t => t.name);
+  const values = data.map(t => t.output_tokens);
+  if (reasoningOut > 0) {
+    labels.push('Reasoning');
+    values.push(reasoningOut);
+  }
+  if (values.length === 0) return;
+
+  const palette = ['#10b981','#06b6d4','#6366f1','#f59e0b','#ef4444','#a855f7','#ec4899','#84cc16','#14b8a6','#f97316','#3b82f6','#eab308','#94a3b8'];
+
+  const canvas = document.getElementById('chartToolTokens');
+  if (!canvas) return;
+  charts.toolTokens = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      animation: false,
+      plugins: {
+        legend: {position: 'right'},
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = ctx.dataset.data.reduce((s,v)=>s+v,0);
+              const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : '0';
+              return ctx.label + ': ' + ctx.raw.toLocaleString() + ' tokens (' + pct + '%)';
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 // ── KPI Cards ──────────────────────────────────────────────────────────
@@ -1562,6 +1607,7 @@ function renderInsights() {
 
   // Tool usage chart
   renderToolUsageChart();
+  renderToolTokenChart();
 
   // Storage chart
   const storage = ins.storage || {};

@@ -1725,6 +1725,16 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "primary_model": primary_model,
             "model_breakdown": model_breakdown,
             "tools": dict(sess["tools"]),
+            "tool_tokens": {
+                name: {
+                    "calls": v["calls"],
+                    "output_tokens": v["output_tokens"],
+                    "cost": round(v["cost"], 4),
+                }
+                for name, v in sess["tool_tokens"].items()
+            },
+            "reasoning_output_tokens": sess["reasoning_output_tokens"],
+            "reasoning_cost": round(sess["reasoning_cost"], 4),
             "skills": dict(sess["skills"]),
             "hooks": dict(sess["hooks"]),
             "compactions": sess["compactions"],

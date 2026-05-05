@@ -8,6 +8,14 @@
     "hide_empty": "Hide empty sessions",
     "hide_empty_hint": "Hide sessions with no messages and no token usage"
   },
+  "top": {
+    "lang_label": "DE",
+    "lang_title": "Language is set in config.json",
+    "theme_title": "Toggle theme (system / light / dark)"
+  },
+  "filter": {
+    "placeholder": "filter projects..."
+  },
   "kpi": {
     "api_equivalent": "API Equivalent",
     "api_equivalent_sub": "Value at API prices \u2013 actually paid: ",
@@ -40,7 +48,8 @@
     "th_input": "Input",
     "th_cache_read": "Cache Read",
     "th_api_calls": "API Calls",
-    "cache_efficiency": "Cache Efficiency"
+    "cache_efficiency": "Cache Efficiency",
+    "cache_efficiency_daily": "Cache Efficiency per Day (box plot, sessions ≥ 3 msg)"
   },
   "activity": {
     "daily_messages": "Messages per Day",

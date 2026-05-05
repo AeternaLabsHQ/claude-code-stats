@@ -8,6 +8,14 @@
     "hide_empty": "Leere Sessions ausblenden",
     "hide_empty_hint": "Sessions ohne Nachrichten und ohne Token-Verbrauch ausblenden"
   },
+  "top": {
+    "lang_label": "EN",
+    "lang_title": "Sprache wird in config.json gesetzt",
+    "theme_title": "Theme wechseln (System / Hell / Dunkel)"
+  },
+  "filter": {
+    "placeholder": "Projekte filtern..."
+  },
   "kpi": {
     "api_equivalent": "API-\u00c4quivalent",
     "api_equivalent_sub": "Wert bei API-Preisen \u2013 tats\u00e4chlich bezahlt: ",
@@ -40,7 +48,8 @@
     "th_input": "Input",
     "th_cache_read": "Cache Read",
     "th_api_calls": "API Calls",
-    "cache_efficiency": "Cache-Effizienz"
+    "cache_efficiency": "Cache-Effizienz",
+    "cache_efficiency_daily": "Cache-Effizienz pro Tag (Box-Plot, Sessions ≥ 3 Nachrichten)"
   },
   "activity": {
     "daily_messages": "Nachrichten pro Tag",

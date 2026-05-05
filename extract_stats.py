@@ -1035,6 +1035,7 @@ def parse_session_transcripts():
                                     "hooks": defaultdict(int),
                                     "compactions": 0,
                                     "compaction_events": [],
+                                    "cache_flush_count": 0,
                                     "message_count": 0,
                                     "user_message_count": 0,
                                     "assistant_message_count": 0,
@@ -1146,6 +1147,15 @@ def parse_session_transcripts():
 
                                     m["cost"] += calc_cost(model, usage)
                                     m["calls"] += 1
+
+                                    # Cache flush = turn whose cache-hit-rate is < 50%.
+                                    # Hit rate = cache_read / (input + cache_read + cache_write).
+                                    turn_in = usage.get("input_tokens", 0)
+                                    turn_cr = usage.get("cache_read_input_tokens", 0)
+                                    turn_cw = usage.get("cache_creation_input_tokens", 0)
+                                    turn_in_sum = turn_in + turn_cr + turn_cw
+                                    if turn_in_sum > 0 and (turn_cr / turn_in_sum) < 0.5:
+                                        sess["cache_flush_count"] += 1
 
                                     turn_output = usage.get("output_tokens", 0)
                                     turn_cost = calc_cost(model, usage)
@@ -1739,6 +1749,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "hooks": dict(sess["hooks"]),
             "compactions": sess["compactions"],
             "compaction_events": sess["compaction_events"],
+            "cache_flush_count": sess.get("cache_flush_count", 0),
             "first_prompt": sess["first_prompt"],
             "slug": sess["slug"],
             "file_size_mb": round(sess["file_size"] / 1_048_576, 2),

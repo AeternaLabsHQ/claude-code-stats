@@ -17,6 +17,20 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
+// Cache efficiency: cache_read / (input + cache_read + cache_write).
+// Returns null when the session has no input-side tokens recorded.
+function sessionCacheEff(s) {
+  const inputSum = (s.input_tokens||0) + (s.cache_read_tokens||0) + (s.cache_write_tokens||0);
+  if (inputSum === 0) return null;
+  return (s.cache_read_tokens||0) / inputSum * 100;
+}
+function effStyle(pct) {
+  if (pct == null) return {color:'var(--text2)', emoji:'—', label:'—'};
+  if (pct >= 80) return {color:'var(--green)', emoji:'✅', label:pct.toFixed(1)+'%'};
+  if (pct >= 50) return {color:'var(--amber)', emoji:'⚠️', label:pct.toFixed(1)+'%'};
+  return {color:'var(--red)', emoji:'❌', label:pct.toFixed(1)+'%'};
+}
+
 // Variant-C single-accent palette. Values mirror the CSS custom
 // properties on .vc and are kept in sync with the dark/light theme
 // via a refresh on theme toggle. Hardcoded fallback ensures chart
@@ -1256,6 +1270,23 @@ function buildSessionCard(s) {
     compSpan.innerHTML = '&#9889; ' + s.compactions;
     info.appendChild(compSpan);
   }
+  if ((s.cache_flush_count || 0) > 0) {
+    const flushSpan = document.createElement('span');
+    flushSpan.style.color = 'var(--red)';
+    flushSpan.title = 'Turns where cache hit-rate was below 50% (cache had to be (re)built)';
+    flushSpan.innerHTML = '&#8635; ' + s.cache_flush_count;
+    info.appendChild(flushSpan);
+  }
+  const eff = sessionCacheEff(s);
+  if (eff != null) {
+    const effSt = effStyle(eff);
+    const effSpan = document.createElement('span');
+    effSpan.style.color = effSt.color;
+    effSpan.style.fontWeight = '600';
+    effSpan.title = D.locale.costs.cache_efficiency;
+    effSpan.textContent = effSt.emoji + ' ' + effSt.label;
+    info.appendChild(effSpan);
+  }
   card.appendChild(info);
 
   // Prompt
@@ -1277,9 +1308,23 @@ function buildSessionCard(s) {
   p1.appendChild(document.createTextNode(modelDetail));
   details.appendChild(p1);
 
+  const totalTok = (s.input_tokens||0) + (s.output_tokens||0) + (s.cache_read_tokens||0) + (s.cache_write_tokens||0);
   const p2 = document.createElement('p');
-  p2.textContent = 'Output: ' + fmtTokens(s.output_tokens) + ' | Input: ' + fmtTokens(s.input_tokens) + ' | Cache Read: ' + fmtTokens(s.cache_read_tokens);
+  p2.textContent = 'Total: ' + fmtTokens(totalTok) +
+    ' | Output: ' + fmtTokens(s.output_tokens) +
+    ' | Cache Read: ' + fmtTokens(s.cache_read_tokens) +
+    ' | Cache Write: ' + fmtTokens(s.cache_write_tokens||0) +
+    ' | Uncached: ' + fmtTokens(s.input_tokens);
   details.appendChild(p2);
+  const effDet = sessionCacheEff(s);
+  if (effDet != null) {
+    const effDetSt = effStyle(effDet);
+    const p2b = document.createElement('p');
+    p2b.style.marginTop = '4px';
+    p2b.innerHTML = '<strong>' + D.locale.costs.cache_efficiency + ':</strong> ' +
+      '<span style="color:' + effDetSt.color + ';font-weight:600">' + effDetSt.emoji + ' ' + effDetSt.label + '</span>';
+    details.appendChild(p2b);
+  }
 
   const toolEntries = Object.entries(s.tools || {}).sort((a,b) => b[1]-a[1]).slice(0, 10);
   if (toolEntries.length > 0) {

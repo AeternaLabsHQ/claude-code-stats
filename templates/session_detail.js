@@ -9,6 +9,17 @@ const fmtTokens = n => { if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) re
 function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function fmtTime(ts) { if(!ts) return ''; const d=new Date(typeof ts==='number'?ts:ts); return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 function modelClass(m) { const l=(m||'').toLowerCase(); if(l.includes('opus')) return 'opus'; if(l.includes('sonnet')) return 'sonnet'; if(l.includes('haiku')) return 'haiku'; return ''; }
+function cacheEff(s) {
+  const inputSum = (s.input_tokens||0) + (s.cache_read_tokens||0) + (s.cache_write_tokens||0);
+  if (inputSum === 0) return null;
+  return (s.cache_read_tokens||0) / inputSum * 100;
+}
+function effStyle(pct) {
+  if (pct == null) return {color:'var(--text2)', emoji:'—', label:'—'};
+  if (pct >= 80) return {color:'var(--green)', emoji:'✅', label:pct.toFixed(1)+'%'};
+  if (pct >= 50) return {color:'var(--amber)', emoji:'⚠️', label:pct.toFixed(1)+'%'};
+  return {color:'var(--red)', emoji:'❌', label:pct.toFixed(1)+'%'};
+}
 
 document.getElementById('sessionTitle').textContent = sess.project;
 document.getElementById('sessionMeta').innerHTML =
@@ -17,11 +28,15 @@ document.getElementById('sessionMeta').innerHTML =
   '<span class="model-badge '+modelClass(sess.primary_model)+'">'+escHtml(sess.primary_model)+'</span>';
 
 const toolCount = Object.values(sess.tools||{}).reduce((s,v)=>s+v,0);
+const sessEff = cacheEff(sess);
+const sessEffSt = effStyle(sessEff);
 document.getElementById('statsBar').innerHTML =
   '<div class="stat-card"><div class="label">Duration</div><div class="value">'+sess.duration_min+'m</div></div>' +
   '<div class="stat-card"><div class="label">Messages</div><div class="value" style="color:var(--green)">'+sess.messages+'</div></div>' +
   '<div class="stat-card"><div class="label">Tool Calls</div><div class="value" style="color:var(--cyan)">'+toolCount+'</div></div>' +
   '<div class="stat-card"><div class="label">Tokens</div><div class="value" style="color:var(--purple)">'+fmtTokens(sess.input_tokens+sess.output_tokens)+'</div></div>' +
+  '<div class="stat-card"><div class="label">Cache Eff.</div><div class="value" style="color:'+sessEffSt.color+'">'+sessEffSt.emoji+' '+sessEffSt.label+'</div></div>' +
+  '<div class="stat-card"><div class="label">Cache Flushes</div><div class="value" title="Turns where cache hit-rate was below 50%" style="color:'+((sess.cache_flush_count||0)>0?'var(--red)':'var(--text2)')+'">'+((sess.cache_flush_count||0))+'</div></div>' +
   '<div class="stat-card"><div class="label">Est. Cost</div><div class="value" style="color:var(--orange)">'+fmtUSD(sess.cost)+'</div></div>' +
   '<div class="stat-card"><div class="label">Compactions</div><div class="value" style="color:'+((sess.compactions||0)>0?'var(--amber)':'var(--text2)')+'">'+((sess.compactions||0))+'</div></div>';
 

@@ -192,7 +192,8 @@ a:hover { text-decoration:underline; }
 .model-badge.opus { background:rgba(168,85,247,0.2); color:var(--purple); }
 .model-badge.sonnet { background:rgba(59,130,246,0.2); color:var(--blue); }
 .model-badge.haiku { background:rgba(34,197,94,0.2); color:var(--green); }
-.stats-bar { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; padding:16px 24px; background:var(--bg2); border-bottom:1px solid var(--border); }
+.stats-bar { display:grid; grid-template-columns:repeat(8,1fr); gap:12px; padding:16px 24px; background:var(--bg2); border-bottom:1px solid var(--border); }
+@media(min-width:1000px) and (max-width:1400px){.stats-bar{grid-template-columns:repeat(4,1fr)}}
 .stat-card { text-align:center; }
 .stat-card .label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
 .stat-card .value { font-size:20px; font-weight:700; }

@@ -319,12 +319,24 @@ def attribute_turn_tokens(output_tokens, cost, tool_names):
         per_tool_counts[name] = per_tool_counts.get(name, 0) + 1
 
     per_tool = []
-    for name, c in per_tool_counts.items():
+    items = list(per_tool_counts.items())
+    allocated_tokens = 0
+    allocated_cost = 0.0
+    for i, (name, c) in enumerate(items):
         share = c / n
+        if i < len(items) - 1:
+            tokens = int(round(output_tokens * share))
+            tcost = cost * share
+        else:
+            # Last entry absorbs rounding remainder so totals reconcile exactly.
+            tokens = output_tokens - allocated_tokens
+            tcost = cost - allocated_cost
+        allocated_tokens += tokens
+        allocated_cost += tcost
         per_tool.append({
             "tool": name,
-            "output_tokens": int(round(output_tokens * share)),
-            "cost": cost * share,
+            "output_tokens": tokens,
+            "cost": tcost,
         })
 
     return {

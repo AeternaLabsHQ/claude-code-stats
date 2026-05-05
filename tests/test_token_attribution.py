@@ -66,5 +66,31 @@ class AttributeTurnTokensTest(unittest.TestCase):
         self.assertAlmostEqual(result["per_tool"][0]["cost"], 0.0)
 
 
+    def test_non_divisible_tokens_reconcile_to_total(self):
+        # 1000 tokens / 3 tools must sum back to exactly 1000, not 999 or 1001
+        result = attribute_turn_tokens(
+            output_tokens=1000,
+            cost=0.10,
+            tool_names=["Read", "Edit", "Bash"],
+        )
+        total_tokens = sum(e["output_tokens"] for e in result["per_tool"])
+        total_cost = sum(e["cost"] for e in result["per_tool"])
+        self.assertEqual(total_tokens, 1000)
+        self.assertAlmostEqual(total_cost, 0.10, places=10)
+
+    def test_non_divisible_tokens_with_repeated_tool(self):
+        # 1000 tokens / 3 calls (Edit, Read, Edit) → Edit gets 2/3 share, Read 1/3
+        # After collapsing: 2 entries summing to exactly 1000
+        result = attribute_turn_tokens(
+            output_tokens=1000,
+            cost=0.10,
+            tool_names=["Edit", "Read", "Edit"],
+        )
+        total_tokens = sum(e["output_tokens"] for e in result["per_tool"])
+        total_cost = sum(e["cost"] for e in result["per_tool"])
+        self.assertEqual(total_tokens, 1000)
+        self.assertAlmostEqual(total_cost, 0.10, places=10)
+
+
 if __name__ == "__main__":
     unittest.main()

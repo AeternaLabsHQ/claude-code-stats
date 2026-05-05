@@ -105,7 +105,7 @@ html.theme-light body.vc-page {
 }
 .vc-tab-h-title { font-size: var(--vc-fs-xs); text-transform: uppercase; letter-spacing: 0.16em; color: var(--vc-fg-3); }
 .vc-tab-h-title b { color: var(--vc-fg); font-weight: 500; }
-.vc-tab-h-rule { height: 1px; background: var(--vc-grid); }
+.vc-tab-h-rule { display: none; }
 .vc-tab-h-meta { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); }
 
 /* Re-skin legacy session detail components */

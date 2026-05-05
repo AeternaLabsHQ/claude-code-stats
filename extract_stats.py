@@ -299,6 +299,41 @@ def calc_cost(model_id, usage):
     return cost
 
 
+def attribute_turn_tokens(output_tokens, cost, tool_names):
+    """Split a turn's output_tokens and cost across its tool_use blocks.
+
+    Repeated tool names in the same turn collapse into a single entry whose
+    share equals (count_of_that_tool / total_tools) of the turn.
+    Turns with no tools attribute fully to the reasoning bucket.
+    """
+    if not tool_names:
+        return {
+            "per_tool": [],
+            "reasoning_output_tokens": output_tokens,
+            "reasoning_cost": cost,
+        }
+
+    n = len(tool_names)
+    per_tool_counts = {}
+    for name in tool_names:
+        per_tool_counts[name] = per_tool_counts.get(name, 0) + 1
+
+    per_tool = []
+    for name, c in per_tool_counts.items():
+        share = c / n
+        per_tool.append({
+            "tool": name,
+            "output_tokens": int(round(output_tokens * share)),
+            "cost": cost * share,
+        })
+
+    return {
+        "per_tool": per_tool,
+        "reasoning_output_tokens": 0,
+        "reasoning_cost": 0.0,
+    }
+
+
 def project_display_name(project_path):
     """Extract a short display name from a project path."""
     if not project_path:

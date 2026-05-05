@@ -80,27 +80,10 @@ if (tf.length > 0) {
     '</tbody></table></div>';
 }
 
-document.getElementById('sessionList').innerHTML = P.sessions.map(s =>
-  '<div class="session-card">' +
-    '<div class="top">' +
-      '<div>' +
-        '<span style="color:var(--text2);font-size:12px">'+new Date(s.start).toLocaleDateString()+' '+new Date(s.start).toLocaleTimeString()+'</span>' +
-        '<span class="model-badge '+modelClass(s.primary_model)+'" style="margin-left:8px">'+escHtml(s.primary_model)+'</span>' +
-        ((s.compactions||0)>0 ? '<span style="color:var(--amber);font-size:12px;margin-left:8px">&#9889; '+s.compactions+'</span>' : '') +
-      '</div>' +
-      '<div style="display:flex;gap:12px;align-items:center">' +
-        '<a href="../sessions/'+s.session_id+'.html" style="font-size:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:6px">Chat</a>' +
-        '<span class="cost">'+fmtUSD(s.cost)+'</span>' +
-      '</div>' +
-    '</div>' +
-    '<div class="info">' +
-      '<span>'+s.duration_min+'m</span>' +
-      '<span>'+s.messages+' msgs</span>' +
-      '<span>'+fmtTokens(s.input_tokens+s.output_tokens)+' tokens</span>' +
-      '<span>'+s.api_calls+' API calls</span>' +
-    '</div>' +
-  '</div>'
-).join('');
+mountSessionTable(document.getElementById('sessionList'), P.sessions, {
+  context: 'projectDetail',
+  hideChatInAnon: false,
+});
 
 // Workflow timeline
 const wf = P.workflow || [];

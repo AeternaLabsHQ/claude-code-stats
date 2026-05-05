@@ -1092,8 +1092,7 @@ function renderProjectTable(sortKey, sortDir) {
 }
 
 // ── Tab 4: Sessions ────────────────────────────────────────────────────
-let sessionPage = 0;
-const SESSION_PER_PAGE = 20;
+let sessionTable = null;
 
 // ─── Markdown export helpers ───────────────────────────────────────────
 function sanitizeProjectSlug(p) {
@@ -1181,7 +1180,6 @@ function getFilteredSessions() {
   const proj = document.getElementById('filterProject').value;
   const src = document.getElementById('filterSource').value;
   const search = document.getElementById('filterSearch').value.toLowerCase();
-  const sort = document.getElementById('filterSort').value;
 
   if (proj) list = list.filter(s => s.project === proj);
   if (src) list = list.filter(s => s.source === src);
@@ -1189,13 +1187,6 @@ function getFilteredSessions() {
     (s.first_prompt || '').toLowerCase().includes(search) ||
     s.project.toLowerCase().includes(search));
 
-  const [key, dir] = sort.split('-');
-  list.sort((a, b) => {
-    const va = key === 'date' ? a.start : a[key];
-    const vb = key === 'date' ? b.start : b[key];
-    if (typeof va === 'string') return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-    return dir === 'asc' ? va - vb : vb - va;
-  });
   return list;
 }
 
@@ -1225,151 +1216,37 @@ function renderSessions() {
   });
   if (sources.includes(currentSrc)) srcSel.value = currentSrc;
 
-  sessionPage = 0;
-  renderSessionList();
-}
-
-function buildSessionCard(s) {
-  const card = document.createElement('div');
-  card.className = 'session-card';
-  // Toggle on click, but ignore clicks that ended a text selection — otherwise
-  // selecting details to copy collapses the card on mouseup.
-  card.addEventListener('mousedown', (e) => { card._mdX = e.clientX; card._mdY = e.clientY; });
-  card.addEventListener('click', (e) => {
-    const sel = window.getSelection && window.getSelection().toString();
-    if (sel && sel.length > 0) return;
-    const dx = Math.abs((e.clientX || 0) - (card._mdX || 0));
-    const dy = Math.abs((e.clientY || 0) - (card._mdY || 0));
-    if (dx > 4 || dy > 4) return;
-    if (e.target.closest('a')) return;
-    card.classList.toggle('expanded');
-  });
-
-  const modelClass = s.primary_model.toLowerCase().includes('opus') ? 'opus' :
-                     s.primary_model.toLowerCase().includes('sonnet') ? 'sonnet' : 'haiku';
-
-  // Top row
-  const top = document.createElement('div'); top.className = 'top';
-  const projSpan = document.createElement('span'); projSpan.className = 'project'; projSpan.textContent = anonMode ? anonName(s.project) : s.project;
-  const costSpan = document.createElement('span'); costSpan.className = 'cost'; costSpan.textContent = fmtUSD(s.cost);
-  const rightGroup = document.createElement('span'); rightGroup.style.display = 'flex'; rightGroup.style.alignItems = 'center';
-  if (!anonMode && s.has_chat !== false) {
-    const chatLink = document.createElement('a'); chatLink.href = 'sessions/' + s.session_id + '.html';
-    chatLink.textContent = 'Chat'; chatLink.addEventListener('click', function(e) { e.stopPropagation(); });
-    chatLink.style.cssText = 'color:var(--accent2);font-size:12px;padding:4px 10px;border:1px solid var(--accent);border-radius:6px;margin-right:8px;text-decoration:none';
-    rightGroup.appendChild(chatLink);
-  }
-  rightGroup.appendChild(costSpan);
-  top.appendChild(projSpan);
-  top.appendChild(rightGroup);
-  card.appendChild(top);
-
-  // Info row
-  const info = document.createElement('div'); info.className = 'info';
-  const infoParts = [
-    new Date(s.start).toLocaleString(D.locale.locale_code),
-    s.duration_min + ' min',
-    fmt(s.messages) + D.locale.sessions_tab.messages_suffix,
-    fmt(s.api_calls) + D.locale.sessions_tab.api_calls_suffix,
-  ];
-  infoParts.forEach(t => { const sp = document.createElement('span'); sp.textContent = t; info.appendChild(sp); });
-  const badge = document.createElement('span'); badge.className = 'model-badge ' + modelClass; badge.textContent = s.primary_model;
-  info.appendChild(badge);
-  if (s.source) info.appendChild(makeSourceBadge(s.source));
-  if (s.compactions > 0) {
-    const compSpan = document.createElement('span'); compSpan.style.color = 'var(--amber)';
-    compSpan.innerHTML = '&#9889; ' + s.compactions;
-    info.appendChild(compSpan);
-  }
-  if ((s.cache_flush_count || 0) > 0) {
-    const flushSpan = document.createElement('span');
-    flushSpan.style.color = 'var(--red)';
-    flushSpan.title = 'Turns where cache hit-rate was below 50% (cache had to be (re)built)';
-    flushSpan.innerHTML = '&#8635; ' + s.cache_flush_count;
-    info.appendChild(flushSpan);
-  }
-  const eff = sessionCacheEff(s);
-  if (eff != null) {
-    const effSt = effStyle(eff);
-    const effSpan = document.createElement('span');
-    effSpan.style.color = effSt.color;
-    effSpan.style.fontWeight = '600';
-    effSpan.title = D.locale.costs.cache_efficiency;
-    effSpan.textContent = effSt.emoji + ' ' + effSt.label;
-    info.appendChild(effSpan);
-  }
-  card.appendChild(info);
-
-  // Prompt
-  if (s.first_prompt && !anonMode) {
-    const prompt = document.createElement('div'); prompt.className = 'prompt';
-    prompt.textContent = s.first_prompt;
-    card.appendChild(prompt);
-  }
-
-  // Details (expandable)
-  const details = document.createElement('div'); details.className = 'details';
-
-  const modelDetail = Object.entries(s.model_breakdown || {})
-    .map(([m, d]) => m + ': ' + fmtUSD(d.cost) + ' (' + fmtTokens(d.output_tokens) + ' out, ' + d.calls + ' calls)')
-    .join(', ');
-  const p1 = document.createElement('p'); p1.style.marginBottom = '8px';
-  const b1 = document.createElement('strong'); b1.textContent = D.locale.sessions_tab.models_label;
-  p1.appendChild(b1);
-  p1.appendChild(document.createTextNode(modelDetail));
-  details.appendChild(p1);
-
-  const totalTok = (s.input_tokens||0) + (s.output_tokens||0) + (s.cache_read_tokens||0) + (s.cache_write_tokens||0);
-  const p2 = document.createElement('p');
-  p2.textContent = 'Total: ' + fmtTokens(totalTok) +
-    ' | Output: ' + fmtTokens(s.output_tokens) +
-    ' | Cache Read: ' + fmtTokens(s.cache_read_tokens) +
-    ' | Cache Write: ' + fmtTokens(s.cache_write_tokens||0) +
-    ' | Uncached: ' + fmtTokens(s.input_tokens);
-  details.appendChild(p2);
-  const effDet = sessionCacheEff(s);
-  if (effDet != null) {
-    const effDetSt = effStyle(effDet);
-    const p2b = document.createElement('p');
-    p2b.style.marginTop = '4px';
-    p2b.innerHTML = '<strong>' + D.locale.costs.cache_efficiency + ':</strong> ' +
-      '<span style="color:' + effDetSt.color + ';font-weight:600">' + effDetSt.emoji + ' ' + effDetSt.label + '</span>';
-    details.appendChild(p2b);
-  }
-
-  const toolEntries = Object.entries(s.tools || {}).sort((a,b) => b[1]-a[1]).slice(0, 10);
-  if (toolEntries.length > 0) {
-    const toolsDiv = document.createElement('div'); toolsDiv.className = 'tools'; toolsDiv.style.marginTop = '8px';
-    const b2 = document.createElement('strong'); b2.textContent = 'Tools: '; toolsDiv.appendChild(b2);
-    toolEntries.forEach(([name, count]) => {
-      const tag = document.createElement('span'); tag.className = 'tool-tag';
-      tag.textContent = name + ' (' + count + ')';
-      toolsDiv.appendChild(tag);
+  // Mount table on first call, update on subsequent calls.
+  const filtered = getFilteredSessions();
+  if (!sessionTable) {
+    const mount = document.getElementById('sessionTableMount');
+    sessionTable = mountSessionTable(mount, filtered, {
+      context: 'dashboard',
+      locale: D.locale.locale_code,
+      anonName: anonName,
+      hideChatInAnon: true,
+      onChange: updateBulkBtnLabel
     });
-    details.appendChild(toolsDiv);
+  } else {
+    sessionTable.update(filtered);
   }
-
-  const p3 = document.createElement('p');
-  p3.style.marginTop = '8px'; p3.style.color = 'var(--text2)'; p3.style.fontSize = '11px';
-  p3.textContent = D.locale.sessions_tab.session_label + s.session_id + D.locale.sessions_tab.slug_label + (s.slug || '-');
-  details.appendChild(p3);
-
-  card.appendChild(details);
-  return card;
+  updateBulkBtnLabel();
 }
 
 function updateBulkBtnLabel() {
   const btn = document.getElementById('bulkDownloadBtn');
   if (!btn) return;
-  const n = getFilteredSessions().length;
+  const n = sessionTable ? sessionTable.getFiltered().length : getFilteredSessions().length;
   if (!btn.dataset.busy) {
-    btn.textContent = '\u2B07 Download all (' + n + ')';
+    btn.textContent = '⬇ Download all (' + n + ')';
     btn.disabled = (n === 0);
   }
 }
+
 async function bulkDownloadSessions() {
   const btn = document.getElementById('bulkDownloadBtn');
-  const sessions = getFilteredSessions().filter(s => s.has_chat !== false);
+  const source = sessionTable ? sessionTable.getFiltered() : getFilteredSessions();
+  const sessions = source.filter(s => s.has_chat !== false);
   if (sessions.length === 0) return;
   if (sessions.length > 100 && !confirm(sessions.length + ' Sessions als ZIP herunterladen? Das kann einen Moment dauern.')) return;
 
@@ -1388,7 +1265,7 @@ async function bulkDownloadSessions() {
     const usedNames = new Set();
 
     for (let i = 0; i < sessions.length; i++) {
-      btn.textContent = 'Loading ' + (i + 1) + '/' + sessions.length + '\u2026';
+      btn.textContent = 'Loading ' + (i + 1) + '/' + sessions.length + '…';
       try {
         const resp = await fetch('sessions/' + sessions[i].session_id + '.html');
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -1418,7 +1295,7 @@ async function bulkDownloadSessions() {
     }
 
     if (usedNames.size > 0) {
-      btn.textContent = 'Zipping\u2026';
+      btn.textContent = 'Zipping…';
       const blob = await zip.generateAsync({type: 'blob'});
       const today = new Date().toISOString().slice(0, 10);
       triggerDownload('claude-sessions-' + today + '.zip', blob, 'application/zip');
@@ -1429,48 +1306,8 @@ async function bulkDownloadSessions() {
   }
 
   if (errors > 0) {
-    alert(errors + ' sessions konnten nicht geladen werden \u2014 siehe Konsole.');
+    alert(errors + ' sessions konnten nicht geladen werden — siehe Konsole.');
   }
-}
-
-function renderSessionList() {
-  const filtered = getFilteredSessions();
-  const total = filtered.length;
-  const pages = Math.ceil(total / SESSION_PER_PAGE);
-  sessionPage = Math.min(sessionPage, Math.max(pages - 1, 0));
-
-  const start = sessionPage * SESSION_PER_PAGE;
-  const page = filtered.slice(start, start + SESSION_PER_PAGE);
-
-  document.getElementById('sessionCount').textContent = total + D.locale.sessions_tab.sessions_count_suffix;
-
-  const container = document.getElementById('sessionList');
-  container.textContent = '';
-  page.forEach(s => container.appendChild(buildSessionCard(s)));
-
-  // Pagination
-  const pagDiv = document.getElementById('sessionPagination');
-  pagDiv.textContent = '';
-  if (pages > 1) {
-    if (sessionPage > 0) {
-      const first = document.createElement('button'); first.textContent = '«';
-      first.addEventListener('click', () => { sessionPage = 0; renderSessionList(); });
-      const prev = document.createElement('button'); prev.textContent = '‹';
-      prev.addEventListener('click', () => { sessionPage--; renderSessionList(); });
-      pagDiv.appendChild(first); pagDiv.appendChild(prev);
-    }
-    const info = document.createElement('span'); info.className = 'info';
-    info.textContent = D.locale.sessions_tab.page_prefix + (sessionPage + 1) + D.locale.sessions_tab.page_separator + pages;
-    pagDiv.appendChild(info);
-    if (sessionPage < pages - 1) {
-      const next = document.createElement('button'); next.textContent = '›';
-      next.addEventListener('click', () => { sessionPage++; renderSessionList(); });
-      const last = document.createElement('button'); last.textContent = '»';
-      last.addEventListener('click', () => { sessionPage = pages - 1; renderSessionList(); });
-      pagDiv.appendChild(next); pagDiv.appendChild(last);
-    }
-  }
-  updateBulkBtnLabel();
 }
 
 // ── Tab 5: Plan & Billing ──────────────────────────────────────────────
@@ -1987,10 +1824,14 @@ document.querySelectorAll('.sortable th[data-sort]').forEach(th => {
 });
 
 // ── Filter events ──────────────────────────────────────────────────────
-document.getElementById('filterProject').addEventListener('change', () => { sessionPage = 0; renderSessionList(); });
-document.getElementById('filterSource').addEventListener('change', () => { sessionPage = 0; renderSessionList(); });
-document.getElementById('filterSort').addEventListener('change', () => { sessionPage = 0; renderSessionList(); });
-document.getElementById('filterSearch').addEventListener('input', () => { sessionPage = 0; renderSessionList(); });
+function _applySessionFilter() {
+  const filtered = getFilteredSessions();
+  if (sessionTable) sessionTable.update(filtered);
+  updateBulkBtnLabel();
+}
+document.getElementById('filterProject').addEventListener('change', _applySessionFilter);
+document.getElementById('filterSource').addEventListener('change', _applySessionFilter);
+document.getElementById('filterSearch').addEventListener('input', _applySessionFilter);
 document.getElementById('hideEmptySessions').addEventListener('change', () => { applyFilter(currentDays); });
 
 // ── Init ───────────────────────────────────────────────────────────────

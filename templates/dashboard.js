@@ -1232,7 +1232,18 @@ function renderSessions() {
 function buildSessionCard(s) {
   const card = document.createElement('div');
   card.className = 'session-card';
-  card.addEventListener('click', () => card.classList.toggle('expanded'));
+  // Toggle on click, but ignore clicks that ended a text selection — otherwise
+  // selecting details to copy collapses the card on mouseup.
+  card.addEventListener('mousedown', (e) => { card._mdX = e.clientX; card._mdY = e.clientY; });
+  card.addEventListener('click', (e) => {
+    const sel = window.getSelection && window.getSelection().toString();
+    if (sel && sel.length > 0) return;
+    const dx = Math.abs((e.clientX || 0) - (card._mdX || 0));
+    const dy = Math.abs((e.clientY || 0) - (card._mdY || 0));
+    if (dx > 4 || dy > 4) return;
+    if (e.target.closest('a')) return;
+    card.classList.toggle('expanded');
+  });
 
   const modelClass = s.primary_model.toLowerCase().includes('opus') ? 'opus' :
                      s.primary_model.toLowerCase().includes('sonnet') ? 'sonnet' : 'haiku';

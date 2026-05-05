@@ -438,6 +438,24 @@ function filterData(days, projectFilter) {
   });
   F.tool_summary = Object.entries(toolMap).map(([name, count]) => ({name, count})).sort((a, b) => b.count - a.count);
 
+  // Recalculate tool_token_summary + reasoning_summary
+  const toolTokenMap = {};
+  let reasoningOut = 0, reasoningCost = 0;
+  F.sessions.forEach(s => {
+    Object.entries(s.tool_tokens || {}).forEach(([name, v]) => {
+      const agg = toolTokenMap[name] || (toolTokenMap[name] = {calls: 0, output_tokens: 0, cost: 0});
+      agg.calls += v.calls || 0;
+      agg.output_tokens += v.output_tokens || 0;
+      agg.cost += v.cost || 0;
+    });
+    reasoningOut += s.reasoning_output_tokens || 0;
+    reasoningCost += s.reasoning_cost || 0;
+  });
+  F.tool_token_summary = Object.entries(toolTokenMap)
+    .map(([name, v]) => ({name, ...v, cost: +v.cost.toFixed(4)}))
+    .sort((a, b) => b.output_tokens - a.output_tokens);
+  F.reasoning_summary = {output_tokens: reasoningOut, cost: +reasoningCost.toFixed(4)};
+
   // Recalculate KPI
   const totalCost = filteredTotalCost;
   const totalSessions = F.sessions.length;

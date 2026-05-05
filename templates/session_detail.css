@@ -5,6 +5,7 @@
   --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6;
   --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a;
   --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd;
+  --vc-flow-bg: #3d2c1f;
   --vc-font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
   --vc-font-sans: 'Geist', 'Inter', system-ui, sans-serif;
   --vc-fs-2xs: 13px;
@@ -21,14 +22,16 @@
     --vc-bg: #0e0d0b; --vc-panel: #15140f; --vc-grid: #2a2620; --vc-grid-2: #1f1d18;
     --vc-fg: #ece7da; --vc-fg-2: #b3ad9b; --vc-fg-3: #76705f;
     --vc-accent: #d97757; --vc-accent-soft: #2c1c14;
+    --vc-flow-bg: #0e0d0b;
   }
 }
 html.theme-dark .vc {
   --vc-bg: #0e0d0b; --vc-panel: #15140f; --vc-grid: #2a2620; --vc-grid-2: #1f1d18;
   --vc-fg: #ece7da; --vc-fg-2: #b3ad9b; --vc-fg-3: #76705f;
   --vc-accent: #d97757; --vc-accent-soft: #2c1c14;
+  --vc-flow-bg: #0e0d0b;
 }
-html.theme-light .vc { --vc-bg: #f4f1ec; --vc-panel: #fbfaf6; --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6; --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a; --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd; }
+html.theme-light .vc { --vc-bg: #f4f1ec; --vc-panel: #fbfaf6; --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6; --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a; --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd; --vc-flow-bg: #3d2c1f; }
 .vc *, .vc *::before, .vc *::after { border-radius: 0 !important; box-sizing: border-box; }
 body.vc-page {
   background: var(--vc-bg, #f4f1ec) !important;
@@ -207,7 +210,7 @@ a:hover { text-decoration:underline; }
 .flow-fitall{position:absolute;top:8px;right:8px;z-index:10}
 .flow-fitall button{background:rgba(10,10,15,0.8);color:#8888aa;border:1px solid #1a1a2e;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:11px}
 .flow-fitall button:hover{color:#00d4ff;border-color:#00d4ff40}
-.flow-progress{position:absolute;bottom:0;left:0;right:0;height:10px;background:#0a0a0f;z-index:10;cursor:pointer}
+.flow-progress{position:absolute;bottom:0;left:0;right:0;height:10px;background:var(--vc-flow-bg, #0a0a0f);z-index:10;cursor:pointer}
 .flow-progress-bar{height:100%;background:linear-gradient(90deg,#00d4ff,#ff00aa);width:0%;transition:width 0.1s;border-radius:0 2px 2px 0}
 .flow-tooltip{position:absolute;display:none;background:rgba(10,10,15,0.95);border:1px solid #00d4ff40;border-radius:6px;padding:8px 12px;color:#ccc;font-size:11px;pointer-events:none;z-index:20;max-width:280px;backdrop-filter:blur(8px)}
 .flow-toggle{display:none;width:100%;padding:8px;background:#12121f;color:#8888aa;border:none;border-bottom:1px solid #1a1a2e;cursor:pointer;font-size:12px}

@@ -449,7 +449,8 @@ class SessionFlow {
   }
 
   _drawBackground(ctx) {
-    ctx.fillStyle = "#0a0a0f";
+    const cssBg = getComputedStyle(this.canvas).getPropertyValue('--vc-flow-bg').trim();
+    ctx.fillStyle = cssBg || "#0a0a0f";
     ctx.fillRect(0, 0, this.W, this.H);
     this._drawHexGrid(ctx);
     this._drawBgParticles(ctx);

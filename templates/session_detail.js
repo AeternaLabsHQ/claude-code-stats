@@ -234,10 +234,22 @@ sideHtml += '<div class="sidebar-card"><h4>Token Breakdown</h4>' +
   '<div class="sidebar-row"><span class="label">Cache Read</span><span class="val">'+fmtTokens(sess.cache_read_tokens)+'</span></div>' +
   '<div class="sidebar-row"><span class="label">Cache Write</span><span class="val">'+fmtTokens(sess.cache_write_tokens)+'</span></div>' +
   '</div>';
+const toolTokens = sess.tool_tokens || {};
 const tools = Object.entries(sess.tools||{}).sort((a,b)=>b[1]-a[1]);
 if (tools.length>0) {
+  const totalOut = Object.values(toolTokens).reduce((s,v)=>s+(v.output_tokens||0),0)
+                    + (sess.reasoning_output_tokens||0);
   sideHtml += '<div class="sidebar-card"><h4>Tools Used</h4>' +
-    tools.slice(0,15).map(([n,c]) => '<div class="sidebar-row"><span class="label">'+escHtml(n)+'</span><span class="val">'+c+'x</span></div>').join('') +
+    tools.slice(0,15).map(([n,c]) => {
+      const tk = toolTokens[n] || {output_tokens: 0};
+      const pct = totalOut > 0 ? ((tk.output_tokens / totalOut) * 100).toFixed(0) : '0';
+      return '<div class="sidebar-row"><span class="label">'+escHtml(n)+'</span>' +
+             '<span class="val">'+c+'x <span style="opacity:0.6;font-size:11px">('+pct+'% out)</span></span></div>';
+    }).join('') +
+    (sess.reasoning_output_tokens > 0
+      ? '<div class="sidebar-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span class="label" style="opacity:0.7">Reasoning (no tools)</span><span class="val">' +
+        (totalOut > 0 ? ((sess.reasoning_output_tokens / totalOut) * 100).toFixed(0) : '0') + '% out</span></div>'
+      : '') +
     '</div>';
 }
 const skills = Object.entries(sess.skills||{}).sort((a,b)=>b[1]-a[1]);

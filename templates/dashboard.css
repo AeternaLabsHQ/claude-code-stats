@@ -18,6 +18,14 @@
   --vc-accent-soft: #f1d9cd;
   --vc-font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
   --vc-font-sans: 'Geist', 'Inter', system-ui, sans-serif;
+  --vc-fs-2xs: 13px;
+  --vc-fs-xs:  14px;
+  --vc-fs-sm:  14px;
+  --vc-fs-md:  15px;
+  --vc-fs-base:16px;
+  --vc-fs-lg:  21px;
+  --vc-fs-xl:  25px;
+  --vc-fs-2xl: 30px;
   font-family: var(--vc-font-mono);
   font-feature-settings: 'tnum' 1, 'zero' 1;
   color: var(--vc-fg);
@@ -161,7 +169,7 @@ body.anon-mode .anon-blur {
   background: var(--vc-panel);
   border-bottom: 1px solid var(--vc-grid);
   font-family: var(--vc-font-mono);
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   color: var(--vc-fg);
   max-width: 1400px;
   margin: 0 auto;
@@ -176,17 +184,17 @@ body.anon-mode .anon-blur {
 .vc-top-left { display: flex; align-items: center; gap: 10px; }
 .vc-brand-mark { display: inline-block; width: 8px; height: 8px; background: var(--vc-accent); }
 .vc-brand-name { font-weight: 600; letter-spacing: 0.02em; }
-.vc-version { color: var(--vc-fg-3); font-size: 10px; }
+.vc-version { color: var(--vc-fg-3); font-size: var(--vc-fs-2xs); }
 .vc-top-center { display: flex; gap: 24px; justify-self: center; }
 .vc-kv { display: inline-flex; gap: 6px; align-items: baseline; }
-.vc-k { color: var(--vc-fg-3); letter-spacing: 0.14em; font-size: 10px; text-transform: uppercase; }
+.vc-k { color: var(--vc-fg-3); letter-spacing: 0.14em; font-size: var(--vc-fs-2xs); text-transform: uppercase; }
 .vc-v { color: var(--vc-fg); font-weight: 500; }
 .vc-top-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .vc-checkbox {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   color: var(--vc-fg-3);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -199,15 +207,15 @@ body.anon-mode .anon-blur {
   border: 1px solid var(--vc-grid);
   color: var(--vc-fg);
   font-family: var(--vc-font-mono);
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   padding: 3px 8px;
   cursor: pointer;
   height: 22px;
   line-height: 1;
 }
 .vc-icon-btn:hover { background: var(--vc-accent-soft); border-color: var(--vc-accent); }
-.vc-f2-hint { color: var(--vc-fg-3); font-size: 10px; letter-spacing: 0.14em; }
-.vc-live { color: var(--vc-accent); letter-spacing: 0.14em; font-size: 10px; }
+.vc-f2-hint { color: var(--vc-fg-3); font-size: var(--vc-fs-2xs); letter-spacing: 0.14em; }
+.vc-live { color: var(--vc-accent); letter-spacing: 0.14em; font-size: var(--vc-fs-2xs); }
 .vc-live-dot { display: inline-block; }
 .vc-utc { color: var(--vc-fg-3); font-feature-settings: 'tnum' 1; }
 
@@ -238,7 +246,7 @@ body.anon-mode .anon-blur {
 }
 .vc-kpi:last-child { border-right: none; }
 .vc-kpi-label {
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--vc-fg-3);
@@ -248,7 +256,7 @@ body.anon-mode .anon-blur {
 }
 .vc-kpi-delta { color: var(--vc-accent); font-weight: 500; }
 .vc-kpi-value {
-  font-size: 26px;
+  font-size: var(--vc-fs-2xl);
   font-weight: 500;
   letter-spacing: -0.02em;
   margin: 6px 0 4px;
@@ -256,10 +264,10 @@ body.anon-mode .anon-blur {
   color: var(--vc-fg);
   line-height: 1.1;
 }
-.vc-kpi-pct { font-size: 18px; color: var(--vc-fg-3); margin-left: 2px; }
+.vc-kpi-pct { font-size: var(--vc-fs-lg); color: var(--vc-fg-3); margin-left: 2px; }
 .vc-kpi-primary .vc-kpi-value { color: var(--vc-accent); }
 .vc-kpi-sub {
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   color: var(--vc-fg-3);
 }
 .vc-kpi-sub b { font-weight: 500; color: var(--vc-fg-2); }
@@ -285,7 +293,7 @@ body.anon-mode .anon-blur {
   align-items: center;
   gap: 4px;
   font-family: var(--vc-font-mono);
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   color: var(--vc-fg-3);
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -319,7 +327,7 @@ body.anon-mode .anon-blur {
    weight with wide letter-spacing. Avoids the 15px bold h3 in
    .billing-progress that visually clashed with the 11px h3 elsewhere. */
 .vc h3 {
-  font-size: 11px !important;
+  font-size: var(--vc-fs-xs) !important;
   font-weight: 600 !important;
   text-transform: uppercase;
   letter-spacing: 0.14em !important;
@@ -337,7 +345,7 @@ body.anon-mode .anon-blur {
   font-family: var(--vc-font-mono);
 }
 .vc .chart-box h3 {
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -385,7 +393,7 @@ body.anon-mode .anon-blur {
   font-family: var(--vc-font-mono);
 }
 .vc .data-table th {
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   text-transform: uppercase;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -396,10 +404,10 @@ body.anon-mode .anon-blur {
   text-align: left;
 }
 .vc .data-table th.num { text-align: right; }
-.vc .data-table th.sort-asc::after { content:" \25B2"; font-size:9px; color: var(--vc-accent); }
-.vc .data-table th.sort-desc::after { content:" \25BC"; font-size:9px; color: var(--vc-accent); }
+.vc .data-table th.sort-asc::after { content:" \25B2"; font-size: var(--vc-fs-2xs); color: var(--vc-accent); }
+.vc .data-table th.sort-desc::after { content:" \25BC"; font-size: var(--vc-fs-2xs); color: var(--vc-accent); }
 .vc .data-table td {
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   padding: 8px 14px;
   border-bottom: 1px solid var(--vc-grid-2);
   color: var(--vc-fg);
@@ -425,21 +433,21 @@ body.anon-mode .anon-blur {
 .vc .plan-highlight > div:last-child { border-right: none; }
 .vc .plan-highlight .label,
 .vc .plan-highlight > div > div:first-child {
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--vc-fg-3);
 }
 .vc .plan-highlight .value,
 .vc .plan-highlight > div > div:nth-child(2) {
-  font-size: 22px;
+  font-size: var(--vc-fs-xl);
   font-weight: 500;
   color: var(--vc-fg);
   margin: 6px 0 4px;
   font-feature-settings: 'tnum' 1;
 }
 .vc .plan-highlight .sub {
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   color: var(--vc-fg-3);
 }
 
@@ -463,7 +471,7 @@ body.anon-mode .anon-blur {
   justify-content: flex-end;
   padding-right: 8px;
   color: var(--vc-bg);
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   letter-spacing: 0.1em;
 }
 
@@ -479,8 +487,8 @@ body.anon-mode .anon-blur {
   border-radius: 0 !important;
   height: 100%;
 }
-.vc .plan-comparison .bar-label { color: var(--vc-fg); font-size: 11px; font-family: var(--vc-font-mono); }
-.vc .plan-comparison .bar-val { color: var(--vc-fg-2); font-size: 11px; font-family: var(--vc-font-mono); font-feature-settings: 'tnum' 1; }
+.vc .plan-comparison .bar-label { color: var(--vc-fg); font-size: var(--vc-fs-xs); font-family: var(--vc-font-mono); }
+.vc .plan-comparison .bar-val { color: var(--vc-fg-2); font-size: var(--vc-fs-xs); font-family: var(--vc-font-mono); font-feature-settings: 'tnum' 1; }
 
 /* Misc / config / list / etc legacy */
 .vc .misc-stat-grid,
@@ -507,7 +515,7 @@ body.anon-mode .anon-blur {
   color: var(--vc-fg-3);
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
 }
 
 /* Buttons */
@@ -516,7 +524,7 @@ body.anon-mode .anon-blur {
   border: 1px solid var(--vc-grid);
   color: var(--vc-fg);
   font-family: var(--vc-font-mono);
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   padding: 6px 12px;
   border-radius: 0;
   cursor: pointer;
@@ -542,7 +550,7 @@ body.anon-mode .anon-blur {
   border: 1px solid var(--vc-grid);
   color: var(--vc-fg);
   font-family: var(--vc-font-mono);
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   padding: 5px 10px;
   border-radius: 0;
   outline: none;
@@ -564,7 +572,7 @@ body.anon-mode .anon-blur {
   border-radius: 0 !important;
   color: var(--vc-fg-2);
   font-family: var(--vc-font-mono);
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   padding: 1px 6px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -574,7 +582,7 @@ body.anon-mode .anon-blur {
 body.vc-page > div[style*="text-align:center"] {
   color: var(--vc-fg-3) !important;
   font-family: var(--vc-font-mono);
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
 }
 body.vc-page > div[style*="text-align:center"] a {
   color: var(--vc-accent) !important;
@@ -590,7 +598,7 @@ body.vc-page > div[style*="text-align:center"] a {
   font-family: var(--vc-font-mono);
 }
 .vc-tab-h-title {
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--vc-fg-3);
@@ -598,7 +606,7 @@ body.vc-page > div[style*="text-align:center"] a {
 }
 .vc-tab-h-title b { color: var(--vc-fg); font-weight: 500; }
 .vc-tab-h-rule { height: 1px; background: var(--vc-grid); }
-.vc-tab-h-meta { font-size: 11px; color: var(--vc-fg-3); white-space: nowrap; }
+.vc-tab-h-meta { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); white-space: nowrap; }
 
 /* Pane grid */
 .vc-pane-grid {
@@ -618,7 +626,7 @@ body.vc-page > div[style*="text-align:center"] a {
 }
 .vc-pane:last-child { border-right: none; }
 .vc-pane h3 {
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -628,7 +636,7 @@ body.vc-page > div[style*="text-align:center"] a {
   align-items: baseline;
   color: var(--vc-fg);
 }
-.vc-pane h3 .meta { font-size: 10px; color: var(--vc-fg-3); font-weight: normal; text-transform: none; letter-spacing: 0; }
+.vc-pane h3 .meta { font-size: var(--vc-fs-2xs); color: var(--vc-fg-3); font-weight: normal; text-transform: none; letter-spacing: 0; }
 
 /* Distribution bars */
 .vc-distbar { display: flex; flex-direction: column; gap: 10px; }
@@ -636,7 +644,7 @@ body.vc-page > div[style*="text-align:center"] a {
   display: grid;
   grid-template-columns: 110px 1fr 90px;
   gap: 10px;
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   align-items: center;
   font-family: var(--vc-font-mono);
 }
@@ -661,7 +669,7 @@ body.vc-page > div[style*="text-align:center"] a {
   grid-template-columns: 1fr auto;
   padding: 8px 0;
   border-bottom: 1px dashed var(--vc-grid);
-  font-size: 12px;
+  font-size: var(--vc-fs-sm);
   font-family: var(--vc-font-mono);
 }
 .vc-stat-row:last-child { border-bottom: none; }
@@ -676,7 +684,7 @@ body.vc-page > div[style*="text-align:center"] a {
   font-family: var(--vc-font-mono);
 }
 .vc-table th {
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   text-transform: uppercase;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -688,7 +696,7 @@ body.vc-page > div[style*="text-align:center"] a {
 }
 .vc-table th.num { text-align: right; }
 .vc-table td {
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   padding: 8px 14px;
   border-bottom: 1px solid var(--vc-grid-2);
   color: var(--vc-fg);
@@ -722,7 +730,7 @@ body.vc-page > div[style*="text-align:center"] a {
   border: 1px solid var(--vc-grid);
   padding: 1px 6px;
   font-family: var(--vc-font-mono);
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   margin-left: 6px;
   color: var(--vc-fg-2);
   text-transform: uppercase;
@@ -744,7 +752,7 @@ body.vc-page > div[style*="text-align:center"] a {
 .vc-misc:nth-child(4n) { border-right: none; }
 .vc-misc:nth-last-child(-n+4) { border-bottom: none; }
 .vc-misc .v {
-  font-size: 22px;
+  font-size: var(--vc-fs-xl);
   font-weight: 500;
   font-feature-settings: 'tnum' 1;
   color: var(--vc-fg);
@@ -752,7 +760,7 @@ body.vc-page > div[style*="text-align:center"] a {
 }
 .vc-misc .v.acc { color: var(--vc-accent); }
 .vc-misc .l {
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--vc-fg-3);
@@ -788,7 +796,7 @@ body.vc-page > div[style*="text-align:center"] a {
 .vc-tab {
   padding: 14px 18px;
   font-family: var(--vc-font-mono);
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-weight: 500;
@@ -814,7 +822,7 @@ body.vc-page > div[style*="text-align:center"] a {
   border: 1px solid var(--vc-grid);
   padding: 0 8px;
   font-family: var(--vc-font-mono);
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   height: 28px;
   background: var(--vc-panel);
 }
@@ -824,7 +832,7 @@ body.vc-page > div[style*="text-align:center"] a {
   border: none;
   color: var(--vc-fg);
   font-family: var(--vc-font-mono);
-  font-size: 11px;
+  font-size: var(--vc-fs-xs);
   outline: none;
   min-width: 140px;
   width: 180px;
@@ -838,7 +846,7 @@ body.vc-page > div[style*="text-align:center"] a {
   border-left: 1px solid var(--vc-grid);
   color: var(--vc-fg-3);
   font-family: var(--vc-font-mono);
-  font-size: 10px;
+  font-size: var(--vc-fs-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;

@@ -236,7 +236,7 @@ sideHtml += '<div class="sidebar-card"><h4>Token Breakdown</h4>' +
   '</div>';
 const toolTokens = sess.tool_tokens || {};
 const tools = Object.entries(sess.tools||{}).sort((a,b)=>b[1]-a[1]);
-if (tools.length>0) {
+if (tools.length>0 || (sess.reasoning_output_tokens||0) > 0) {
   const totalOut = Object.values(toolTokens).reduce((s,v)=>s+(v.output_tokens||0),0)
                     + (sess.reasoning_output_tokens||0);
   sideHtml += '<div class="sidebar-card"><h4>Tools Used</h4>' +

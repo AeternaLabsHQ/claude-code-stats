@@ -944,18 +944,6 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .bulk-download-btn { padding: 6px 14px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--bg2); color: var(--text2); cursor: pointer; border-radius: 6px; transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
 .bulk-download-btn:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
 .bulk-download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.session-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px; cursor:pointer; transition:border-color .2s; }
-.session-card:hover { border-color:var(--accent); }
-.session-card .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
-.session-card .project { color:var(--accent2); font-weight:600; font-size:14px; }
-.session-card .cost { color:var(--orange); font-weight:700; font-size:16px; }
-.session-card .info { display:flex; gap:16px; color:var(--text2); font-size:12px; flex-wrap:wrap; }
-.session-card .info span { display:flex; align-items:center; gap:4px; }
-.session-card .prompt { color:var(--text2); font-size:12px; margin-top:8px; padding-top:8px; border-top:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.session-card .details { display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
-.session-card.expanded .details { display:block; }
-.session-card .tools { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-.session-card .tool-tag { background:var(--bg3); padding:2px 8px; border-radius:4px; font-size:11px; color:var(--text2); }
 .model-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
 .model-badge.opus { background:rgba(168,85,247,0.2); color:var(--purple); }
 .model-badge.sonnet { background:rgba(59,130,246,0.2); color:var(--blue); }

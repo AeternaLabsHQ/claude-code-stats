@@ -228,19 +228,10 @@
     <div class="session-filters">
       <select id="filterProject"><option value="">__L_sessions_tab_all_projects__</option></select>
       <select id="filterSource"><option value="">All Sources</option></select>
-      <select id="filterSort">
-        <option value="date-desc">__L_sessions_tab_sort_date_desc__</option>
-        <option value="date-asc">__L_sessions_tab_sort_date_asc__</option>
-        <option value="cost-desc">__L_sessions_tab_sort_cost_desc__</option>
-        <option value="cost-asc">__L_sessions_tab_sort_cost_asc__</option>
-        <option value="messages-desc">__L_sessions_tab_sort_messages_desc__</option>
-      </select>
       <input type="text" id="filterSearch" placeholder="__L_sessions_tab_search_placeholder__">
-      <span class="meta" id="sessionCount"></span>
       <button id="bulkDownloadBtn" class="bulk-download-btn" style="margin-left:auto" title="Download all currently filtered sessions as a ZIP of Markdown files">&#11015; Download all (0)</button>
     </div>
-    <div id="sessionList"></div>
-    <div class="pagination" id="sessionPagination"></div>
+    <div id="sessionTableMount"></div>
   </div>
 
   <div class="tab-content" id="tab-plan">

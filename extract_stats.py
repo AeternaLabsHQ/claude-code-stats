@@ -2110,6 +2110,10 @@ def _get_html_template():
     html = (base_dir / "templates" / "dashboard.html").read_text(encoding="utf-8")
     css = (base_dir / "templates" / "dashboard.css").read_text(encoding="utf-8")
     js = (base_dir / "templates" / "dashboard.js").read_text(encoding="utf-8")
+    comp_css = (base_dir / "templates" / "components" / "session_table.css").read_text(encoding="utf-8")
+    comp_js = (base_dir / "templates" / "components" / "session_table.js").read_text(encoding="utf-8")
+    css = comp_css + "\n" + css
+    js = comp_js + "\n" + js
     html = html.replace("<!-- STYLES -->", f"<style>{css}</style>")
     html = html.replace("<!-- SCRIPTS -->", f"<script>{js}</script>")
     return html
@@ -2444,6 +2448,10 @@ def _get_project_html_template():
     html = (base_dir / "templates" / "project_detail.html").read_text(encoding="utf-8")
     css = (base_dir / "templates" / "project_detail.css").read_text(encoding="utf-8")
     js = (base_dir / "templates" / "project_detail.js").read_text(encoding="utf-8")
+    comp_css = (base_dir / "templates" / "components" / "session_table.css").read_text(encoding="utf-8")
+    comp_js = (base_dir / "templates" / "components" / "session_table.js").read_text(encoding="utf-8")
+    css = comp_css + "\n" + css
+    js = comp_js + "\n" + js
     html = html.replace("<!-- STYLES -->", f"<style>{css}</style>")
     html = html.replace("<!-- SCRIPTS -->", f"<script>{js}</script>")
     return html

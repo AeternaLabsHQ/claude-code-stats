@@ -132,7 +132,7 @@ html.theme-light body.vc-page {
   font-weight: 500 !important;
   font-feature-settings: 'tnum' 1;
 }
-.vc .tools-section, .vc .memory-card, .vc .session-card {
+.vc .tools-section, .vc .memory-card {
   background: var(--vc-panel) !important;
   border: 1px solid var(--vc-grid) !important;
   padding: 14px 18px !important;
@@ -156,9 +156,6 @@ html.theme-light body.vc-page {
   font-size: var(--vc-fs-xs);
 }
 .vc .tool-pill .count { color: var(--vc-accent) !important; }
-.vc .session-card .cost { color: var(--vc-accent) !important; }
-.vc .session-card:hover { border-color: var(--vc-accent) !important; background: var(--vc-accent-soft); }
-.vc .session-card .info { color: var(--vc-fg-3); font-size: var(--vc-fs-xs); }
 .vc .model-badge {
   background: transparent !important;
   border: 1px solid var(--vc-grid);
@@ -266,11 +263,6 @@ a:hover { text-decoration:underline; }
 .tool-pills { display:flex; flex-wrap:wrap; gap:8px; }
 .tool-pill { background:var(--bg3); padding:4px 12px; border-radius:16px; font-size:12px; display:flex; align-items:center; gap:6px; }
 .tool-pill .count { color:var(--cyan); font-weight:600; }
-.session-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px; transition:border-color .2s; }
-.session-card:hover { border-color:var(--accent); }
-.session-card .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
-.session-card .cost { color:var(--orange); font-weight:700; font-size:16px; }
-.session-card .info { display:flex; gap:16px; color:var(--text2); font-size:12px; flex-wrap:wrap; }
 .model-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
 .model-badge.opus { background:rgba(168,85,247,0.2); color:var(--purple); }
 .model-badge.sonnet { background:rgba(59,130,246,0.2); color:var(--blue); }

@@ -1523,6 +1523,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     daily_tokens = defaultdict(lambda: defaultdict(lambda: {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}))
     daily_messages = defaultdict(int)
     daily_sessions = defaultdict(int)
+    daily_cache_eff = defaultdict(list)
     hourly_messages = defaultdict(int)
     weekday_messages = defaultdict(int)
     project_stats = defaultdict(lambda: {
@@ -1623,6 +1624,10 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         hourly_messages[hour] += sess["user_message_count"]
         weekday_messages[weekday] += sess["user_message_count"]
 
+        sess_total_in = session_input + session_cache_read + session_cache_write
+        if sess_total_in > 0 and sess["message_count"] >= 3:
+            daily_cache_eff[date_str].append(session_cache_read / sess_total_in * 100)
+
         primary_model = "Unknown"
         max_output = 0
         for model, mdata in sess["models"].items():
@@ -1695,6 +1700,50 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         {"date": d, "messages": daily_messages.get(d, 0), "sessions": daily_sessions.get(d, 0)}
         for d in all_dates
     ]
+
+    def _quantile(sorted_vals, q):
+        n = len(sorted_vals)
+        if n == 0:
+            return 0.0
+        if n == 1:
+            return sorted_vals[0]
+        pos = (n - 1) * q
+        lo = int(pos)
+        hi = min(lo + 1, n - 1)
+        frac = pos - lo
+        return sorted_vals[lo] * (1 - frac) + sorted_vals[hi] * frac
+
+    daily_cache_efficiency_series = []
+    for d in all_dates:
+        vals = daily_cache_eff.get(d, [])
+        if not vals:
+            continue
+        sv = sorted(vals)
+        n = len(sv)
+        median = _quantile(sv, 0.5)
+        q1 = _quantile(sv, 0.25)
+        q3 = _quantile(sv, 0.75)
+        iqr = q3 - q1
+        lo_fence = q1 - 1.5 * iqr
+        hi_fence = q3 + 1.5 * iqr
+        # Whiskers: most-extreme values still within fences
+        in_range = [v for v in sv if lo_fence <= v <= hi_fence]
+        whisker_low = in_range[0] if in_range else sv[0]
+        whisker_high = in_range[-1] if in_range else sv[-1]
+        outliers = [round(v, 2) for v in sv if v < lo_fence or v > hi_fence]
+        daily_cache_efficiency_series.append({
+            "date": d,
+            "sessions": n,
+            "mean": round(sum(sv) / n, 2),
+            "median": round(median, 2),
+            "q1": round(q1, 2),
+            "q3": round(q3, 2),
+            "whisker_low": round(whisker_low, 2),
+            "whisker_high": round(whisker_high, 2),
+            "min": round(sv[0], 2),
+            "max": round(sv[-1], 2),
+            "outliers": outliers,
+        })
 
     hourly_dist = [{"hour": h, "messages": hourly_messages.get(h, 0)} for h in range(24)]
 
@@ -1851,6 +1900,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         "daily_costs": daily_cost_series,
         "cumulative_costs": cumulative_series,
         "daily_messages": daily_message_series,
+        "daily_cache_efficiency": daily_cache_efficiency_series,
         "hourly_distribution": hourly_dist,
         "weekday_distribution": weekday_dist,
         "models": all_models,

@@ -188,9 +188,10 @@ function setupVcChartDefaults() {
     scaleDefaults.x.ticks.color = fg3;
     scaleDefaults.y.ticks.color = fg3;
   }
-  // Expose the resolved grid color so chart configs built later (e.g. radar)
-  // can use it without re-reading CSS vars.
+  // Expose resolved theme colors so chart configs built later (e.g. radar,
+  // legacy doughnut/bar charts) can use them without re-reading CSS vars.
   window.__vcGrid2 = grid2;
+  window.__vcFg2 = fg2;
   window.__vcFg3 = fg3;
   // Re-render existing charts (if any). Chart.js caches scale options on
   // each instance at creation, so updating Chart.defaults / scaleDefaults
@@ -211,6 +212,11 @@ function setupVcChartDefaults() {
               if (s.angleLines) s.angleLines.color = grid2;
             });
           }
+          // Legacy charts hardcode pale slate (#e2e8f0 / #94a3b8) for
+          // legend labels — invisible on light bg. Force theme-aware fg2.
+          const lbls = c.options.plugins && c.options.plugins.legend
+            && c.options.plugins.legend.labels;
+          if (lbls) lbls.color = fg2;
         }
         c.update('none');
       } catch {}
@@ -310,6 +316,53 @@ function filterData(days, projectFilter) {
   const allDates = [...new Set([...Object.keys(dailyCostMap), ...Object.keys(dailyMsgMap)])].sort();
   F.daily_costs = allDates.map(d => dailyCostMap[d] || {date: d, total: 0});
   F.daily_messages = allDates.map(d => dailyMsgMap[d] || {date: d, messages: 0, sessions: 0});
+
+  const cacheEffByDate = {};
+  F.sessions.forEach(s => {
+    if (!s.date) return;
+    if ((s.messages || 0) < 3) return;
+    const tot = (s.input_tokens || 0) + (s.cache_read_tokens || 0) + (s.cache_write_tokens || 0);
+    if (tot <= 0) return;
+    const eff = (s.cache_read_tokens || 0) / tot * 100;
+    (cacheEffByDate[s.date] = cacheEffByDate[s.date] || []).push(eff);
+  });
+  const _q = (sv, q) => {
+    const n = sv.length;
+    if (n === 0) return 0;
+    if (n === 1) return sv[0];
+    const pos = (n - 1) * q;
+    const lo = Math.floor(pos);
+    const hi = Math.min(lo + 1, n - 1);
+    return sv[lo] * (1 - (pos - lo)) + sv[hi] * (pos - lo);
+  };
+  F.daily_cache_efficiency = Object.keys(cacheEffByDate).sort().map(d => {
+    const sv = cacheEffByDate[d].slice().sort((a, b) => a - b);
+    const n = sv.length;
+    const median = _q(sv, 0.5);
+    const q1 = _q(sv, 0.25);
+    const q3 = _q(sv, 0.75);
+    const iqr = q3 - q1;
+    const loFence = q1 - 1.5 * iqr;
+    const hiFence = q3 + 1.5 * iqr;
+    const inRange = sv.filter(v => v >= loFence && v <= hiFence);
+    const whiskerLow = inRange.length ? inRange[0] : sv[0];
+    const whiskerHigh = inRange.length ? inRange[inRange.length - 1] : sv[n - 1];
+    const outliers = sv.filter(v => v < loFence || v > hiFence).map(v => +v.toFixed(2));
+    const sum = sv.reduce((a, b) => a + b, 0);
+    return {
+      date: d,
+      sessions: n,
+      mean: +(sum / n).toFixed(2),
+      median: +median.toFixed(2),
+      q1: +q1.toFixed(2),
+      q3: +q3.toFixed(2),
+      whisker_low: +whiskerLow.toFixed(2),
+      whisker_high: +whiskerHigh.toFixed(2),
+      min: +sv[0].toFixed(2),
+      max: +sv[n - 1].toFixed(2),
+      outliers,
+    };
+  });
 
   // Recalculate cumulative costs from filtered daily costs
   let cum = 0;
@@ -603,7 +656,7 @@ function renderCosts() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#94a3b8' } }, tooltip: { mode: 'index', intersect: false } },
+      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } }, tooltip: { mode: 'index', intersect: false } },
       scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, stacked: true, title: { display: true, text: 'USD', color: '#64748b' } } }
     }
   });
@@ -616,7 +669,7 @@ function renderCosts() {
         borderColor: vcColor(1), backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#94a3b8' } } },
+      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } } },
       scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: 'USD', color: '#64748b' } } } }
   });
 
@@ -628,7 +681,7 @@ function renderCosts() {
         backgroundColor: F.model_summary.map(m => vcModelColor(m.model)), borderWidth: 0 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16 } },
+      plugins: { legend: { position: 'bottom', labels: { color: window.__vcFg2 || '#4d4a42', padding: 16 } },
         tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtUSD(ctx.raw) + ' (' + (F.kpi.total_cost > 0 ? (ctx.raw / F.kpi.total_cost * 100).toFixed(1) : '0.0') + '%)' } } } }
   });
 
@@ -674,6 +727,132 @@ function renderCosts() {
       '<div class="value" style="color:var(--green)">' + fmtUSD(ct.cache_savings || 0) + '</div>',
       '<div class="sub">vs. full input pricing</div></div>'
     ].join('');
+  }
+
+  // Cache Efficiency per Day (box plot + median line, fallback whiskers for n<4)
+  const ceCanvas = document.getElementById('chartCacheEffDaily');
+  if (ceCanvas && F.daily_cache_efficiency && F.daily_cache_efficiency.length) {
+    const ce = F.daily_cache_efficiency;
+    const boxPlotPlugin = {
+      id: 'cacheEffBoxPlot',
+      beforeDatasetsDraw(chart) {
+        const { ctx, chartArea, scales: { y } } = chart;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data || !meta.data.length) return;
+        const stroke = (window.__vcFg3 || '#918a7a');
+        const fill = vcRgba(2, 0.18);
+        const fillEdge = vcColor(2);
+        const medianColor = vcColor(0);
+        const plotW = chartArea.right - chartArea.left;
+        const boxW = Math.max(3, Math.min(10, (plotW / ce.length) * 0.55));
+        const cap = Math.max(2, boxW * 0.35);
+        ctx.save();
+        ce.forEach((d, i) => {
+          const pt = meta.data[i];
+          if (!pt) return;
+          const px = pt.x;
+          const yMed = y.getPixelForValue(d.median);
+          const yWl = y.getPixelForValue(d.whisker_low);
+          const yWh = y.getPixelForValue(d.whisker_high);
+
+          // Whisker line + caps (always drawn)
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(px, yWl); ctx.lineTo(px, yWh);
+          ctx.moveTo(px - cap, yWl); ctx.lineTo(px + cap, yWl);
+          ctx.moveTo(px - cap, yWh); ctx.lineTo(px + cap, yWh);
+          ctx.stroke();
+
+          // Box: only if we have a meaningful distribution (n >= 4)
+          if (d.sessions >= 4 && d.q3 > d.q1) {
+            const yQ1 = y.getPixelForValue(d.q1);
+            const yQ3 = y.getPixelForValue(d.q3);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = fill;
+            ctx.strokeStyle = fillEdge;
+            ctx.lineWidth = 1;
+            ctx.fillRect(px - boxW / 2, yQ3, boxW, yQ1 - yQ3);
+            ctx.strokeRect(px - boxW / 2, yQ3, boxW, yQ1 - yQ3);
+            // Median bar inside box
+            ctx.strokeStyle = medianColor;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(px - boxW / 2, yMed);
+            ctx.lineTo(px + boxW / 2, yMed);
+            ctx.stroke();
+          }
+
+          // Outliers
+          if (d.outliers && d.outliers.length) {
+            ctx.globalAlpha = 0.7;
+            ctx.fillStyle = stroke;
+            d.outliers.forEach(v => {
+              const yo = y.getPixelForValue(v);
+              ctx.beginPath();
+              ctx.arc(px, yo, 1.5, 0, Math.PI * 2);
+              ctx.fill();
+            });
+          }
+        });
+        ctx.restore();
+      },
+    };
+    charts.cacheEffDaily = new Chart(ceCanvas, {
+      type: 'line',
+      data: {
+        labels: ce.map(d => d.date),
+        datasets: [
+          {
+            label: 'Median',
+            data: ce.map(d => d.median),
+            borderColor: vcColor(0),
+            backgroundColor: vcColor(0),
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            tension: 0.25,
+            fill: false,
+            borderWidth: 1.5,
+          },
+        ],
+      },
+      plugins: [boxPlotPlugin],
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: window.__vcFg2 || '#4d4a42' } },
+          tooltip: {
+            mode: 'index', intersect: false,
+            callbacks: {
+              label: ctx => {
+                const d = ce[ctx.dataIndex];
+                if (!d) return '';
+                const parts = ['Median ' + d.median.toFixed(1) + '%'];
+                if (d.sessions >= 4) {
+                  parts.push('IQR ' + d.q1.toFixed(1) + '-' + d.q3.toFixed(1) + '%');
+                }
+                parts.push('Range ' + d.whisker_low.toFixed(1) + '-' + d.whisker_high.toFixed(1) + '%');
+                if (d.outliers && d.outliers.length) {
+                  parts.push(d.outliers.length + ' outlier' + (d.outliers.length > 1 ? 's' : ''));
+                }
+                parts.push(d.sessions + ' sess');
+                return parts.join('  ·  ');
+              },
+            },
+          },
+        },
+        scales: {
+          x: scaleDefaults.x,
+          y: {
+            ...scaleDefaults.y,
+            min: 0, max: 100,
+            title: { display: true, text: '%', color: '#64748b' },
+            ticks: { ...scaleDefaults.y.ticks, callback: v => v + '%' },
+          },
+        },
+      },
+    });
   }
 }
 
@@ -750,7 +929,7 @@ function renderActivity() {
     data: { labels: F.daily_messages.map(d => d.date),
       datasets: [{ label: D.locale.activity.messages_label, data: F.daily_messages.map(d => d.messages), backgroundColor: vcColor(0), borderRadius: 0 }] },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: scaleDefaults }
+      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } } }, scales: scaleDefaults }
   });
 
   const maxHourly = Math.max(...F.hourly_distribution.map(x => x.messages || 1));
@@ -779,7 +958,7 @@ function renderActivity() {
     data: { labels: F.daily_messages.map(d => d.date),
       datasets: [{ label: D.locale.activity.sessions_label, data: F.daily_messages.map(d => d.sessions), backgroundColor: vcColor(2), borderRadius: 0 }] },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: scaleDefaults }
+      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } } }, scales: scaleDefaults }
   });
   renderHeatmap();
 }
@@ -1292,7 +1471,7 @@ function renderPlan() {
       ]
     },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#94a3b8' } } },
+      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } } },
       scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: 'USD', color: '#64748b' } } } }
   });
 
@@ -1376,7 +1555,7 @@ function renderInsights() {
         datasets: [{ data: storageItems.map(s => s.size_mb),
           backgroundColor: storageItems.map((_, i) => 'hsl(' + (i * 40 + 200) + ',55%,50%)'), borderWidth: 0 }] },
       options: { responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'right', labels: { color: '#94a3b8', padding: 8, font: { size: 11 } } },
+        plugins: { legend: { position: 'right', labels: { color: window.__vcFg2 || '#4d4a42', padding: 8, font: { size: 11 } } },
           tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.raw + ' MB' } } } }
     });
   }
@@ -1553,7 +1732,7 @@ function renderInsights() {
         labels: errDates,
         datasets: [{ label: 'Error Rate (%)', data: errRates, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill:true, tension:0.3 }]
       },
-      options: { responsive:true, plugins:{legend:{labels:{color:'#e2e8f0'}}}, scales:{ x:{ticks:{color:'#94a3b8',maxTicksLimit:15}}, y:{ticks:{color:'#94a3b8'}, beginAtZero:true} } }
+      options: { responsive:true, plugins:{legend:{labels:{color:window.__vcFg2||'#4d4a42'}}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a',maxTicksLimit:15}}, y:{ticks:{color:window.__vcFg3||'#918a7a'}, beginAtZero:true} } }
     });
   }
 }
@@ -1574,7 +1753,7 @@ function renderAgentsTab() {
         labels: atd.map(d => d.type),
         datasets: [{ data: atd.map(d => d.count), backgroundColor: chartColors }]
       },
-      options: { responsive:true, plugins:{ legend:{ position:'right', labels:{color:'#e2e8f0',font:{size:11}} } } }
+      options: { responsive:true, plugins:{ legend:{ position:'right', labels:{color:window.__vcFg2||'#4d4a42',font:{size:11}} } } }
     });
   }
 
@@ -1588,7 +1767,7 @@ function renderAgentsTab() {
         labels: tds.map(d => d.desc.length > 30 ? d.desc.slice(0,30)+'...' : d.desc),
         datasets: [{ data: tds.map(d => d.count), backgroundColor: vcRgba(0, 0.7), borderRadius:4 }]
       },
-      options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#94a3b8'}}, y:{ticks:{color:'#94a3b8',font:{size:10}}} } }
+      options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a'}}, y:{ticks:{color:window.__vcFg3||'#918a7a',font:{size:10}}} } }
     });
   }
 
@@ -1655,7 +1834,7 @@ function renderAgentsTab() {
         labels: ebc.map(e => catLabels[e.category] || e.category),
         datasets: [{ data: ebc.map(e => e.count), backgroundColor: errColors }]
       },
-      options: { responsive:true, plugins:{ legend:{ position:'right', labels:{color:'#e2e8f0',font:{size:11}} } } }
+      options: { responsive:true, plugins:{ legend:{ position:'right', labels:{color:window.__vcFg2||'#4d4a42',font:{size:11}} } } }
     });
   }
 
@@ -1669,7 +1848,7 @@ function renderAgentsTab() {
         labels: ebt.map(e => e.tool),
         datasets: [{ data: ebt.map(e => e.count), backgroundColor: 'rgba(239,68,68,0.7)', borderRadius:4 }]
       },
-      options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#94a3b8'}}, y:{ticks:{color:'#94a3b8',font:{size:11}}} } }
+      options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a'}}, y:{ticks:{color:window.__vcFg3||'#918a7a',font:{size:11}}} } }
     });
   }
 }

@@ -48,7 +48,8 @@
     "th_input": "Input",
     "th_cache_read": "Cache Read",
     "th_api_calls": "API Calls",
-    "cache_efficiency": "Cache Efficiency"
+    "cache_efficiency": "Cache Efficiency",
+    "cache_efficiency_daily": "Cache Efficiency per Day (box plot, sessions ≥ 3 msg)"
   },
   "activity": {
     "daily_messages": "Messages per Day",

@@ -1024,6 +1024,13 @@ def parse_session_transcripts():
                                         "calls": 0,
                                     }),
                                     "tools": defaultdict(int),
+                                    "tool_tokens": defaultdict(lambda: {
+                                        "calls": 0,
+                                        "output_tokens": 0,
+                                        "cost": 0.0,
+                                    }),
+                                    "reasoning_output_tokens": 0,
+                                    "reasoning_cost": 0.0,
                                     "skills": defaultdict(int),
                                     "hooks": defaultdict(int),
                                     "compactions": 0,
@@ -1140,6 +1147,21 @@ def parse_session_transcripts():
                                     m["cost"] += calc_cost(model, usage)
                                     m["calls"] += 1
 
+                                    turn_output = usage.get("output_tokens", 0)
+                                    turn_cost = calc_cost(model, usage)
+                                    turn_tool_names = [
+                                        b.get("name", "unknown")
+                                        for b in message.get("content", [])
+                                        if isinstance(b, dict) and b.get("type") == "tool_use"
+                                    ]
+                                    attrib = attribute_turn_tokens(turn_output, turn_cost, turn_tool_names)
+                                    for entry in attrib["per_tool"]:
+                                        tt = sess["tool_tokens"][entry["tool"]]
+                                        tt["output_tokens"] += entry["output_tokens"]
+                                        tt["cost"] += entry["cost"]
+                                    sess["reasoning_output_tokens"] += attrib["reasoning_output_tokens"]
+                                    sess["reasoning_cost"] += attrib["reasoning_cost"]
+
                                 for block in message.get("content", []):
                                     if isinstance(block, dict) and block.get("type") == "tool_use":
                                         tool_name = block.get("name", "unknown")
@@ -1148,6 +1170,7 @@ def parse_session_transcripts():
                                         if tool_id:
                                             sess.setdefault("_tool_id_map", {})[tool_id] = tool_name
                                         sess["tools"][tool_name] += 1
+                                        sess["tool_tokens"][tool_name]["calls"] += 1
                                         # Track skills specifically
                                         if tool_name == "Skill":
                                             skill_name = block.get("input", {}).get("skill", "unknown")

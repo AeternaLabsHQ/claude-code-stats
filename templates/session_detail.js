@@ -527,7 +527,12 @@ class SessionFlow {
   }
 
   _drawBackground(ctx) {
-    const cssBg = getComputedStyle(this.canvas).getPropertyValue('--vc-flow-bg').trim();
+    const styles = getComputedStyle(this.canvas);
+    const cssBg = styles.getPropertyValue('--vc-flow-bg').trim();
+    this._themeColors = {
+      nodeFill: styles.getPropertyValue('--vc-node-fill').trim() || '#0d0d1a',
+      nodeIcon: styles.getPropertyValue('--vc-node-icon').trim() || '#ffffff',
+    };
     ctx.fillStyle = cssBg || "#0a0a0f";
     ctx.fillRect(0, 0, this.W, this.H);
     this._drawHexGrid(ctx);
@@ -730,7 +735,7 @@ class SessionFlow {
         // Circle fill
         ctx.beginPath();
         ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = '#0d0d1a';
+        ctx.fillStyle = (this._themeColors && this._themeColors.nodeFill) || '#0d0d1a';
         ctx.fill();
         // Circle border
         ctx.beginPath();
@@ -747,7 +752,7 @@ class SessionFlow {
         ctx.lineWidth = 1;
         ctx.stroke();
         // User icon
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = (this._themeColors && this._themeColors.nodeIcon) || '#fff';
         ctx.font = 'bold ' + Math.max(16, r * 0.5) + 'px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -774,7 +779,7 @@ class SessionFlow {
         ctx.restore();
 
         this._hexPath(ctx, s.x, s.y, r);
-        ctx.fillStyle = "#0d0d1a";
+        ctx.fillStyle = (this._themeColors && this._themeColors.nodeFill) || "#0d0d1a";
         ctx.fill();
 
         ctx.save();
@@ -802,7 +807,7 @@ class SessionFlow {
         ctx.stroke();
 
         if (r > 15) {
-          ctx.fillStyle = "#fff";
+          ctx.fillStyle = (this._themeColors && this._themeColors.nodeIcon) || "#fff";
           ctx.font = "bold " + Math.max(10, r * 0.28) + "px monospace";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";

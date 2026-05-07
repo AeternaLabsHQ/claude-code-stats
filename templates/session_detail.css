@@ -231,6 +231,10 @@ a:hover { text-decoration:underline; }
 .flow-tooltip{position:absolute;display:none;background:rgba(10,10,15,0.95);border:1px solid #00d4ff40;border-radius:6px;padding:8px 12px;color:#ccc;font-size:11px;pointer-events:none;z-index:20;max-width:280px;backdrop-filter:blur(8px)}
 .flow-toggle{display:none;width:100%;padding:8px;background:#12121f;color:#8888aa;border:none;border-bottom:1px solid #1a1a2e;cursor:pointer;font-size:12px}
 .flow-toggle:hover{color:#00d4ff;background:#15152a}
+/* Hide entire flow visualization (config: hide_session_flow=true) */
+body.flow-hidden .flow-container,
+body.flow-hidden .flow-toggle { display: none !important; }
+body.flow-hidden .left-column { max-height: calc(100vh - 180px); }
 .chat-toolbar { position:sticky; top:0; z-index:10; background:var(--bg); padding:10px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
 .chat-toolbar .filter-group { display:flex; gap:0; }
 .chat-toolbar .filter-btn { padding:5px 14px; font-size:12px; font-weight:600; border:1px solid var(--border); background:var(--bg2); color:var(--text2); cursor:pointer; transition:all 0.15s; }

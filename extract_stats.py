@@ -2300,6 +2300,8 @@ def generate_session_pages(sessions, session_list):
         flow_json = json.dumps(flow_data, ensure_ascii=False, separators=(',', ':'))
         html = html.replace('"__FLOW_DATA__"', flow_json)
         html = html.replace('__VERSION__', VERSION)
+        body_classes = "flow-hidden" if CONFIG.get("hide_session_flow", False) else ""
+        html = html.replace('__BODY_CLASSES__', body_classes)
 
         out_path = sessions_dir / f"{sid}.html"
         with open(out_path, "w", encoding="utf-8") as f:

@@ -1582,7 +1582,9 @@ class SessionFlow {
   }
 }
 
-if (FLOW && FLOW.agents && FLOW.agents.length > 0 && FLOW.events && FLOW.events.length > 0) {
+if (document.body.classList.contains('flow-hidden')) {
+  // Visualization globally hidden via config — skip canvas init entirely.
+} else if (FLOW && FLOW.agents && FLOW.agents.length > 0 && FLOW.events && FLOW.events.length > 0) {
   const fc = document.getElementById("flow-canvas");
   const cp = document.querySelector(".chat-panel");
   if (fc && cp) {

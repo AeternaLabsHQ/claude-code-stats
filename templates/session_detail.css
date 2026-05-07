@@ -146,9 +146,14 @@ html.theme-light body.vc-page {
   border: 1px solid var(--vc-grid) !important;
   font-family: var(--vc-font-mono);
 }
-.vc .chat-toolbar, .vc .flow-toolbar {
+.vc .chat-toolbar {
   background: var(--vc-panel) !important;
   border-bottom: 1px solid var(--vc-grid);
+}
+/* flow-toolbar floats over the canvas — no container fill, button overlay handles contrast */
+.vc .flow-toolbar {
+  background: transparent !important;
+  border: none !important;
 }
 .vc .filter-btn, .vc .speed-btn, .vc .copy-btn, .vc .flow-toggle {
   background: transparent !important;

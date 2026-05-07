@@ -251,6 +251,13 @@ sideHtml += '<div class="sidebar-card"><h4>Token Breakdown</h4>' +
   '</div>';
 const toolTokens = sess.tool_tokens || {};
 const tools = Object.entries(sess.tools||{}).sort((a,b)=>b[1]-a[1]);
+const hasTokenAttribution = Object.keys(toolTokens).length > 0 || (sess.reasoning_output_tokens||0) > 0;
+if (hasTokenAttribution) {
+  sideHtml += '<div class="sidebar-card"><h4>Output-Token Share by Tool</h4>' +
+    '<p style="font-size:11px;opacity:0.6;margin:0 0 8px 0">"Reasoning" = Turns ohne Tool-Call.</p>' +
+    '<canvas id="chartSessionTokens" style="max-height:220px"></canvas>' +
+    '</div>';
+}
 if (tools.length>0 || (sess.reasoning_output_tokens||0) > 0) {
   const totalOut = Object.values(toolTokens).reduce((s,v)=>s+(v.output_tokens||0),0)
                     + (sess.reasoning_output_tokens||0);
@@ -259,11 +266,12 @@ if (tools.length>0 || (sess.reasoning_output_tokens||0) > 0) {
       const tk = toolTokens[n] || {output_tokens: 0};
       const pct = totalOut > 0 ? ((tk.output_tokens / totalOut) * 100).toFixed(0) : '0';
       return '<div class="sidebar-row"><span class="label">'+escHtml(n)+'</span>' +
-             '<span class="val">'+c+'x <span style="opacity:0.6;font-size:11px">('+pct+'% out)</span></span></div>';
+             '<span class="val">'+c+'x <span style="opacity:0.55;font-size:11px">('+fmtTokens(tk.output_tokens||0)+' &middot; '+pct+'%)</span></span></div>';
     }).join('') +
     (sess.reasoning_output_tokens > 0
       ? '<div class="sidebar-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span class="label" style="opacity:0.7">Reasoning (no tools)</span><span class="val">' +
-        (totalOut > 0 ? ((sess.reasoning_output_tokens / totalOut) * 100).toFixed(0) : '0') + '% out</span></div>'
+        fmtTokens(sess.reasoning_output_tokens) + ' &middot; ' +
+        (totalOut > 0 ? ((sess.reasoning_output_tokens / totalOut) * 100).toFixed(0) : '0') + '%</span></div>'
       : '') +
     '</div>';
 }
@@ -296,6 +304,49 @@ sideHtml += '<div class="sidebar-card"><h4>Metadata</h4>' +
   '<div class="sidebar-row"><span class="label">File Size</span><span class="val">'+sess.file_size_mb+' MB</span></div>' +
   '</div>';
 sideEl.innerHTML = sideHtml;
+
+// Output-Token Share doughnut (per-session)
+if (hasTokenAttribution && typeof Chart !== 'undefined') {
+  const sortedTools = Object.entries(toolTokens)
+    .map(([name, v]) => ({name, output_tokens: v.output_tokens||0}))
+    .filter(t => t.output_tokens > 0)
+    .sort((a,b) => b.output_tokens - a.output_tokens)
+    .slice(0, 12);
+  const labels = sortedTools.map(t => t.name);
+  const values = sortedTools.map(t => t.output_tokens);
+  const reasoningOut = sess.reasoning_output_tokens || 0;
+  if (reasoningOut > 0) { labels.push('Reasoning'); values.push(reasoningOut); }
+  const palette = ['#10b981','#06b6d4','#6366f1','#f59e0b','#ef4444','#a855f7','#ec4899','#84cc16','#14b8a6','#f97316','#3b82f6','#eab308','#94a3b8'];
+  const canvas = document.getElementById('chartSessionTokens');
+  if (canvas && values.length > 0) {
+    new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        animation: false,
+        plugins: {
+          legend: {position: 'right', labels: {font: {size: 11}, boxWidth: 10}},
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const total = ctx.dataset.data.reduce((s,v)=>s+v,0);
+                const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : '0';
+                return ctx.label + ': ' + fmtTokens(ctx.raw) + ' (' + pct + '%)';
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+}
 
 class SessionFlow {
   constructor(canvas, flowData, chatContainer) {

@@ -1225,6 +1225,7 @@ function renderSessions() {
       locale: D.locale.locale_code,
       anonName: anonName,
       hideChatInAnon: true,
+      showExportButtons: false,
       onChange: updateBulkBtnLabel
     });
   } else {
@@ -1849,6 +1850,8 @@ renderActivity();
 renderProjects();
 renderSessions();
 document.getElementById('bulkDownloadBtn').addEventListener('click', bulkDownloadSessions);
+document.getElementById('exportXlsxBtn').addEventListener('click', () => sessionTable && sessionTable.exportXlsx());
+document.getElementById('exportCsvBtn').addEventListener('click', () => sessionTable && sessionTable.exportCsv());
 renderPlan();
 renderInsights();
 renderAgentsTab();
@@ -1916,15 +1919,20 @@ document.addEventListener('keydown', function(e) {
     alert('Language is set in config.json — edit "language" and re-run extract_stats.py to switch.');
   });
 
-  // UTC time
-  function updateVcUtc() {
-    const el = document.getElementById('vcUtcTime');
+  // Generated-at timestamp (replaces the old live UTC clock)
+  (function fillGenerated() {
+    const el = document.getElementById('vcGenerated');
     if (!el) return;
-    const now = new Date();
-    el.textContent = now.toISOString().slice(11, 19) + ' UTC';
-  }
-  updateVcUtc();
-  setInterval(updateVcUtc, 1000);
+    const d = (typeof D !== 'undefined') ? D : null;
+    if (!d || !d.generated_at) { el.textContent = ''; return; }
+    const lbl = (d.locale && d.locale.header && d.locale.header.generated) || 'Generated';
+    const locCode = (d.locale && d.locale.locale_code) || undefined;
+    try {
+      el.textContent = lbl + ': ' + new Date(d.generated_at).toLocaleString(locCode);
+    } catch (e) {
+      el.textContent = lbl + ': ' + d.generated_at;
+    }
+  })();
 
   // Populate USER / PLAN from DASHBOARD_DATA
   const d = (typeof D !== 'undefined') ? D : null;

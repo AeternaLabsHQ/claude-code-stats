@@ -144,15 +144,6 @@
         </table>
       </div>
     </div>
-    <div class="chart-grid">
-      <div class="chart-box" id="cacheEfficiency">
-        <h3>__L_costs_cache_efficiency__</h3>
-        <div class="kpi-grid" id="cacheKpi"></div>
-      </div>
-    </div>
-    <div class="chart-grid full">
-      <div class="chart-box"><h3>__L_costs_cache_efficiency_daily__</h3><canvas id="chartCacheEffDaily"></canvas></div>
-    </div>
   </div>
 
   <div class="tab-content" id="tab-activity">
@@ -268,18 +259,25 @@
     <div class="vc-tab-h">
       <div class="vc-tab-h-title"><b>↳</b> Insights</div>
       <div class="vc-tab-h-rule"></div>
-      <div class="vc-tab-h-meta">tools &middot; storage &middot; config</div>
+      <div class="vc-tab-h-meta">cache &middot; tools &middot; storage &middot; config</div>
     </div>
     <div class="chart-grid">
-      <div class="chart-box tall"><h3>__L_insights_tool_usage__</h3><canvas id="chartToolUsage"></canvas></div>
-      <div class="chart-box"><h3>__L_insights_storage__</h3><canvas id="chartStorage"></canvas></div>
-    </div>
-    <div class="chart-grid">
+      <div class="chart-box" id="cacheEfficiency">
+        <h3>__L_costs_cache_efficiency__</h3>
+        <div class="kpi-grid" id="cacheKpi"></div>
+      </div>
       <div class="chart-box tall">
         <h3>Output-Token Share by Tool</h3>
         <p style="font-size:12px;opacity:0.7;margin:0 0 8px 0">Output-token share. "Reasoning" = turns with no tool calls (pure model thinking).</p>
         <canvas id="chartToolTokens"></canvas>
       </div>
+    </div>
+    <div class="chart-grid full">
+      <div class="chart-box"><h3>__L_costs_cache_efficiency_daily__</h3><canvas id="chartCacheEffDaily"></canvas></div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box tall"><h3>__L_insights_tool_usage__</h3><canvas id="chartToolUsage"></canvas></div>
+      <div class="chart-box"><h3>__L_insights_storage__</h3><canvas id="chartStorage"></canvas></div>
     </div>
     <div class="chart-grid">
       <div class="chart-box">

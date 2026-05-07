@@ -530,7 +530,6 @@ class SessionFlow {
     const styles = getComputedStyle(this.canvas);
     const cssBg = styles.getPropertyValue('--vc-flow-bg').trim();
     this._themeColors = {
-      nodeFill: styles.getPropertyValue('--vc-node-fill').trim() || '#0d0d1a',
       nodeIcon: styles.getPropertyValue('--vc-node-icon').trim() || '#ffffff',
     };
     ctx.fillStyle = cssBg || "#0a0a0f";
@@ -732,16 +731,15 @@ class SessionFlow {
         ctx.fillStyle = n.color + '10';
         ctx.fill(); ctx.fill();
         ctx.restore();
-        // Circle fill
+        // Circle fill (low-alpha node-color tint, like tool calls)
         ctx.beginPath();
         ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-        var _userFill = this._themeColors && this._themeColors.nodeFill;
-        ctx.fillStyle = (!_userFill || _userFill === 'auto') ? n.color : _userFill;
+        ctx.fillStyle = n.color + '26';
         ctx.fill();
-        // Circle border
+        // Circle border (full saturation = darker line)
         ctx.beginPath();
         ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-        ctx.strokeStyle = n.color + '80';
+        ctx.strokeStyle = n.color;
         ctx.lineWidth = 1.5;
         ctx.stroke();
         // Pulsing ring
@@ -780,8 +778,7 @@ class SessionFlow {
         ctx.restore();
 
         this._hexPath(ctx, s.x, s.y, r);
-        var _hexFill = this._themeColors && this._themeColors.nodeFill;
-        ctx.fillStyle = (!_hexFill || _hexFill === 'auto') ? n.color : _hexFill;
+        ctx.fillStyle = n.color + '26';
         ctx.fill();
 
         ctx.save();
@@ -797,7 +794,7 @@ class SessionFlow {
         ctx.restore();
 
         this._hexPath(ctx, s.x, s.y, r);
-        ctx.strokeStyle = n.color + "80";
+        ctx.strokeStyle = n.color;
         ctx.lineWidth = 1.5;
         ctx.stroke();
 

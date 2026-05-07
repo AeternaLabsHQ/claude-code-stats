@@ -5,7 +5,7 @@
   --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6;
   --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a;
   --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd;
-  --vc-flow-bg: #3d2c1f;
+  --vc-flow-bg: #ece2cf;
   --vc-font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
   --vc-font-sans: 'Geist', 'Inter', system-ui, sans-serif;
   --vc-fs-2xs: 13px;
@@ -31,7 +31,7 @@ html.theme-dark .vc {
   --vc-accent: #d97757; --vc-accent-soft: #2c1c14;
   --vc-flow-bg: #0e0d0b;
 }
-html.theme-light .vc { --vc-bg: #faf5ea; --vc-panel: #fbfaf6; --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6; --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a; --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd; --vc-flow-bg: #3d2c1f; }
+html.theme-light .vc { --vc-bg: #faf5ea; --vc-panel: #fbfaf6; --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6; --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a; --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd; --vc-flow-bg: #ece2cf; }
 .vc *, .vc *::before, .vc *::after { border-radius: 0 !important; box-sizing: border-box; }
 body.vc-page {
   background: var(--vc-bg, #faf5ea) !important;

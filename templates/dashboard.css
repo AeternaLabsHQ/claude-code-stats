@@ -217,7 +217,7 @@ body.anon-mode .anon-blur {
 .vc-f2-hint { color: var(--vc-fg-3); font-size: var(--vc-fs-2xs); letter-spacing: 0.14em; }
 .vc-live { color: var(--vc-accent); letter-spacing: 0.14em; font-size: var(--vc-fs-2xs); }
 .vc-live-dot { display: inline-block; }
-.vc-utc { color: var(--vc-fg-3); font-feature-settings: 'tnum' 1; }
+.vc-utc { color: var(--vc-fg); font-feature-settings: 'tnum' 1; }
 
 @media (max-width: 960px) {
   .vc-top-inner { grid-template-columns: 1fr; gap: 8px; }

@@ -735,7 +735,8 @@ class SessionFlow {
         // Circle fill
         ctx.beginPath();
         ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = (this._themeColors && this._themeColors.nodeFill) || '#0d0d1a';
+        var _userFill = this._themeColors && this._themeColors.nodeFill;
+        ctx.fillStyle = (!_userFill || _userFill === 'auto') ? n.color : _userFill;
         ctx.fill();
         // Circle border
         ctx.beginPath();
@@ -779,7 +780,8 @@ class SessionFlow {
         ctx.restore();
 
         this._hexPath(ctx, s.x, s.y, r);
-        ctx.fillStyle = (this._themeColors && this._themeColors.nodeFill) || "#0d0d1a";
+        var _hexFill = this._themeColors && this._themeColors.nodeFill;
+        ctx.fillStyle = (!_hexFill || _hexFill === 'auto') ? n.color : _hexFill;
         ctx.fill();
 
         ctx.save();

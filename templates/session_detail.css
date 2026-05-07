@@ -5,7 +5,7 @@
   --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6;
   --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a;
   --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd;
-  --vc-flow-bg: #e0d4bc;
+  --vc-flow-bg: #9d714c;
   --vc-btn-flow-bg: rgba(0,0,0,0.08);
   --vc-node-icon: #1c1a17;
   --vc-grid-line: rgba(30,30,60,0.3);
@@ -40,7 +40,7 @@ html.theme-dark .vc {
   --vc-node-icon: #ffffff;
   --vc-grid-line: rgba(180,180,210,0.16);
 }
-html.theme-light .vc { --vc-bg: #faf5ea; --vc-panel: #fbfaf6; --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6; --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a; --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd; --vc-flow-bg: #e0d4bc; --vc-btn-flow-bg: rgba(0,0,0,0.08); --vc-node-icon: #1c1a17; --vc-grid-line: rgba(30,30,60,0.3); }
+html.theme-light .vc { --vc-bg: #faf5ea; --vc-panel: #fbfaf6; --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6; --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a; --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd; --vc-flow-bg: #9d714c; --vc-btn-flow-bg: rgba(0,0,0,0.08); --vc-node-icon: #1c1a17; --vc-grid-line: rgba(30,30,60,0.3); }
 .vc *, .vc *::before, .vc *::after { border-radius: 0 !important; box-sizing: border-box; }
 body.vc-page {
   background: var(--vc-bg, #faf5ea) !important;

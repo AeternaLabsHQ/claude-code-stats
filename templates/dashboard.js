@@ -1835,6 +1835,40 @@ document.getElementById('filterSource').addEventListener('change', _applySession
 document.getElementById('filterSearch').addEventListener('input', _applySessionFilter);
 document.getElementById('hideEmptySessions').addEventListener('change', () => { applyFilter(currentDays); });
 
+// ── Masonry layout (round-robin distribution into N independent flex columns) ──
+// Adapted from collector/client/src/components/MasonryColumns.tsx pattern.
+// Items are split round-robin so reading order stays row-major: items[0] →
+// col[0], items[1] → col[1], items[2] → col[0], ... Both columns flow
+// independently as flex columns, no inter-row alignment, so a short card
+// next to a tall card doesn't leave forced empty space.
+function _applyMasonry() {
+  const sections = document.querySelectorAll('.masonry-section');
+  const cols = window.innerWidth >= 960 ? 2 : 1;
+  sections.forEach(function(section) {
+    if (!section.__originalCards) {
+      section.__originalCards = Array.from(section.children).filter(function(el) {
+        return el.nodeType === 1 && el.classList.contains('chart-box');
+      });
+    }
+    const cards = section.__originalCards;
+    while (section.firstChild) section.removeChild(section.firstChild);
+    const colEls = [];
+    for (let i = 0; i < cols; i++) {
+      const c = document.createElement('div');
+      c.className = 'masonry-col';
+      colEls.push(c);
+    }
+    cards.forEach(function(card, i) { colEls[i % cols].appendChild(card); });
+    colEls.forEach(function(c) { section.appendChild(c); });
+  });
+}
+_applyMasonry();
+let _masonryResizeTimer;
+window.addEventListener('resize', function() {
+  clearTimeout(_masonryResizeTimer);
+  _masonryResizeTimer = setTimeout(_applyMasonry, 150);
+});
+
 // ── Init ───────────────────────────────────────────────────────────────
 filterData(0, '');
 initTimeFilter();

@@ -378,6 +378,34 @@ body.anon-mode .anon-blur {
   .vc .chart-grid > .chart-box { border-right: none; }
 }
 
+/* Masonry section: round-robin distributes children across N independent flex
+   columns so cards of differing heights don't force empty space below shorter
+   ones. JS in dashboard.js wraps the children in .masonry-col on load + resize. */
+.vc .masonry-section {
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-left: 1px solid var(--vc-grid);
+  border-right: 1px solid var(--vc-grid);
+  border-top: 1px solid var(--vc-grid);
+  border-bottom: 1px solid var(--vc-grid);
+  margin-bottom: 24px;
+}
+.vc .masonry-section + .chart-grid,
+.vc .chart-grid + .masonry-section,
+.vc .masonry-section + .masonry-section { margin-top: 0; }
+.vc .masonry-col { display: flex; flex-direction: column; min-width: 0; }
+.vc .masonry-col + .masonry-col { border-left: 1px solid var(--vc-grid); }
+.vc .masonry-col > .chart-box {
+  border: none;
+  border-bottom: 1px solid var(--vc-grid);
+}
+.vc .masonry-col > .chart-box:last-child { border-bottom: none; }
+@media (max-width: 960px) {
+  .vc .masonry-section { grid-template-columns: 1fr; }
+  .vc .masonry-col + .masonry-col { border-left: none; border-top: 1px solid var(--vc-grid); }
+}
+
 /* Plan & Billing progress-stats: align typography with vc body */
 .vc .progress-stats { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); }
 .vc .progress-stats .stat-val { font-weight: 500; font-size: var(--vc-fs-xs); color: var(--vc-fg); }

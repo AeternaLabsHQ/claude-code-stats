@@ -372,7 +372,7 @@ class SessionFlow {
     this.panStart = {x:0,y:0}; this.panCamStart = {x:0,y:0};
     this.userOverride = false;
     // Auto-play state
-    this.playing = true; this.playSpeed = 1;
+    this.playing = false; this.playSpeed = 1;
     this.playTime = 0; this.playIndex = 0;
     this.playDone = false;
     this.showAll = false;
@@ -1504,7 +1504,7 @@ class SessionFlow {
     var playBtn = document.getElementById("flow-play");
     if (playBtn) playBtn.addEventListener("click", function() {
       self.playing = !self.playing;
-      playBtn.textContent = self.playing ? "▶" : "⏸";
+      playBtn.textContent = self.playing ? "⏸" : "▶";
     });
 
     var showAllBtn = document.getElementById("flow-showall");

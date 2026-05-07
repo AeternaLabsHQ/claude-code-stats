@@ -1,7 +1,7 @@
 
 /* ── Variant-C tokens (light + dark) ──────────────────────────── */
 .vc {
-  --vc-bg: #f4f1ec; --vc-panel: #fbfaf6;
+  --vc-bg: #faf5ea; --vc-panel: #fbfaf6;
   --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6;
   --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a;
   --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd;
@@ -31,10 +31,10 @@ html.theme-dark .vc {
   --vc-accent: #d97757; --vc-accent-soft: #2c1c14;
   --vc-flow-bg: #0e0d0b;
 }
-html.theme-light .vc { --vc-bg: #f4f1ec; --vc-panel: #fbfaf6; --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6; --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a; --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd; --vc-flow-bg: #3d2c1f; }
+html.theme-light .vc { --vc-bg: #faf5ea; --vc-panel: #fbfaf6; --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6; --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a; --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd; --vc-flow-bg: #3d2c1f; }
 .vc *, .vc *::before, .vc *::after { border-radius: 0 !important; box-sizing: border-box; }
 body.vc-page {
-  background: var(--vc-bg, #f4f1ec) !important;
+  background: var(--vc-bg, #faf5ea) !important;
   color: var(--vc-fg, #1c1a17) !important;
   font-family: var(--vc-font-mono, 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace) !important;
   font-feature-settings: 'tnum' 1, 'zero' 1;
@@ -43,13 +43,13 @@ body.vc-page.theme-dark, html.theme-dark body.vc-page { background: #0e0d0b !imp
 @media (prefers-color-scheme: dark) {
   html:not(.theme-light) body.vc-page { background: #0e0d0b !important; color: #ece7da !important; }
 }
-html.theme-light body.vc-page { background: #f4f1ec !important; color: #1c1a17 !important; }
+html.theme-light body.vc-page { background: #faf5ea !important; color: #1c1a17 !important; }
 body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 
 /* Remap legacy vars on .vc-page so dynamically rendered legacy markup
    (var(--bg), var(--text), var(--accent), etc.) follows light/dark theme. */
 body.vc-page {
-  --bg: #f4f1ec; --bg2: #fbfaf6; --bg3: #ece6d8; --border: #d8d2c4;
+  --bg: #faf5ea; --bg2: #fbfaf6; --bg3: #ece6d8; --border: #d8d2c4;
   --text: #1c1a17; --text2: #4d4a42;
   --accent: #b04a2f; --accent2: #c46141;
   --green: #6b8e23; --orange: #b04a2f; --red: #b54a3a;
@@ -72,7 +72,7 @@ html.theme-dark body.vc-page {
   --blue: #b3ad9b; --purple: #76705f; --cyan: #76705f; --amber: #d97757;
 }
 html.theme-light body.vc-page {
-  --bg: #f4f1ec; --bg2: #fbfaf6; --bg3: #ece6d8; --border: #d8d2c4;
+  --bg: #faf5ea; --bg2: #fbfaf6; --bg3: #ece6d8; --border: #d8d2c4;
   --text: #1c1a17; --text2: #4d4a42;
   --accent: #b04a2f; --accent2: #c46141;
   --green: #6b8e23; --orange: #b04a2f; --red: #b54a3a;
@@ -173,8 +173,23 @@ html.theme-light body.vc-page {
 .vc .sidebar { padding: 14px 18px !important; font-family: var(--vc-font-mono); font-size: var(--vc-fs-xs); color: var(--vc-fg); }
 .vc .sidebar .stat-row { color: var(--vc-fg); border-bottom: 1px dashed var(--vc-grid); padding: 6px 0; }
 .vc .sidebar .stat-row span:first-child { color: var(--vc-fg-3); }
-.vc .flow-toolbar button { background: transparent; border: 1px solid var(--vc-grid); color: var(--vc-fg-2); padding: 4px 8px; font-family: var(--vc-font-mono); }
-.vc .flow-toolbar button.active, .vc .flow-toolbar button:hover { color: var(--vc-accent); border-color: var(--vc-accent); }
+.vc .flow-toolbar button, .vc .flow-fitall button {
+  background: transparent !important;
+  border: 1px solid var(--vc-grid) !important;
+  color: var(--vc-fg-2) !important;
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  padding: 4px 8px;
+  font-family: var(--vc-font-mono);
+  font-size: var(--vc-fs-xs);
+  height: 22px;
+}
+.vc .flow-toolbar button.active, .vc .flow-toolbar button:hover,
+.vc .flow-fitall button.active, .vc .flow-fitall button:hover {
+  background: var(--vc-accent-soft) !important;
+  color: var(--vc-accent) !important;
+  border-color: var(--vc-accent) !important;
+}
 .vc .flow-progress { background: var(--vc-grid-2); }
 .vc .flow-progress-bar { background: var(--vc-accent); }
 

@@ -7,7 +7,7 @@
    or explicit .theme-dark on <html>.
 ================================================================ */
 .vc {
-  --vc-bg: #f4f1ec;
+  --vc-bg: #faf5ea;
   --vc-panel: #fbfaf6;
   --vc-grid: #d8d2c4;
   --vc-grid-2: #e8e3d6;
@@ -55,7 +55,7 @@ html.theme-dark .vc {
   --vc-accent-soft: #2c1c14;
 }
 html.theme-light .vc {
-  --vc-bg: #f4f1ec;
+  --vc-bg: #faf5ea;
   --vc-panel: #fbfaf6;
   --vc-grid: #d8d2c4;
   --vc-grid-2: #e8e3d6;
@@ -67,7 +67,7 @@ html.theme-light .vc {
 }
 .vc *, .vc *::before, .vc *::after { border-radius: 0 !important; box-sizing: border-box; }
 body.vc-page {
-  background: #f4f1ec;
+  background: #faf5ea;
   color: #1c1a17;
   font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
   font-feature-settings: 'tnum' 1, 'zero' 1;
@@ -76,7 +76,7 @@ body.vc-page {
   html:not(.theme-light) body.vc-page { background: #0e0d0b; color: #ece7da; }
 }
 html.theme-dark body.vc-page { background: #0e0d0b; color: #ece7da; }
-html.theme-light body.vc-page { background: #f4f1ec; color: #1c1a17; }
+html.theme-light body.vc-page { background: #faf5ea; color: #1c1a17; }
 body.vc-page * { box-sizing: border-box; }
 
 /* Remap LEGACY CSS variables to Variant-C tokens when on .vc-page.
@@ -85,7 +85,7 @@ body.vc-page * { box-sizing: border-box; }
    renderSessions / renderInsights / renderAgentsTab). Light mode is default;
    theme-dark and prefers-color-scheme dark override. */
 body.vc-page {
-  --bg: #f4f1ec;
+  --bg: #faf5ea;
   --bg2: #fbfaf6;
   --bg3: #ece6d8;
   --border: #d8d2c4;
@@ -138,7 +138,7 @@ html.theme-dark body.vc-page {
   --amber: #d97757;
 }
 html.theme-light body.vc-page {
-  --bg: #f4f1ec;
+  --bg: #faf5ea;
   --bg2: #fbfaf6;
   --bg3: #ece6d8;
   --border: #d8d2c4;

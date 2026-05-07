@@ -1,7 +1,7 @@
 
 /* ── Variant-C tokens (light + dark) ──────────────────────────── */
 .vc {
-  --vc-bg: #f4f1ec;
+  --vc-bg: #faf5ea;
   --vc-panel: #fbfaf6;
   --vc-grid: #d8d2c4;
   --vc-grid-2: #e8e3d6;
@@ -33,10 +33,10 @@ html.theme-dark .vc {
   --vc-fg: #ece7da; --vc-fg-2: #b3ad9b; --vc-fg-3: #76705f;
   --vc-accent: #d97757; --vc-accent-soft: #2c1c14;
 }
-html.theme-light .vc { --vc-bg: #f4f1ec; --vc-panel: #fbfaf6; --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6; --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a; --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd; }
+html.theme-light .vc { --vc-bg: #faf5ea; --vc-panel: #fbfaf6; --vc-grid: #d8d2c4; --vc-grid-2: #e8e3d6; --vc-fg: #1c1a17; --vc-fg-2: #4d4a42; --vc-fg-3: #918a7a; --vc-accent: #b04a2f; --vc-accent-soft: #f1d9cd; }
 .vc *, .vc *::before, .vc *::after { border-radius: 0 !important; box-sizing: border-box; }
 body.vc-page {
-  background: var(--vc-bg, #f4f1ec) !important;
+  background: var(--vc-bg, #faf5ea) !important;
   color: var(--vc-fg, #1c1a17) !important;
   font-family: var(--vc-font-mono, 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace) !important;
   font-feature-settings: 'tnum' 1, 'zero' 1;
@@ -45,13 +45,13 @@ body.vc-page.theme-dark, html.theme-dark body.vc-page { background: #0e0d0b !imp
 @media (prefers-color-scheme: dark) {
   html:not(.theme-light) body.vc-page { background: #0e0d0b !important; color: #ece7da !important; }
 }
-html.theme-light body.vc-page { background: #f4f1ec !important; color: #1c1a17 !important; }
+html.theme-light body.vc-page { background: #faf5ea !important; color: #1c1a17 !important; }
 body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 
 /* Remap legacy vars on .vc-page so dynamically rendered legacy markup
    (var(--bg), var(--text), var(--accent), etc.) follows light/dark theme. */
 body.vc-page {
-  --bg: #f4f1ec; --bg2: #fbfaf6; --bg3: #ece6d8; --border: #d8d2c4;
+  --bg: #faf5ea; --bg2: #fbfaf6; --bg3: #ece6d8; --border: #d8d2c4;
   --text: #1c1a17; --text2: #4d4a42;
   --accent: #b04a2f; --accent2: #c46141;
   --green: #6b8e23; --orange: #b04a2f; --red: #b54a3a;
@@ -74,7 +74,7 @@ html.theme-dark body.vc-page {
   --blue: #b3ad9b; --purple: #76705f; --cyan: #76705f; --amber: #d97757;
 }
 html.theme-light body.vc-page {
-  --bg: #f4f1ec; --bg2: #fbfaf6; --bg3: #ece6d8; --border: #d8d2c4;
+  --bg: #faf5ea; --bg2: #fbfaf6; --bg3: #ece6d8; --border: #d8d2c4;
   --text: #1c1a17; --text2: #4d4a42;
   --accent: #b04a2f; --accent2: #c46141;
   --green: #6b8e23; --orange: #b04a2f; --red: #b54a3a;

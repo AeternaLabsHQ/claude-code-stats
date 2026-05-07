@@ -495,7 +495,7 @@ class SessionFlow {
     const startRow = Math.floor(tl.y / h) - 1;
     const endRow = Math.ceil(br.y / h) + 1;
 
-    ctx.strokeStyle = "rgba(30,30,60,0.3)";
+    ctx.strokeStyle = (this._themeColors && this._themeColors.gridLine) || "rgba(30,30,60,0.3)";
     ctx.lineWidth = 0.5;
     for (let row = startRow; row <= endRow; row++) {
       for (let col = startCol; col <= endCol; col++) {
@@ -531,6 +531,7 @@ class SessionFlow {
     const cssBg = styles.getPropertyValue('--vc-flow-bg').trim();
     this._themeColors = {
       nodeIcon: styles.getPropertyValue('--vc-node-icon').trim() || '#ffffff',
+      gridLine: styles.getPropertyValue('--vc-grid-line').trim() || 'rgba(30,30,60,0.3)',
     };
     ctx.fillStyle = cssBg || "#0a0a0f";
     ctx.fillRect(0, 0, this.W, this.H);

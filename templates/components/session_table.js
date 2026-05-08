@@ -107,6 +107,18 @@
         return '<a href="' + href + '" class="st-link-soft">' + escHtml(name) + '</a>';
       }
     },
+    // Chat-action lives next to identity so it sits at the front of the table.
+    // The picker still groups it under "Action" via its `group` field.
+    { id: 'chat_link', label: 'Chat', group: 'action', align: 'center', sortable: false,
+      defaultIn: ['dashboard','projectDetail'],
+      get: () => 0,
+      render: (s, ctx) => {
+        if (s.has_chat === false) return '<span class="st-muted">—</span>';
+        if (ctx.anonMode && ctx.hideChatInAnon) return '<span class="st-muted">—</span>';
+        const href = (ctx.context === 'projectDetail' ? '../' : '') + 'sessions/' + s.session_id + '.html';
+        return '<a href="' + href + '" class="st-chat-btn" title="Open chat">›</a>';
+      }
+    },
     { id: 'first_prompt', label: 'First Prompt', group: 'identity', align: 'left', sortable: false,
       defaultIn: ['dashboard','projectDetail'],
       get: (s) => s.first_prompt || '',
@@ -281,17 +293,6 @@
       }
     },
 
-    // Action
-    { id: 'chat_link', label: 'Chat', group: 'action', align: 'center', sortable: false,
-      defaultIn: ['dashboard','projectDetail'],
-      get: () => 0,
-      render: (s, ctx) => {
-        if (s.has_chat === false) return '<span class="st-muted">—</span>';
-        if (ctx.anonMode && ctx.hideChatInAnon) return '<span class="st-muted">—</span>';
-        const href = (ctx.context === 'projectDetail' ? '../' : '') + 'sessions/' + s.session_id + '.html';
-        return '<a href="' + href + '" class="st-chat-btn" title="Open chat">›</a>';
-      }
-    },
   ];
 
   const COLUMNS_BY_ID = Object.fromEntries(COLUMNS.map(c => [c.id, c]));
@@ -327,6 +328,10 @@
       hideChatInAnon: !!options.hideChatInAnon,
     };
     const onChange = options.onChange || function() {};
+    // Consumers (e.g. the dashboard) may host the CSV/XLSX export buttons
+    // outside the table toolbar; in that case set showExportButtons:false
+    // and call the public exportCsv() / exportXlsx() methods on the handle.
+    const showExportButtons = options.showExportButtons !== false;
 
     // ── State ────────────────────────────────────────────────────
     let visibleColumnIds = loadSetting(ctx.context, 'columns', null);
@@ -336,12 +341,44 @@
     // Filter out any unknown column ids (could happen after a release that removed columns)
     visibleColumnIds = visibleColumnIds.filter(id => COLUMNS_BY_ID[id]);
 
+    // Migration: ensure 'chat_link' sits right after 'project' (or 'date' on
+    // projectDetail). Older versions kept it at the end of the column list.
+    {
+      const idx = visibleColumnIds.indexOf('chat_link');
+      if (idx !== -1) {
+        const projectIdx = visibleColumnIds.indexOf('project');
+        const dateIdx = visibleColumnIds.indexOf('date');
+        let target;
+        if (projectIdx !== -1) target = projectIdx + 1;
+        else if (dateIdx !== -1) target = dateIdx + 1;
+        else target = 0;
+        if (idx < target) target--;
+        if (idx !== target) {
+          const next = visibleColumnIds.slice();
+          next.splice(idx, 1);
+          next.splice(target, 0, 'chat_link');
+          visibleColumnIds = next;
+          saveSetting(ctx.context, 'columns', visibleColumnIds);
+        }
+      }
+    }
+
     let sort = loadSetting(ctx.context, 'sort', null);
     if (!sort || !COLUMNS_BY_ID[sort.col] || !COLUMNS_BY_ID[sort.col].sortable) {
       sort = { col: 'date', dir: 'desc' };
     }
     let pageSize = Number(loadSetting(ctx.context, 'pageSize', null)) || options.defaultPageSize || 50;
     if (![25, 50, 100].includes(pageSize)) pageSize = 50;
+
+    // Per-column user-set widths. Shape: { colId: { mode: 'drag'|'fit', px: 120 } }
+    let colWidths = loadSetting(ctx.context, 'colWidths', null);
+    if (!colWidths || typeof colWidths !== 'object') colWidths = {};
+    // Snapshot of natural widths captured the moment we transition to fixed
+    // layout, so columns the user hasn't touched keep their content-based
+    // width instead of being auto-distributed across remaining space.
+    let frozenWidths = null;
+
+    let isFullscreen = false;
 
     let page = 0;
     let currentSessions = Array.isArray(sessions) ? sessions.slice() : [];
@@ -356,12 +393,32 @@
     toolbar.className = 'st-toolbar';
     const meta = document.createElement('span');
     meta.className = 'st-meta';
+    const xlsxBtn = document.createElement('button');
+    xlsxBtn.type = 'button';
+    xlsxBtn.className = 'st-xlsx';
+    xlsxBtn.title = 'Export visible filter as XLSX (Excel)';
+    xlsxBtn.innerHTML = '&#11015; XLSX';
+    const csvBtn = document.createElement('button');
+    csvBtn.type = 'button';
+    csvBtn.className = 'st-csv';
+    csvBtn.title = 'Export visible filter as CSV';
+    csvBtn.innerHTML = '&#11015; CSV';
+    const fsBtn = document.createElement('button');
+    fsBtn.type = 'button';
+    fsBtn.className = 'st-fs';
+    fsBtn.title = 'Fullscreen';
+    fsBtn.innerHTML = '&#9974;'; // ⛶
     const gear = document.createElement('button');
     gear.type = 'button';
     gear.className = 'st-gear';
     gear.title = 'Choose columns';
     gear.innerHTML = '&#9881;';
     toolbar.appendChild(meta);
+    if (showExportButtons) {
+      toolbar.appendChild(xlsxBtn);
+      toolbar.appendChild(csvBtn);
+    }
+    toolbar.appendChild(fsBtn);
     toolbar.appendChild(gear);
     wrapper.appendChild(toolbar);
 
@@ -375,8 +432,10 @@
 
     const table = document.createElement('table');
     table.className = 'st-table';
+    const colgroup = document.createElement('colgroup');
     const thead = document.createElement('thead');
     const tbody = document.createElement('tbody');
+    table.appendChild(colgroup);
     table.appendChild(thead);
     table.appendChild(tbody);
     scroll.appendChild(table);
@@ -530,6 +589,29 @@
         .map(id => COLUMNS_BY_ID[id])
         .filter(c => c && !(c.hideWhen && c.hideWhen(ctx)));
 
+      // Colgroup: one <col> per visible column. Width applied only if user-set.
+      colgroup.innerHTML = '';
+      let anyExplicit = false;
+      cols.forEach(c => {
+        const colEl = document.createElement('col');
+        colEl.dataset.colId = c.id;
+        const w = colWidths[c.id];
+        if (w && w.px) {
+          colEl.style.width = w.px + 'px';
+          anyExplicit = true;
+        }
+        colgroup.appendChild(colEl);
+      });
+      // Default: no user widths anywhere → keep content-based auto layout.
+      // The fixed-layout switch + frozen-widths capture happens after thead
+      // and tbody are populated below, since we need rendered widths to
+      // measure natural column sizes.
+      if (!anyExplicit) {
+        frozenWidths = null;
+        table.style.tableLayout = '';
+        delete table.dataset.fixed;
+      }
+
       // Header
       thead.innerHTML = '';
       const tr = document.createElement('tr');
@@ -539,7 +621,9 @@
         if (c.sortable) {
           th.classList.add('st-sortable');
           if (sort.col === c.id) th.classList.add(sort.dir === 'asc' ? 'sort-asc' : 'sort-desc');
-          th.addEventListener('click', () => {
+          th.addEventListener('click', (ev) => {
+            // Ignore clicks that originated on the resize handle
+            if (ev.target && ev.target.classList && ev.target.classList.contains('st-resize')) return;
             if (sort.col === c.id) {
               sort = { col: c.id, dir: sort.dir === 'asc' ? 'desc' : 'asc' };
             } else {
@@ -555,7 +639,20 @@
             onChange();
           });
         }
-        th.textContent = c.label;
+        // Label sits in a span so the resize handle can be a sibling without
+        // disturbing text-overflow / sort-indicator alignment.
+        const lbl = document.createElement('span');
+        lbl.className = 'st-th-label';
+        lbl.textContent = c.label;
+        th.appendChild(lbl);
+
+        const handle = document.createElement('span');
+        handle.className = 'st-resize';
+        handle.dataset.colId = c.id;
+        handle.title = 'Drag to resize, double-click to fit, right-click to reset';
+        attachResizeHandlers(handle, c.id);
+        th.appendChild(handle);
+
         tr.appendChild(th);
       });
       thead.appendChild(tr);
@@ -592,7 +689,319 @@
       }
 
       meta.textContent = total + ' session' + (total === 1 ? '' : 's');
+
+      // If the user has any explicit widths, transition the table to fixed
+      // layout. Other columns get their natural widths captured (frozen) so
+      // they don't get evenly auto-distributed across remaining space.
+      if (anyExplicit) {
+        const colsEls = Array.from(colgroup.querySelectorAll('col'));
+        const ths = thead.querySelectorAll('th');
+        const needsCapture = !frozenWidths || cols.some(c => !(c.id in frozenWidths));
+        if (needsCapture) {
+          // Briefly drop user widths + auto layout to read natural widths.
+          const userWidths = colsEls.map(c => c.style.width);
+          colsEls.forEach(c => { c.style.width = ''; });
+          const prevLayout = table.style.tableLayout;
+          table.style.tableLayout = '';
+          delete table.dataset.fixed;
+          void table.offsetHeight; // force layout
+          frozenWidths = frozenWidths || {};
+          colsEls.forEach((c, i) => {
+            const id = c.dataset.colId;
+            if (!(id in frozenWidths)) frozenWidths[id] = ths[i] ? ths[i].offsetWidth : 80;
+          });
+          colsEls.forEach((c, i) => { c.style.width = userWidths[i]; });
+          table.style.tableLayout = prevLayout;
+        }
+        // Apply frozen widths to columns that have no user override
+        colsEls.forEach(c => {
+          if (!c.style.width && frozenWidths[c.dataset.colId]) {
+            c.style.width = frozenWidths[c.dataset.colId] + 'px';
+          }
+        });
+        table.style.tableLayout = 'fixed';
+        table.dataset.fixed = '1';
+      }
     }
+
+    // ── Column width helpers ─────────────────────────────────────
+    function saveColWidths() {
+      saveSetting(ctx.context, 'colWidths', colWidths);
+    }
+
+    function freezeAllColWidths() {
+      // Snapshot current rendered widths into <col> elements, so subsequent
+      // resizes preserve the visual state when transitioning to fixed layout.
+      const ths = thead.querySelectorAll('th');
+      const colsEls = colgroup.querySelectorAll('col');
+      ths.forEach((th, i) => {
+        if (colsEls[i] && !colsEls[i].style.width) {
+          colsEls[i].style.width = th.offsetWidth + 'px';
+        }
+      });
+      table.style.tableLayout = 'fixed';
+      table.dataset.fixed = '1';
+    }
+
+    function fitColumn(colId) {
+      // Measure natural content width by temporarily switching to auto layout
+      // with all column widths cleared, then read the target column's offsetWidth.
+      const colsEls = Array.from(colgroup.querySelectorAll('col'));
+      const colIdx = colsEls.findIndex(c => c.dataset.colId === colId);
+      if (colIdx === -1) return;
+
+      const origLayout = table.style.tableLayout;
+      const origFixed = table.dataset.fixed;
+      const origWidths = colsEls.map(c => c.style.width);
+
+      colsEls.forEach(c => { c.style.width = ''; });
+      table.style.tableLayout = '';
+      delete table.dataset.fixed;
+      // Force layout flush
+      void table.offsetHeight;
+
+      const th = thead.querySelectorAll('th')[colIdx];
+      let natural = th ? th.offsetWidth : 0;
+      const trs = tbody.querySelectorAll('tr');
+      for (let i = 0; i < trs.length; i++) {
+        const td = trs[i].children[colIdx];
+        if (td) natural = Math.max(natural, td.offsetWidth);
+      }
+
+      // Restore other columns
+      colsEls.forEach((c, i) => { c.style.width = origWidths[i]; });
+      table.style.tableLayout = origLayout;
+      if (origFixed) table.dataset.fixed = origFixed;
+
+      const px = Math.max(40, Math.ceil(natural + 2));
+      colWidths[colId] = { mode: 'fit', px: px };
+      saveColWidths();
+      renderTable();
+    }
+
+    function resetColumn(colId) {
+      if (!colWidths[colId]) return;
+      delete colWidths[colId];
+      saveColWidths();
+      renderTable();
+    }
+
+    function attachResizeHandlers(handle, colId) {
+      // Drag
+      handle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return; // primary button only
+        e.preventDefault();
+        e.stopPropagation();
+
+        const colsEls = Array.from(colgroup.querySelectorAll('col'));
+        const colEl = colsEls.find(c => c.dataset.colId === colId);
+        if (!colEl) return;
+
+        // Capture current widths so subsequent drags remain visually stable
+        freezeAllColWidths();
+
+        const startX = e.clientX;
+        const startW = colEl.offsetWidth || parseFloat(colEl.style.width) || 80;
+
+        const onMove = (ev) => {
+          const dx = ev.clientX - startX;
+          const w = Math.max(40, startW + dx);
+          colEl.style.width = w + 'px';
+        };
+        const onUp = () => {
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          document.body.style.userSelect = '';
+          document.body.style.cursor = '';
+          handle.classList.remove('dragging');
+
+          const finalW = Math.max(40, parseFloat(colEl.style.width) || colEl.offsetWidth);
+          colWidths[colId] = { mode: 'drag', px: Math.round(finalW) };
+          saveColWidths();
+          renderTable();
+        };
+
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'col-resize';
+        handle.classList.add('dragging');
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+      });
+
+      // Double-click: toggle fit / reset
+      handle.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const cur = colWidths[colId];
+        if (cur && cur.mode === 'fit') resetColumn(colId);
+        else fitColumn(colId);
+      });
+
+      // Right-click: always reset
+      handle.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        resetColumn(colId);
+      });
+
+      // Suppress click bubbling so sort handler ignores handle clicks
+      handle.addEventListener('click', (e) => { e.stopPropagation(); });
+    }
+
+    // ── CSV export ───────────────────────────────────────────────
+    function csvSeparatorAndNumFmt() {
+      const loc = ctx.locale || (typeof navigator !== 'undefined' ? navigator.language : '') || 'en';
+      let usesCommaDecimal = false;
+      try { usesCommaDecimal = (1.1).toLocaleString(loc).indexOf(',') !== -1; }
+      catch (e) {}
+      return {
+        sep: usesCommaDecimal ? ';' : ',',
+        fmtNum: usesCommaDecimal ? (n) => String(n).replace('.', ',') : (n) => String(n),
+      };
+    }
+    function csvEscape(value, sep) {
+      if (value == null) return '';
+      const s = String(value);
+      if (s.indexOf(sep) === -1 && s.indexOf('"') === -1 && s.indexOf('\n') === -1 && s.indexOf('\r') === -1) {
+        return s;
+      }
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    function fmtNumeric(n) {
+      if (Number.isInteger(n)) return String(n);
+      return String(Math.round(n * 10000) / 10000);
+    }
+    function exportCsv() {
+      const { sep, fmtNum } = csvSeparatorAndNumFmt();
+      // All data columns except the chat-link action; honour context-specific hideWhen.
+      const cols = COLUMNS.filter(c => c.group !== 'action' && !(c.hideWhen && c.hideWhen(ctx)));
+      const rows = getSortedSessions();
+
+      const lines = [];
+      lines.push(cols.map(c => csvEscape(c.label, sep)).join(sep));
+      rows.forEach(s => {
+        const cells = cols.map(c => {
+          let v;
+          try { v = c.get(s); } catch (e) { v = ''; }
+          if (v == null) return '';
+          // Sentinel: cache_eff returns -1 when not applicable
+          if (c.id === 'cache_eff' && v === -1) return '';
+          if (typeof v === 'number' && Number.isFinite(v)) {
+            const formatted = fmtNum(fmtNumeric(v));
+            // Excel's CSV import auto-coerces small comma-decimals like "11,1"
+            // or "4,36" into dates ("11. Jan."). Wrapping non-integer values in
+            // an Excel formula sidesteps that: "=11,1" evaluates to the number
+            // 11.1 in any locale, keeping the cell numeric (sortable/summable).
+            // Pandas users can strip the leading "=" with str.lstrip('=').
+            if (!Number.isInteger(v)) {
+              return csvEscape('=' + formatted, sep);
+            }
+            return csvEscape(formatted, sep);
+          }
+          return csvEscape(v, sep);
+        });
+        lines.push(cells.join(sep));
+      });
+      const csv = lines.join('\r\n') + '\r\n';
+      // BOM helps Excel auto-detect UTF-8
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const today = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = 'claude-sessions-' + ctx.context + '-' + today + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
+    }
+    csvBtn.addEventListener('click', exportCsv);
+
+    // ── XLSX export ──────────────────────────────────────────────
+    function loadSheetJS() {
+      if (window.XLSX) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Failed to load SheetJS'));
+        document.head.appendChild(s);
+      });
+    }
+    async function exportXlsx() {
+      const origLabel = xlsxBtn.innerHTML;
+      try {
+        xlsxBtn.disabled = true;
+        xlsxBtn.innerHTML = 'Loading…';
+        try { await loadSheetJS(); }
+        catch (e) {
+          alert('XLSX-Bibliothek konnte nicht geladen werden (offline?).');
+          return;
+        }
+        xlsxBtn.innerHTML = 'Building…';
+
+        const cols = COLUMNS.filter(c => c.group !== 'action' && !(c.hideWhen && c.hideWhen(ctx)));
+        const rows = getSortedSessions();
+
+        const aoa = [cols.map(c => c.label)];
+        rows.forEach(s => {
+          aoa.push(cols.map(c => {
+            let v;
+            try { v = c.get(s); } catch (e) { v = ''; }
+            if (v == null || v === '') return '';
+            // Sentinel: cache_eff returns -1 when not applicable
+            if (c.id === 'cache_eff' && v === -1) return '';
+            // Date column: convert ISO string to a real Date so SheetJS writes a date cell
+            if (c.id === 'date' && typeof v === 'string') {
+              const d = new Date(v);
+              if (!isNaN(d.getTime())) return d;
+              return v;
+            }
+            return v;
+          }));
+        });
+
+        const ws = window.XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
+        // Column widths: ~max(label, sample first 50 rows) capped at 60
+        ws['!cols'] = cols.map((c, idx) => {
+          let max = String(c.label).length;
+          const sampleSize = Math.min(50, aoa.length - 1);
+          for (let r = 1; r <= sampleSize; r++) {
+            const cell = aoa[r][idx];
+            const s = cell == null ? '' : (cell instanceof Date ? cell.toISOString() : String(cell));
+            if (s.length > max) max = s.length;
+          }
+          return { wch: Math.min(60, Math.max(8, max + 2)) };
+        });
+
+        const wb = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
+        const today = new Date().toISOString().slice(0, 10);
+        window.XLSX.writeFile(wb, 'claude-sessions-' + ctx.context + '-' + today + '.xlsx');
+      } finally {
+        xlsxBtn.disabled = false;
+        xlsxBtn.innerHTML = origLabel;
+      }
+    }
+    xlsxBtn.addEventListener('click', exportXlsx);
+
+    // ── Fullscreen toggle ────────────────────────────────────────
+    function setFullscreen(on) {
+      if (on === isFullscreen) return;
+      isFullscreen = on;
+      wrapper.classList.toggle('st-fullscreen', on);
+      document.body.classList.toggle('st-lightbox-open', on);
+      fsBtn.innerHTML = on ? '&#10005;' : '&#9974;';
+      fsBtn.title = on ? 'Exit fullscreen (Esc)' : 'Fullscreen';
+    }
+    fsBtn.addEventListener('click', () => setFullscreen(!isFullscreen));
+    function onFullscreenEsc(e) {
+      // Defer to picker's own ESC handler when picker is open.
+      if (e.key === 'Escape' && isFullscreen && !pickerOpen) setFullscreen(false);
+    }
+    document.addEventListener('keydown', onFullscreenEsc);
 
     function renderFooter() {
       const sorted = getSortedSessions();
@@ -666,8 +1075,12 @@
       getFiltered() {
         return getSortedSessions();
       },
+      exportCsv,
+      exportXlsx,
       destroy() {
         closePicker();
+        if (isFullscreen) setFullscreen(false);
+        document.removeEventListener('keydown', onFullscreenEsc);
         wrapper.remove();
       }
     };

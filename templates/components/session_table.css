@@ -41,6 +41,55 @@
   border-color: var(--vc-accent, #b04a2f);
   color: var(--vc-accent, #b04a2f);
 }
+.st-fs {
+  background: transparent;
+  border: 1px solid var(--vc-line, #d8d4c8);
+  color: var(--vc-fg-2, #4d4a42);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color .12s, border-color .12s, color .12s;
+}
+.st-fs:hover {
+  background: var(--vc-accent-soft, rgba(176,74,47,0.08));
+  border-color: var(--vc-accent, #b04a2f);
+  color: var(--vc-accent, #b04a2f);
+}
+.st-csv,
+.st-xlsx {
+  background: transparent;
+  border: 1px solid var(--vc-line, #d8d4c8);
+  color: var(--vc-fg-2, #4d4a42);
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color .12s, border-color .12s, color .12s;
+}
+.st-csv:hover,
+.st-xlsx:hover {
+  background: var(--vc-accent-soft, rgba(176,74,47,0.08));
+  border-color: var(--vc-accent, #b04a2f);
+  color: var(--vc-accent, #b04a2f);
+}
+.st-csv:disabled,
+.st-xlsx:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
 
 /* Picker */
 .st-picker-host {
@@ -138,6 +187,35 @@
   position: sticky;
   top: 0;
   z-index: 1;
+}
+.st-th-label {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Resize handle: 5px strip on the right edge of every header cell */
+.st-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  background: transparent;
+  z-index: 2;
+}
+.st-resize:hover,
+.st-resize.dragging {
+  background: var(--vc-accent, #b04a2f);
+  opacity: 0.6;
+}
+/* Fixed-layout mode: every cell ellipsises overflowing content */
+.st-table[data-fixed="1"] tbody td {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .st-table thead .st-th-right { text-align: right; }
 .st-table thead .st-th-center { text-align: center; }
@@ -294,6 +372,27 @@ body.anon-mode .anon-blur {
   user-select: none;
   pointer-events: none;
 }
+
+/* Fullscreen / lightbox mode */
+body.st-lightbox-open { overflow: hidden; }
+.st-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--vc-bg, #f4f1ec);
+  padding: 16px 20px 12px 20px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.st-fullscreen .st-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.st-fullscreen .st-toolbar { padding-bottom: 10px; }
+.st-fullscreen .st-footer { padding-top: 10px; }
 
 /* Narrow screens: keep table scrollable horizontally */
 @media (max-width: 800px) {

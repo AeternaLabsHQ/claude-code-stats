@@ -1561,15 +1561,19 @@ function renderInsights() {
   // Config info
   const configDiv = document.getElementById('configInfo');
   const settings = plugins.settings || {};
+  const itemMB = (name) => {
+    const it = (storage.items || []).find(s => s.name === name);
+    return it && typeof it.size_mb === 'number' ? it.size_mb + ' MB' : '-';
+  };
   const configItems = [
     {label: D.locale.insights.permission_mode, value: settings.permission_mode || '-'},
     {label: D.locale.insights.auto_updates, value: settings.auto_updates || '-'},
     {label: D.locale.insights.plugins_installed, value: String(installed.length)},
     {label: D.locale.insights.plugins_active, value: String(Object.values(enabled).filter(v => v).length)},
     {label: D.locale.insights.total_storage, value: (storage.total_mb || 0) + ' MB'},
-    {label: D.locale.insights.transcripts, value: ((storage.items || []).find(s => s.name === 'projects/') || {}).size_mb + ' MB'},
-    {label: D.locale.insights.debug_logs, value: ((storage.items || []).find(s => s.name === 'debug/') || {}).size_mb + ' MB'},
-    {label: D.locale.insights.file_history_label, value: ((storage.items || []).find(s => s.name === 'file-history/') || {}).size_mb + ' MB'},
+    {label: D.locale.insights.transcripts, value: itemMB('projects/')},
+    {label: D.locale.insights.debug_logs, value: itemMB('debug/')},
+    {label: D.locale.insights.file_history_label, value: itemMB('file-history/')},
   ];
   const grid = document.createElement('div'); grid.className = 'config-grid';
   configItems.forEach(c => {

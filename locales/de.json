@@ -170,7 +170,19 @@
     "git_ops": "Git-Operationen",
     "commits": "Commits",
     "pushes": "Pushes",
-    "pull_requests": "Pull Requests"
+    "pull_requests": "Pull Requests",
+    "sect_cache_tokens": "Cache & Tokens",
+    "sect_cache_tokens_meta": "Cache-Hit · Token-Mix · Effizienz pro Tag",
+    "sect_tools_plugins": "Tools & Plugins",
+    "sect_tools_plugins_meta": "Tool-Nutzung · installierte Plugins",
+    "sect_workflows": "Workflows",
+    "sect_workflows_meta": "Pläne · Skills · Hooks · Git",
+    "sect_storage_files": "Speicher & Dateien",
+    "sect_storage_files_meta": "Disk-Nutzung · Snapshots · Todos",
+    "sect_environment": "Umgebung",
+    "sect_environment_meta": "Konfiguration · System-Info",
+    "sect_errors": "Fehler",
+    "sect_errors_meta": "Fehlerrate im Zeitverlauf"
   },
   "agents": {
     "subagent_types": "Subagent-Typen",

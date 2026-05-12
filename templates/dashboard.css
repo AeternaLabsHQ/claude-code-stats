@@ -641,6 +641,28 @@ body.vc-page > div[style*="text-align:center"] a {
 .vc-tab-h-rule { display: none; }
 .vc-tab-h-meta { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); white-space: nowrap; }
 
+/* Sub-section header inside a tab — slimmer than vc-tab-h, with a thin rule */
+.vc-sect-h {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px 10px;
+  font-family: var(--vc-font-mono);
+}
+.vc-sect-h-title {
+  font-size: var(--vc-fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--vc-fg-3);
+  white-space: nowrap;
+}
+.vc-sect-h-title b { color: var(--vc-fg); font-weight: 500; }
+.vc-sect-h-rule { height: 1px; background: var(--vc-grid); }
+.vc-sect-h-meta { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); white-space: nowrap; }
+.vc .vc-sect-h + .masonry-section,
+.vc .vc-sect-h + .chart-grid { margin-top: 0; }
+
 /* Pane grid */
 .vc-pane-grid {
   margin: 0 20px 24px;

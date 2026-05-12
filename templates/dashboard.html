@@ -255,10 +255,10 @@
   </div>
 
   <div class="tab-content" id="tab-insights">
-    <div class="vc-tab-h">
-      <div class="vc-tab-h-title"><b>↳</b> Insights</div>
-      <div class="vc-tab-h-rule"></div>
-      <div class="vc-tab-h-meta">cache &middot; tools &middot; storage &middot; config</div>
+    <div class="vc-sect-h">
+      <div class="vc-sect-h-title"><b>↳</b> __L_insights_sect_cache_tokens__</div>
+      <div class="vc-sect-h-rule"></div>
+      <div class="vc-sect-h-meta">__L_insights_sect_cache_tokens_meta__</div>
     </div>
     <div class="masonry-section">
       <div class="chart-box" id="cacheEfficiency">
@@ -274,7 +274,12 @@
     <div class="chart-grid full">
       <div class="chart-box"><h3>__L_costs_cache_efficiency_daily__</h3><canvas id="chartCacheEffDaily"></canvas></div>
     </div>
-    <!-- Masonry section: cards re-ordered (long/short alternating) so round-robin into 2 columns balances heights -->
+
+    <div class="vc-sect-h">
+      <div class="vc-sect-h-title"><b>↳</b> __L_insights_sect_tools_plugins__</div>
+      <div class="vc-sect-h-rule"></div>
+      <div class="vc-sect-h-meta">__L_insights_sect_tools_plugins_meta__</div>
+    </div>
     <div class="masonry-section">
       <div class="chart-box tall"><h3>__L_insights_tool_usage__</h3><canvas id="chartToolUsage"></canvas></div>
       <div class="chart-box">
@@ -287,6 +292,14 @@
           <tbody id="pluginTableBody"></tbody>
         </table>
       </div>
+    </div>
+
+    <div class="vc-sect-h">
+      <div class="vc-sect-h-title"><b>↳</b> __L_insights_sect_workflows__</div>
+      <div class="vc-sect-h-rule"></div>
+      <div class="vc-sect-h-meta">__L_insights_sect_workflows_meta__</div>
+    </div>
+    <div class="masonry-section">
       <div class="chart-box">
         <h3>__L_insights_plan_mode_plans__</h3>
         <table class="data-table" id="plansTable">
@@ -304,17 +317,39 @@
         <h3>__L_insights_hooks__</h3>
         <div id="hooksList"></div>
       </div>
+      <div class="chart-box"><h3>__L_insights_git_ops__</h3><div id="gitOpsInfo"></div></div>
+    </div>
+
+    <div class="vc-sect-h">
+      <div class="vc-sect-h-title"><b>↳</b> __L_insights_sect_storage_files__</div>
+      <div class="vc-sect-h-rule"></div>
+      <div class="vc-sect-h-meta">__L_insights_sect_storage_files_meta__</div>
+    </div>
+    <div class="masonry-section">
       <div class="chart-box"><h3>__L_insights_storage__</h3><canvas id="chartStorage"></canvas></div>
-      <div class="chart-box">
-        <h3>__L_insights_configuration__</h3>
-        <div id="configInfo"></div>
-      </div>
       <div class="chart-box">
         <h3>__L_insights_file_snapshots_title__</h3>
         <div id="miscStats"></div>
       </div>
+    </div>
+
+    <div class="vc-sect-h">
+      <div class="vc-sect-h-title"><b>↳</b> __L_insights_sect_environment__</div>
+      <div class="vc-sect-h-rule"></div>
+      <div class="vc-sect-h-meta">__L_insights_sect_environment_meta__</div>
+    </div>
+    <div class="masonry-section">
+      <div class="chart-box">
+        <h3>__L_insights_configuration__</h3>
+        <div id="configInfo"></div>
+      </div>
       <div class="chart-box"><h3>__L_insights_system_info__</h3><div id="systemInfo"></div></div>
-      <div class="chart-box"><h3>__L_insights_git_ops__</h3><div id="gitOpsInfo"></div></div>
+    </div>
+
+    <div class="vc-sect-h">
+      <div class="vc-sect-h-title"><b>↳</b> __L_insights_sect_errors__</div>
+      <div class="vc-sect-h-rule"></div>
+      <div class="vc-sect-h-meta">__L_insights_sect_errors_meta__</div>
     </div>
     <div class="chart-grid full">
       <div class="chart-box"><h3>__L_insights_error_rate_over_time__</h3><canvas id="errorRateChart" height="200"></canvas></div>

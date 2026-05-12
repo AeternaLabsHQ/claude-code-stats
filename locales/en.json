@@ -9,8 +9,6 @@
     "hide_empty_hint": "Hide sessions with no messages and no token usage"
   },
   "top": {
-    "lang_label": "DE",
-    "lang_title": "Language is set in config.json",
     "theme_title": "Toggle theme (system / light / dark)"
   },
   "filter": {

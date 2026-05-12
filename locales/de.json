@@ -9,8 +9,6 @@
     "hide_empty_hint": "Sessions ohne Nachrichten und ohne Token-Verbrauch ausblenden"
   },
   "top": {
-    "lang_label": "EN",
-    "lang_title": "Sprache wird in config.json gesetzt",
     "theme_title": "Theme wechseln (System / Hell / Dunkel)"
   },
   "filter": {

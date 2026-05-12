@@ -1,5 +1,23 @@
 # Session Log
 
+## 2026-05-12 — DE-Sprachbutton aus Topbar entfernt
+Kurze Aufräum-Session. Der "DE"-Button in der Variant-C-Topbar war nie ein echter Sprach-Switch — Klick öffnete nur einen Alert ("Language is set in config.json, edit and re-run extract_stats.py"). i18n läuft bei claude-stats build-time: `extract_stats.py` lädt `locales/{lang}.json` via `load_locale()` und `_inject_locale()` ersetzt `__L_section_key__`-Platzhalter im HTML; der komplette Locale geht zusätzlich als `D.locale` ins `DASHBOARD_DATA` für JS-runtime-Strings. User: "es verwirrt nur" → Button komplett entfernt. Geänderte Files: `templates/dashboard.html` (Button-Markup), `templates/dashboard.js` (Click-Handler, parallele Session hatte exakt dasselbe in 542fd95 schon committed), `locales/en.json` + `locales/de.json` (verwaiste `top.lang_label`/`top.lang_title`-Keys gelöscht).
+
+## 2026-05-07 — Session-Tabelle: Resize, Lightbox, CSV/XLSX-Export, Chat an Pos 3
+Folgesession zur Tabellen-Umstellung. Spalten in der Breite anpassbar gemacht (Drag-Handle 5 px am rechten Rand jedes `<th>`; Drag setzt explizite Width, Doppelklick togglet zwischen fit-to-content und reset, Rechtsklick = reset). Beim Wechsel auf `table-layout: fixed` werden natürliche Breiten der nicht-resized Spalten als `frozenWidths`-Snapshot eingefroren, sonst auto-distribute der Browser den Restplatz. Lightbox-Modus via CSS-only `.st-fullscreen`-Klasse (`position: fixed; inset: 0`), Toggle per ⛶-Button oder ESC. Persistenz pro Kontext in localStorage.
+
+CSV-Export hinzugefügt: Locale-abhängiger Separator (DE→`;`, EN→`,`), Floats kriegen `=`-Prefix damit Excel sie als Formel evaluiert und nicht als Datum coercet (`11,1` → sonst „11. Jan", mit `=11,1` bleibt's numerisch). UTF-8-BOM, RFC-4180-Quoting. XLSX-Export via SheetJS Community lazy-loaded vom CDN — native Cell-Types (Date, Number, String), Spaltenbreiten automatisch aus Inhalt der ersten 50 Zeilen. Beide Buttons auf Dashboard in die `session-filters`-Bar vor „Download all" verschoben (passt inhaltlich, alle Export-Aktionen zentral); auf Project-Detail-Seite bleiben sie in der Tabellen-Toolbar.
+
+Chat-Spalte von letzter Position auf Position 3 (nach Project) verschoben. Migration in localStorage zieht `chat_link` automatisch hinter `project` (oder `date` auf Project-Detail), kein User-Reset nötig.
+
+Initial-Bug-Report „Chat-Ansicht kaputt" entpuppte sich als einmaliger Browser-Glitch — Lesson: bei UI-Bugs zuerst nach Symptom/Console-Fehler fragen.
+
+Deploy via `echo 0 > .last_build && ./update_dashboard.sh` (bypass für Template-only-Edits, sonst skipped der Cron).
+
+## 2026-05-07 — Session-Übersicht als Tabelle + Variant-C lokal auf main gemergt
+Variant-C-Branch (47 Commits, kein Push) lokal auf main gemergt. Session-Übersicht von Card-Liste auf wiederverwendbare Tabellen-Komponente umgestellt — `templates/components/session_table.{js,css}` mit 25 wählbaren Spalten in 8 Gruppen, Default 8, Picker via Zahnrad, Sort + Page-Size + Spalten persistiert per Kontext (dashboard / projectDetail) in localStorage. Dashboard- und Project-Detail-Seite nutzen die gleiche Komponente; Project-Detail blendet die Project-Spalte automatisch aus. `extract_stats.py` prepended die Komponenten-Files in beide Page-Builds. Smoke-Test mit headless chromium, dann Deploy via `update_dashboard.sh` nach Eiche. v1.0.0-Release deferred bis User die Tabelle im echten Browser bestätigt.
+→ docs/superpowers/specs/2026-05-05-session-table-design.md
+
 ## 2026-04-30 — Variant-C "Terminal" Dashboard Redesign (autonomous)
 Komplette Umstellung des Dashboards auf den Variant-C-Look (Branch `feat/variant-c-terminal`): monospace-forward, single-accent terracotta, hairline borders, kein border-radius, light + dark mode mit prefers-color-scheme + explicit toggle (system/light/dark cycle). User war AFK, ganze Nacht autonom umgesetzt.
 

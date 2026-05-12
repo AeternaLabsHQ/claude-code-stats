@@ -253,8 +253,13 @@ a:hover { text-decoration:underline; }
 .flow-progress{position:absolute;bottom:0;left:0;right:0;height:10px;background:var(--vc-flow-bg, #0a0a0f);z-index:10;cursor:pointer}
 .flow-progress-bar{height:100%;background:linear-gradient(90deg,#00d4ff,#ff00aa);width:0%;transition:width 0.1s;border-radius:0 2px 2px 0}
 .flow-tooltip{position:absolute;display:none;background:rgba(10,10,15,0.95);border:1px solid #00d4ff40;border-radius:6px;padding:8px 12px;color:#ccc;font-size:11px;pointer-events:none;z-index:20;max-width:280px;backdrop-filter:blur(8px)}
-.flow-toggle{display:none;width:100%;padding:8px;background:#12121f;color:#8888aa;border:none;border-bottom:1px solid #1a1a2e;cursor:pointer;font-size:12px}
-.flow-toggle:hover{color:#00d4ff;background:#15152a}
+/* Toggle bar between flow-container and chat-panel.
+   Visible on all viewports; persists collapsed state via localStorage. */
+.flow-toggle{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:6px 8px;background:var(--vc-panel,#fbfaf6);color:var(--vc-fg-2,#4d4a42);border:none;border-top:1px solid var(--vc-grid,#d8d2c4);border-bottom:1px solid var(--vc-grid,#d8d2c4);cursor:pointer;font-size:11px;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;transition:background-color .12s,color .12s}
+.flow-toggle:hover{color:var(--vc-accent,#b04a2f);background:var(--vc-accent-soft,rgba(176,74,47,0.08))}
+.flow-toggle .flow-toggle-icon{display:inline-block;font-size:10px;line-height:1}
+/* Collapsed state: hide flow-container, keep toggle bar visible */
+body.flow-collapsed .flow-container{display:none!important}
 /* Hide entire flow visualization (config: hide_session_flow=true) */
 body.flow-hidden .flow-container,
 body.flow-hidden .flow-toggle { display: none !important; }
@@ -305,5 +310,5 @@ body.flow-hidden .left-column { max-height: calc(100vh - 180px); }
 .sidebar-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; margin:2px; background:var(--bg3); }
 .compaction-timeline { margin-top:8px; }
 .compaction-event { padding:4px 8px; font-size:11px; color:var(--amber); border-left:2px solid var(--amber); margin-bottom:4px; }
-@media (max-width:1000px) { .main-layout { grid-template-columns:1fr; } .stats-bar { grid-template-columns:repeat(3,1fr); } .flow-container{display:none} .flow-container.visible{display:block;height:50%} .flow-toggle{display:block} }
+@media (max-width:1000px) { .main-layout { grid-template-columns:1fr; } .stats-bar { grid-template-columns:repeat(3,1fr); } .flow-container{display:none} .flow-container.visible{display:block;height:50%} }
 @media(min-width:1000px) and (max-width:1400px){.flow-container{height:35%}}

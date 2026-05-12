@@ -173,6 +173,13 @@ function setupVcChartDefaults() {
   Chart.defaults.elements.point.radius = 0;
   Chart.defaults.elements.point.hoverRadius = 3;
   Chart.defaults.elements.bar.borderRadius = 0;
+  // Doughnut/pie segment separators: Chart.js defaults to '#fff' for arc
+  // borders, which leaks as a white ring on dark backgrounds. Match the
+  // surrounding card so segments blend into the panel.
+  if (Chart.defaults.elements.arc) {
+    Chart.defaults.elements.arc.borderColor = panel;
+    Chart.defaults.elements.arc.borderWidth = 2;
+  }
   Chart.defaults.plugins.legend.labels = Chart.defaults.plugins.legend.labels || {};
   Chart.defaults.plugins.legend.labels.color = fg2;
   Chart.defaults.plugins.legend.labels.font = {family: "'Geist Mono', monospace", size: 10};
@@ -1935,6 +1942,19 @@ document.addEventListener('keydown', function(e) {
     const btn = document.getElementById('vcThemeToggle');
     if (btn) btn.innerHTML = theme === 'dark' ? '&#9790;' : '&#9737;';
     if (typeof setupVcChartDefaults === 'function') setupVcChartDefaults();
+    // Existing Chart.js instances cache resolved arc borderColor at creation
+    // time. After theme switch, refresh doughnut/pie datasets so segment
+    // separators pick up the new panel colour.
+    try {
+      const arcCol = (Chart.defaults.elements.arc && Chart.defaults.elements.arc.borderColor) || '#fff';
+      const instances = (Chart && Chart.instances) ? Object.values(Chart.instances) : [];
+      instances.forEach(function(c) {
+        const t = c && c.config && c.config.type;
+        if (t !== 'doughnut' && t !== 'pie') return;
+        (c.data && c.data.datasets || []).forEach(function(ds) { ds.borderColor = arcCol; });
+        c.update('none');
+      });
+    } catch (e) {}
   }
   const saved = localStorage.getItem('vc-theme');
   const initialTheme = (saved === 'light' || saved === 'dark')
@@ -1946,11 +1966,6 @@ document.addEventListener('keydown', function(e) {
     const next = cur === 'dark' ? 'light' : 'dark';
     localStorage.setItem('vc-theme', next);
     applyVcTheme(next);
-  });
-
-  // Language toggle (config-based, alert is honest)
-  document.getElementById('vcLangToggle')?.addEventListener('click', () => {
-    alert('Language is set in config.json — edit "language" and re-run extract_stats.py to switch.');
   });
 
   // Generated-at timestamp (replaces the old live UTC clock)

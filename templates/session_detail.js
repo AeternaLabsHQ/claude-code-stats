@@ -1620,26 +1620,28 @@ document.querySelectorAll(".msg,.marker").forEach(function(el) {
 var flowToggle = document.getElementById('flow-toggle');
 var flowContainer = document.querySelector('.flow-container');
 if (flowToggle && flowContainer) {
-  if (window.innerWidth < 1000) {
-    flowContainer.style.display = 'none';
+  var FLOW_COLLAPSE_KEY = 'claude-stats:flow-collapsed';
+  var iconEl = flowToggle.querySelector('.flow-toggle-icon');
+  var labelEl = flowToggle.querySelector('.flow-toggle-label');
+
+  function applyCollapsed(collapsed) {
+    document.body.classList.toggle('flow-collapsed', collapsed);
+    flowToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    if (iconEl) iconEl.innerHTML = collapsed ? '&#9660;' : '&#9650;';
+    if (labelEl) labelEl.textContent = collapsed ? 'Show Flow' : 'Hide Flow';
   }
+
+  var stored = null;
+  try { stored = localStorage.getItem(FLOW_COLLAPSE_KEY); } catch (e) {}
+  applyCollapsed(stored === '1');
+
   flowToggle.addEventListener('click', function() {
-    var visible = flowContainer.classList.toggle('visible');
-    flowContainer.style.display = visible ? 'block' : 'none';
-    flowToggle.textContent = visible ? 'Hide Flow' : 'Show Flow';
-    if (visible && window._sessionFlow) {
+    var next = !document.body.classList.contains('flow-collapsed');
+    applyCollapsed(next);
+    try { localStorage.setItem(FLOW_COLLAPSE_KEY, next ? '1' : '0'); } catch (e) {}
+    if (!next && window._sessionFlow) {
       window._sessionFlow._resize();
       window._sessionFlow._fitAll();
-    }
-  });
-  window.addEventListener('resize', function() {
-    if (window.innerWidth >= 1000) {
-      flowToggle.style.display = 'none';
-      flowContainer.style.display = '';
-      flowContainer.classList.remove('visible');
-    } else if (!flowContainer.classList.contains('visible')) {
-      flowToggle.style.display = 'block';
-      flowContainer.style.display = 'none';
     }
   });
 }

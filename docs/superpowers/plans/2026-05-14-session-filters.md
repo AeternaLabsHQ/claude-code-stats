@@ -1376,3 +1376,5 @@ git commit -m "chore(filters): smoke verification complete"
 - URL-param sharing of filter state
 - Saved named filter presets
 - Filter-driven CSV/XLSX export header line ("filter applied: X ≥ 2 …")
+
+Smoke verified 2026-05-14

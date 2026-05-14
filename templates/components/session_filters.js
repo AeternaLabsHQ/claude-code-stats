@@ -290,7 +290,51 @@
       toolbar.appendChild(toggle);
     }
 
-    function renderChips() { /* Task 7 fills this in */ }
+    function chipText(attr, v) {
+      const fmt = (n) => attr.unit === 'USD' ? n.toFixed(2) : String(n);
+      if (v.min != null && v.max != null) return attr.label + ' ' + fmt(v.min) + '–' + fmt(v.max);
+      if (v.min != null) return attr.label + ' ≥' + fmt(v.min);
+      if (v.max != null) return attr.label + ' ≤' + fmt(v.max);
+      return attr.label;
+    }
+
+    function renderChips() {
+      chipsRow.innerHTML = '';
+      const active = ATTRIBUTES.filter(a => {
+        const v = state[a.id];
+        return v && (v.min != null || v.max != null);
+      });
+      if (active.length === 0) return;
+      active.forEach(a => {
+        const c = document.createElement('span');
+        c.className = 'sf-chip';
+        const txt = document.createElement('span');
+        txt.textContent = chipText(a, state[a.id]);
+        c.appendChild(txt);
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'sf-chip-x';
+        x.innerHTML = '&times;';
+        x.setAttribute('aria-label', 'Clear ' + a.label);
+        x.addEventListener('click', () => {
+          clearAttr(a.id);
+          renderAll();
+          notifyChange();
+        });
+        c.appendChild(x);
+        chipsRow.appendChild(c);
+      });
+      const ca = document.createElement('button');
+      ca.type = 'button';
+      ca.className = 'sf-clear-all';
+      ca.textContent = 'Clear all';
+      ca.addEventListener('click', () => {
+        clearAll();
+        renderAll();
+        notifyChange();
+      });
+      chipsRow.appendChild(ca);
+    }
 
     function renderPanel() {
       panelHost.innerHTML = '';

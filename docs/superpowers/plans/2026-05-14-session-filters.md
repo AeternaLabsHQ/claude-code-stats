@@ -947,7 +947,7 @@ Replace the contents of `templates/components/session_filters.css` with:
   flex-direction: column;
   gap: 8px;
   margin-bottom: 12px;
-  font-family: var(--vc-font, inherit);
+  font-family: var(--vc-font-mono, inherit);
 }
 
 .sf-toolbar {
@@ -969,7 +969,7 @@ Replace the contents of `templates/components/session_filters.css` with:
   cursor: pointer;
 }
 .sf-preset:hover,
-.sf-toggle:hover { background: var(--bg4, #333); }
+.sf-toggle:hover { background: var(--vc-accent-soft, #333); border-color: var(--vc-accent, #2c8); }
 .sf-preset.is-on {
   background: var(--vc-accent, #2c8); color: #000;
   border-color: var(--vc-accent, #2c8);
@@ -1123,7 +1123,7 @@ Replace the contents of `templates/components/session_filters.css` with:
   font-size: 12px;
   cursor: pointer;
 }
-.sf-action:hover { background: var(--bg4, #333); }
+.sf-action:hover { background: var(--vc-accent-soft, #333); border-color: var(--vc-accent, #2c8); }
 
 @media (max-width: 699px) {
   .sf-row { grid-template-columns: 1fr; }

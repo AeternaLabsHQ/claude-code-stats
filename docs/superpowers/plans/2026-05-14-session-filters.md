@@ -226,7 +226,7 @@ Inside the IIFE, **above** the `// ── Storage helpers` block, insert:
       get: (s) => s.messages || 0,
       scale: 'linear', step: 1, unit: '' },
     { id: 'duration_min',   group: 'volume',   label: 'Duration',
-      get: (s) => Math.round((s.duration_sec || 0) / 60),
+      get: (s) => s.duration_min || 0,
       scale: 'linear', step: 1, unit: 'min' },
     { id: 'total_tokens',   group: 'tokens',   label: 'Total Tokens',
       get: (s) => (s.input_tokens||0) + (s.output_tokens||0)
@@ -252,9 +252,9 @@ Inside the IIFE, **above** the `// ── Storage helpers` block, insert:
       scale: 'log', step: 1, unit: '' },
     { id: 'agent_dispatches', group: 'activity', label: 'Agent Dispatches',
       get: (s) => Array.isArray(s.agent_dispatches) ? s.agent_dispatches.length : 0,
-      scale: 'linear', step: 1, unit: '' },
+      scale: 'log', step: 1, unit: '' },
     { id: 'errors',         group: 'errors',   label: 'Error Count',
-      get: (s) => Number(s.errors) || 0,
+      get: (s) => s.error_count || 0,
       scale: 'linear', step: 1, unit: '' },
   ];
   const ATTRIBUTES_BY_ID = {};

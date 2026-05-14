@@ -402,6 +402,7 @@
         const minVal = Math.min(val, other);
         setBound(attr.id, 'min', minVal);
         iMin.value = minVal;
+        sMin.value = valueToPos(attr, r, minVal);
         scheduleNotify();
         renderToolbar();
         renderChips();
@@ -412,6 +413,7 @@
         const maxVal = Math.max(val, other);
         setBound(attr.id, 'max', maxVal);
         iMax.value = maxVal;
+        sMax.value = valueToPos(attr, r, maxVal);
         scheduleNotify();
         renderToolbar();
         renderChips();

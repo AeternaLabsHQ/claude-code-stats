@@ -196,6 +196,73 @@
     wrapper.setAttribute('data-context', ctx.context);
     container.appendChild(wrapper);
 
+    const toolbar = document.createElement('div');
+    toolbar.className = 'sf-toolbar';
+    wrapper.appendChild(toolbar);
+
+    const chipsRow = document.createElement('div');
+    chipsRow.className = 'sf-chips';
+    wrapper.appendChild(chipsRow);
+
+    const panelHost = document.createElement('div');
+    panelHost.className = 'sf-panel-host';
+    wrapper.appendChild(panelHost);
+
+    // Preset configs.
+    const PRESETS = [
+      { id: 'real',     label: 'Nur echte Sessions',
+        apply:  () => { state.user_messages.min = 2; persist(); },
+        clear:  () => { state.user_messages.min = null; persist(); },
+        isOn:   () => state.user_messages.min === 2 },
+      { id: 'expensive', label: 'Nur teure Sessions',
+        apply:  () => { state.cost.min = 1.00; persist(); },
+        clear:  () => { state.cost.min = null; persist(); },
+        isOn:   () => state.cost.min === 1.00 },
+    ];
+
+    function renderToolbar() {
+      toolbar.innerHTML = '';
+      PRESETS.forEach(p => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sf-preset' + (p.isOn() ? ' is-on' : '');
+        b.textContent = p.label;
+        b.addEventListener('click', () => {
+          if (p.isOn()) p.clear(); else p.apply();
+          renderAll();
+          notifyChange();
+        });
+        toolbar.appendChild(b);
+      });
+
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'sf-toggle' + (state.panelOpen ? ' is-open' : '');
+      const n = activeCount();
+      toggle.innerHTML = '&#9881; Weitere Filter'
+        + (n > 0 ? ' (' + n + ')' : '')
+        + ' <span class="sf-caret">' + (state.panelOpen ? '▴' : '▾') + '</span>';
+      toggle.addEventListener('click', () => {
+        state.panelOpen = !state.panelOpen;
+        persist();
+        renderAll();
+      });
+      toolbar.appendChild(toggle);
+    }
+
+    function renderChips() { /* Task 7 fills this in */ }
+    function renderPanel() { /* Task 6 fills this in */ }
+
+    function renderAll() {
+      renderToolbar();
+      renderChips();
+      renderPanel();
+    }
+
+    function notifyChange() { onChange(); }
+
+    renderAll();
+
     return {
       getActiveFiltersList: function() {
         const list = [];
@@ -218,7 +285,7 @@
         });
         return list;
       },
-      onPoolChanged: function() { refreshRanges(); /* rerender hooked in Task 6 */ },
+      onPoolChanged: function() { refreshRanges(); renderAll(); },
       destroy: function() { wrapper.remove(); },
       _state: state,           // for test/debug only
       _activeCount: activeCount,

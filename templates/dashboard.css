@@ -1015,6 +1015,7 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .plan-card.roi .value { color:var(--cyan); }
 .plan-card.plan-type .value { color:var(--accent2); }
 .plan-card.api-cost .value { color:var(--orange); }
+.plan-card.paid .value { color:var(--accent); }
 
 .billing-progress { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:24px; }
 .billing-progress h3 { font-size:15px; font-weight:600; margin-bottom:16px; }
@@ -1025,7 +1026,8 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .progress-stats .stat-val { color:var(--text); font-weight:600; font-size:15px; }
 
 .plan-comparison { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
-.plan-comparison h3 { font-size:15px; font-weight:600; margin-bottom:8px; }
+.plan-comparison h3 { font-size:15px; font-weight:600; margin-bottom:4px; }
+.plan-comparison .plan-comparison-note { font-size:11px; color:var(--text2); margin:0 0 14px 0; line-height:1.4; font-style:italic; }
 .plan-comparison .bar-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
 .plan-comparison .bar-label { width:160px; flex-shrink:0; font-size:13px; color:var(--text2); }
 .plan-comparison .bar-track { flex:1; background:var(--bg3); border-radius:6px; height:24px; overflow:hidden; }

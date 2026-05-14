@@ -1503,54 +1503,90 @@ def extract_session_messages(session_id, project_dir_name):
     return messages
 
 
-def _split_into_billing_cycles(start_str, end_str, billing_day):
-    """Split a date range into monthly billing cycles based on billing_day."""
+def _expand_billing_cycles(ph, start_str, end_str):
+    """Expand a plan period into per-month accounting cycles with per-cycle cost.
+
+    Returns list of dicts: {start, end, cost_usd, cost_local}.
+    - Monthly plans: one entry per billing month, full plan cost per entry.
+    - Annual plans: one entry per *month* within the annual cycle, plan cost / 12
+      per entry. This avoids the annual price appearing against a partial month
+      when the plan ends mid-cycle.
+    """
+    billing_day = ph.get("billing_day")
+    billing_cycle = ph.get("billing_cycle", "monthly")
+    full_cost_usd = ph["cost_usd"]
+    full_cost_local = ph.get("cost_local", ph.get("cost_eur"))
+
+    if billing_cycle == "annual":
+        per_cycle_usd = full_cost_usd / 12
+        per_cycle_local = (full_cost_local / 12) if full_cost_local else None
+    else:
+        per_cycle_usd = full_cost_usd
+        per_cycle_local = full_cost_local
+
+    if not billing_day:
+        return [{
+            "start": start_str, "end": end_str,
+            "cost_usd": per_cycle_usd, "cost_local": per_cycle_local,
+        }]
+
     start_dt = datetime.strptime(start_str, "%Y-%m-%d")
     end_dt = datetime.strptime(end_str, "%Y-%m-%d")
-
     cycles = []
     cycle_start = start_dt
-
     while cycle_start <= end_dt:
-        # Next billing date is billing_day of the following month
         if cycle_start.month == 12:
             next_billing = cycle_start.replace(
                 year=cycle_start.year + 1, month=1, day=billing_day
             )
         else:
-            next_billing = cycle_start.replace(
-                month=cycle_start.month + 1, day=billing_day
-            )
-
+            try:
+                next_billing = cycle_start.replace(
+                    month=cycle_start.month + 1, day=billing_day
+                )
+            except ValueError:
+                # billing_day doesn't exist in target month (e.g. day 31 in Feb)
+                m = cycle_start.month + 1
+                first_of_next = cycle_start.replace(month=m, day=1)
+                if m == 12:
+                    next_billing = first_of_next.replace(year=first_of_next.year + 1, month=1, day=1) - timedelta(days=0)
+                else:
+                    next_billing = first_of_next.replace(month=m + 1, day=1) - timedelta(days=0)
         cycle_end = min(next_billing - timedelta(days=1), end_dt)
-        cycles.append((
-            cycle_start.strftime("%Y-%m-%d"),
-            cycle_end.strftime("%Y-%m-%d"),
-        ))
+        cycles.append({
+            "start": cycle_start.strftime("%Y-%m-%d"),
+            "end": cycle_end.strftime("%Y-%m-%d"),
+            "cost_usd": per_cycle_usd,
+            "cost_local": per_cycle_local,
+        })
         cycle_start = next_billing
-
     return cycles
 
 
-def build_plan_analysis(daily_cost_series, session_list):
-    """Analyze cost savings per plan period and current billing cycle."""
+def build_plan_analysis(daily_cost_series, session_list, first_session=None):
+    """Analyze cost savings per plan period and current billing cycle.
+
+    If first_session is given, billing cycles that end strictly before that date
+    are excluded from the periods list (and totals) - they represent paid time
+    with no tracked Claude usage.
+    """
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     periods = []
     for ph in PLAN_HISTORY:
         start = ph["start"]
         end = ph["end"] or today
-        billing_day = ph.get("billing_day")
+        billing_cycle = ph.get("billing_cycle", "monthly")
+        cycles = _expand_billing_cycles(ph, start, end)
 
-        # Split into monthly billing cycles if billing_day is set
-        if billing_day:
-            cycles = _split_into_billing_cycles(start, end, billing_day)
-        else:
-            cycles = [(start, end)]
-
-        for cycle_start, cycle_end in cycles:
+        for cycle in cycles:
+            cycle_start = cycle["start"]
+            cycle_end = cycle["end"]
             # Skip cycle that started today (handled by current_billing)
             if cycle_start == today:
+                continue
+            # Skip cycles entirely before the first tracked session
+            if first_session and cycle_end < first_session:
                 continue
             # Sum API costs in this cycle
             api_cost = sum(
@@ -1573,45 +1609,80 @@ def build_plan_analysis(daily_cost_series, session_list):
             end_dt = datetime.strptime(cycle_end, "%Y-%m-%d")
             total_days = (end_dt - start_dt).days + 1
 
-            plan_cost_usd = ph["cost_usd"]
+            plan_cost_usd = cycle["cost_usd"]
+            plan_cost_local = cycle["cost_local"]
             savings = api_cost - plan_cost_usd
 
-            periods.append({
-                "plan": ph["plan"],
+            # Per-cycle FX rate: cost_local / cost_usd
+            fx = (plan_cost_local / plan_cost_usd) if (plan_cost_local and plan_cost_usd) else None
+            cost_per_day = api_cost / total_days if total_days > 0 else 0
+
+            plan_label = ph["plan"]
+            if billing_cycle == "annual":
+                plan_label = plan_label + " (annual)"
+
+            period_entry = {
+                "plan": plan_label,
                 "start": cycle_start,
                 "end": cycle_end,
                 "total_days": total_days,
                 "days_active": days_active,
-                "plan_cost_eur": ph.get("cost_eur", ph.get("cost_local")),
-                "plan_cost_usd": plan_cost_usd,
+                "plan_cost_local": round(plan_cost_local, 2) if plan_cost_local is not None else None,
+                "plan_cost_usd": round(plan_cost_usd, 2),
+                "currency_symbol": ph.get("currency_symbol"),
                 "api_cost": round(api_cost, 2),
                 "savings": round(savings, 2),
                 "roi_factor": round(api_cost / plan_cost_usd, 1) if plan_cost_usd > 0 else 0,
                 "sessions": session_count,
                 "messages": message_count,
-                "cost_per_day": round(api_cost / total_days, 2) if total_days > 0 else 0,
-            })
+                "cost_per_day": round(cost_per_day, 2),
+            }
+            if fx is not None:
+                period_entry["api_cost_local"] = round(api_cost * fx, 2)
+                period_entry["savings_local"] = round(savings * fx, 2)
+                period_entry["cost_per_day_local"] = round(cost_per_day * fx, 2)
+            periods.append(period_entry)
 
     # Current billing period (from last billing day to now)
     current_plan = PLAN_HISTORY[-1]
     billing_day = current_plan.get("billing_day", 1)
+    current_billing_cycle = current_plan.get("billing_cycle", "monthly")
     today_dt = datetime.now(timezone.utc)
 
-    # Find current billing period start
-    if today_dt.day >= billing_day:
-        billing_start = today_dt.replace(day=billing_day)
-    else:
-        # Previous month
-        if today_dt.month == 1:
-            billing_start = today_dt.replace(year=today_dt.year - 1, month=12, day=billing_day)
+    if current_billing_cycle == "annual":
+        # Anchor annual cycle on the plan's start date (month+day)
+        plan_start_dt = datetime.strptime(current_plan["start"], "%Y-%m-%d")
+        anchor_month = plan_start_dt.month
+        anchor_day = plan_start_dt.day
+        # Anniversary in current year
+        try:
+            anniversary = today_dt.replace(month=anchor_month, day=anchor_day,
+                                           hour=0, minute=0, second=0, microsecond=0)
+        except ValueError:
+            anniversary = today_dt.replace(month=anchor_month, day=28,
+                                           hour=0, minute=0, second=0, microsecond=0)
+        if anniversary <= today_dt:
+            billing_start = anniversary
+            billing_end = billing_start.replace(year=billing_start.year + 1)
         else:
-            billing_start = today_dt.replace(month=today_dt.month - 1, day=billing_day)
-
-    # Find next billing date
-    if today_dt.month == 12:
-        billing_end = billing_start.replace(year=billing_start.year + 1, month=1)
+            billing_start = anniversary.replace(year=anniversary.year - 1)
+            billing_end = anniversary
     else:
-        billing_end = billing_start.replace(month=billing_start.month + 1)
+        # Find current monthly billing period start
+        if today_dt.day >= billing_day:
+            billing_start = today_dt.replace(day=billing_day)
+        else:
+            # Previous month
+            if today_dt.month == 1:
+                billing_start = today_dt.replace(year=today_dt.year - 1, month=12, day=billing_day)
+            else:
+                billing_start = today_dt.replace(month=today_dt.month - 1, day=billing_day)
+
+        # Find next billing date
+        if today_dt.month == 12:
+            billing_end = billing_start.replace(year=billing_start.year + 1, month=1)
+        else:
+            billing_end = billing_start.replace(month=billing_start.month + 1)
 
     billing_start_str = billing_start.strftime("%Y-%m-%d")
     billing_end_str = billing_end.strftime("%Y-%m-%d")
@@ -1634,6 +1705,12 @@ def build_plan_analysis(daily_cost_series, session_list):
 
     current_sessions = [s for s in session_list if billing_start_str <= s["date"] <= today]
 
+    current_plan_cost_usd = current_plan["cost_usd"]
+    current_plan_cost_local = current_plan.get("cost_local", current_plan.get("cost_eur"))
+    current_fx = (current_plan_cost_local / current_plan_cost_usd) if (current_plan_cost_local and current_plan_cost_usd) else None
+    current_savings = current_api_cost - current_plan_cost_usd
+    current_cost_per_day = current_api_cost / days_elapsed if days_elapsed > 0 else 0
+
     current_billing = {
         "plan": current_plan["plan"],
         "period_start": billing_start_str,
@@ -1641,29 +1718,51 @@ def build_plan_analysis(daily_cost_series, session_list):
         "days_elapsed": days_elapsed,
         "days_total": days_total,
         "days_remaining": days_remaining,
-        "plan_cost_eur": current_plan.get("cost_eur", current_plan.get("cost_local")),
-        "plan_cost_usd": current_plan["cost_usd"],
+        "plan_cost_local": current_plan_cost_local,
+        "plan_cost_usd": current_plan_cost_usd,
+        "currency_symbol": current_plan.get("currency_symbol"),
         "api_cost": round(current_api_cost, 2),
         "projected_cost": round(projected_cost, 2),
-        "savings": round(current_api_cost - current_plan["cost_usd"], 2),
-        "roi_factor": round(current_api_cost / current_plan["cost_usd"], 1) if current_plan["cost_usd"] > 0 else 0,
+        "savings": round(current_savings, 2),
+        "roi_factor": round(current_api_cost / current_plan_cost_usd, 1) if current_plan_cost_usd > 0 else 0,
         "sessions": len(current_sessions),
         "messages": sum(s["messages"] for s in current_sessions),
-        "cost_per_day": round(current_api_cost / days_elapsed, 2) if days_elapsed > 0 else 0,
+        "cost_per_day": round(current_cost_per_day, 2),
     }
+    if current_fx is not None:
+        current_billing["api_cost_local"] = round(current_api_cost * current_fx, 2)
+        current_billing["projected_cost_local"] = round(projected_cost * current_fx, 2)
+        current_billing["savings_local"] = round(current_savings * current_fx, 2)
+        current_billing["cost_per_day_local"] = round(current_cost_per_day * current_fx, 2)
 
     # Total savings across all periods
     total_api = sum(p["api_cost"] for p in periods)
     total_plan = sum(p["plan_cost_usd"] for p in periods)
+    total_api_local = sum(p.get("api_cost_local", 0) for p in periods)
+    total_plan_local = sum((p.get("plan_cost_local") or 0) for p in periods)
+    have_local_totals = any("api_cost_local" in p for p in periods)
 
-    return {
+    # Global currency symbol: prefer the most recent plan that has one
+    currency_symbol = None
+    for ph in reversed(PLAN_HISTORY):
+        if ph.get("currency_symbol"):
+            currency_symbol = ph["currency_symbol"]
+            break
+
+    result = {
         "periods": periods,
         "current_billing": current_billing,
+        "currency_symbol": currency_symbol,
         "total_api_cost": round(total_api, 2),
         "total_plan_cost": round(total_plan, 2),
         "total_savings": round(total_api - total_plan, 2),
         "overall_roi": round(total_api / total_plan, 1) if total_plan > 0 else 0,
     }
+    if have_local_totals:
+        result["total_api_cost_local"] = round(total_api_local, 2)
+        result["total_plan_cost_local"] = round(total_plan_local, 2)
+        result["total_savings_local"] = round(total_api_local - total_plan_local, 2)
+    return result
 
 
 def build_dashboard_data(sessions, stats_cache, dot_claude, history,
@@ -2055,7 +2154,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     account = dc.get("oauthAccount", {})
 
     # ── Plan-Analyse ───────────────────────────────────────────────────────
-    plan_analysis = build_plan_analysis(daily_cost_series, session_list)
+    first_session_date = all_dates[0] if all_dates else None
+    plan_analysis = build_plan_analysis(daily_cost_series, session_list, first_session=first_session_date)
 
     # ── Actual plan cost for KPI ─────────────────────────────────────────
     actual_plan_cost = plan_analysis.get("total_plan_cost", 0)

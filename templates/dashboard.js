@@ -4,6 +4,39 @@ const D = "__DATA_PLACEHOLDER__";
 // ── Helpers ────────────────────────────────────────────────────────────
 const fmt = n => n.toLocaleString(D.locale.locale_code);
 const fmtUSD = n => '$' + n.toLocaleString(D.locale.locale_code, {minimumFractionDigits:2, maximumFractionDigits:2});
+let planCurrencyMode = (D.plan && D.plan.currency_symbol) ? 'local' : 'usd';
+function planCurrencySymbol() {
+  return (D.plan && D.plan.currency_symbol) || '$';
+}
+function fmtPlanMoney(n) {
+  if (n == null || isNaN(n)) return '–';
+  const num = n.toLocaleString(D.locale.locale_code, {minimumFractionDigits:2, maximumFractionDigits:2});
+  if (planCurrencyMode === 'local') return num + ' ' + planCurrencySymbol();
+  return '$' + num;
+}
+function planMoneyValue(obj, base) {
+  if (!obj) return null;
+  if (base === 'plan_cost') {
+    if (planCurrencyMode === 'local' && obj.plan_cost_local != null) return obj.plan_cost_local;
+    return obj.plan_cost_usd;
+  }
+  if (planCurrencyMode === 'local') {
+    const localKey = base + '_local';
+    if (obj[localKey] != null) return obj[localKey];
+  }
+  return obj[base];
+}
+function planTotal(base) {
+  if (!D.plan) return 0;
+  if (planCurrencyMode === 'local') {
+    const localKey = 'total_' + base + '_local';
+    if (D.plan[localKey] != null) return D.plan[localKey];
+  }
+  return D.plan['total_' + base] || 0;
+}
+function planMoneyUnitLabel() {
+  return planCurrencyMode === 'local' ? planCurrencySymbol() : 'USD';
+}
 const fmtTokens = n => {
   if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
   if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
@@ -1314,17 +1347,47 @@ async function bulkDownloadSessions() {
 }
 
 // ── Tab 5: Plan & Billing ──────────────────────────────────────────────
+let _planChartSavings = null, _planChartCostPerDay = null;
 function renderPlan() {
   const plan = D.plan;
   if (!plan) return;
   const cb = plan.current_billing;
 
+  // Currency toggle in tab meta
+  const meta = document.getElementById('vcPlanMeta');
+  if (meta && plan.currency_symbol) {
+    meta.innerHTML = '';
+    const wrap = document.createElement('span');
+    wrap.style.cssText = 'display:inline-flex;gap:4px;align-items:center;';
+    const mkBtn = (mode, label) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      const active = planCurrencyMode === mode;
+      b.style.cssText = 'padding:2px 8px;border:1px solid var(--border);background:' + (active ? 'var(--accent)' : 'transparent') + ';color:' + (active ? '#fff' : 'inherit') + ';cursor:pointer;font:inherit;border-radius:0;';
+      b.onclick = () => { planCurrencyMode = mode; renderPlan(); };
+      return b;
+    };
+    wrap.appendChild(mkBtn('usd', 'USD'));
+    wrap.appendChild(mkBtn('local', plan.currency_symbol));
+    meta.appendChild(wrap);
+  }
+
   // KPI cards
   const grid = document.getElementById('planKpi');
+  grid.innerHTML = '';
+  const planSubMain = fmtPlanMoney(planMoneyValue(cb, 'plan_cost')) + D.locale.plan.monthly_suffix;
+  let planSubAlt = '';
+  if (planCurrencyMode === 'local' && cb.plan_cost_usd != null) {
+    planSubAlt = ' ($' + cb.plan_cost_usd.toFixed(2) + ')';
+  } else if (planCurrencyMode === 'usd' && cb.plan_cost_local != null) {
+    planSubAlt = ' (' + cb.plan_cost_local.toFixed(2) + ' ' + planCurrencySymbol() + ')';
+  }
   const kpis = [
-    {cls:'plan-type', label:D.locale.plan.current_plan, value:cb.plan, sub:fmtUSD(cb.plan_cost_usd) + D.locale.plan.monthly_suffix + (cb.plan_cost_eur != null ? ' (' + cb.plan_cost_eur.toFixed(2) + ' \u20ac)' : '')},
-    {cls:'api-cost', label:D.locale.plan.total_api_cost, value:fmtUSD(plan.total_api_cost), sub:D.locale.plan.total_api_sub},
-    {cls:'savings', label:D.locale.plan.total_savings, value:fmtUSD(plan.total_savings), sub:D.locale.plan.total_savings_sub},
+    {cls:'plan-type', label:D.locale.plan.current_plan, value:cb.plan, sub: planSubMain + planSubAlt},
+    {cls:'paid', label:D.locale.plan.paid_so_far, value:fmtPlanMoney(planTotal('plan_cost')), sub:D.locale.plan.paid_so_far_sub},
+    {cls:'api-cost', label:D.locale.plan.total_api_cost, value:fmtPlanMoney(planTotal('api_cost')), sub:D.locale.plan.total_api_sub},
+    {cls:'savings', label:D.locale.plan.total_savings, value:fmtPlanMoney(planTotal('savings')), sub:D.locale.plan.total_savings_sub},
     {cls:'roi', label:D.locale.plan.roi_factor, value:plan.overall_roi + 'x', sub:D.locale.plan.roi_sub},
   ];
   kpis.forEach(c => {
@@ -1339,6 +1402,7 @@ function renderPlan() {
 
   // Billing progress
   const bp = document.getElementById('billingProgress');
+  bp.innerHTML = '';
   const pct = Math.min(100, Math.round(cb.days_elapsed / cb.days_total * 100));
   const barColor = cb.api_cost > cb.plan_cost_usd * 0.8 ? 'var(--green)' : 'var(--accent)';
 
@@ -1357,13 +1421,13 @@ function renderPlan() {
   const stats = document.createElement('div'); stats.className = 'progress-stats';
   const statItems = [
     {label:D.locale.plan.day, val:cb.days_elapsed + ' / ' + cb.days_total},
-    {label:D.locale.plan.api_cost_so_far, val:fmtUSD(cb.api_cost)},
-    {label:D.locale.plan.projected, val:fmtUSD(cb.projected_cost)},
-    {label:D.locale.plan.savings_so_far, val:fmtUSD(cb.savings)},
+    {label:D.locale.plan.api_cost_so_far, val:fmtPlanMoney(planMoneyValue(cb, 'api_cost'))},
+    {label:D.locale.plan.projected, val:fmtPlanMoney(planMoneyValue(cb, 'projected_cost'))},
+    {label:D.locale.plan.savings_so_far, val:fmtPlanMoney(planMoneyValue(cb, 'savings'))},
     {label:D.locale.plan.roi, val:cb.roi_factor + 'x'},
     {label:D.locale.plan.sessions, val:String(cb.sessions)},
     {label:D.locale.plan.messages, val:fmt(cb.messages)},
-    {label:D.locale.plan.avg_per_day, val:fmtUSD(cb.cost_per_day)},
+    {label:D.locale.plan.avg_per_day, val:fmtPlanMoney(planMoneyValue(cb, 'cost_per_day'))},
   ];
   statItems.forEach(s => {
     const item = document.createElement('div'); item.className = 'stat-item';
@@ -1376,23 +1440,28 @@ function renderPlan() {
 
   // Comparison bars
   const comp = document.getElementById('planComparison');
-  const maxApi = Math.max(...plan.periods.map(p => p.api_cost), 1);
+  // Clear only previously-rendered bar rows; preserve heading and note
+  comp.querySelectorAll('.bar-row').forEach(el => el.remove());
+  const apiVals = plan.periods.map(p => planMoneyValue(p, 'api_cost') || 0);
+  const planVals = plan.periods.map(p => planMoneyValue(p, 'plan_cost') || 0);
+  const maxApi = Math.max(...apiVals, 1);
 
-  plan.periods.forEach(p => {
+  plan.periods.forEach((p, i) => {
     const row = document.createElement('div'); row.className = 'bar-row';
     const label = document.createElement('div'); label.className = 'bar-label';
     label.textContent = p.plan + ' (' + p.start.slice(5) + ' - ' + p.end.slice(5) + ')';
 
     const track = document.createElement('div'); track.className = 'bar-track';
     const apiBar = document.createElement('div'); apiBar.className = 'bar-fill';
-    apiBar.style.width = (p.api_cost / maxApi * 100) + '%';
-    apiBar.style.background = 'var(--orange)';
+    apiBar.style.width = (apiVals[i] / maxApi * 100) + '%';
+    apiBar.style.background = 'var(--cyan)';
+    apiBar.style.opacity = '0.75';
     apiBar.textContent = D.locale.plan.api_label;
     track.appendChild(apiBar);
 
     const val = document.createElement('div'); val.className = 'bar-val';
-    val.textContent = fmtUSD(p.api_cost);
-    val.style.color = 'var(--orange)';
+    val.textContent = fmtPlanMoney(apiVals[i]);
+    val.style.color = 'var(--text2)';
 
     row.appendChild(label); row.appendChild(track); row.appendChild(val);
     comp.appendChild(row);
@@ -1404,13 +1473,13 @@ function renderPlan() {
 
     const track2 = document.createElement('div'); track2.className = 'bar-track';
     const planBar = document.createElement('div'); planBar.className = 'bar-fill';
-    planBar.style.width = (p.plan_cost_usd / maxApi * 100) + '%';
+    planBar.style.width = (planVals[i] / maxApi * 100) + '%';
     planBar.style.background = 'var(--accent)';
     planBar.textContent = D.locale.plan.plan_label;
     track2.appendChild(planBar);
 
     const val2 = document.createElement('div'); val2.className = 'bar-val';
-    val2.textContent = fmtUSD(p.plan_cost_usd);
+    val2.textContent = fmtPlanMoney(planVals[i]);
     val2.style.color = 'var(--accent2)';
 
     row2.appendChild(label2); row2.appendChild(track2); row2.appendChild(val2);
@@ -1419,54 +1488,66 @@ function renderPlan() {
 
   // Charts
   const periodLabels = plan.periods.map(p => p.plan + ' (' + p.start.slice(5) + ')');
+  const unitLabel = planMoneyUnitLabel();
+  const perDayLabel = planCurrencyMode === 'local'
+    ? planCurrencySymbol() + ' / ' + (D.locale.plan.usd_per_day || '').replace(/^.*\//, '').trim()
+    : D.locale.plan.usd_per_day;
 
-  new Chart(document.getElementById('chartPlanSavings'), {
+  if (_planChartSavings) _planChartSavings.destroy();
+  _planChartSavings = new Chart(document.getElementById('chartPlanSavings'), {
     type: 'bar',
     data: {
       labels: periodLabels,
       datasets: [
-        {label: D.locale.plan.api_cost_label, data: plan.periods.map(p => p.api_cost), backgroundColor: vcRgba(1, 0.7), borderRadius: 0},
-        {label: D.locale.plan.plan_cost_label, data: plan.periods.map(p => p.plan_cost_usd), backgroundColor: vcRgba(0, 0.7), borderRadius: 0},
+        {label: D.locale.plan.api_cost_label, data: plan.periods.map(p => planMoneyValue(p, 'api_cost') || 0), backgroundColor: vcRgba(1, 0.7), borderRadius: 0},
+        {label: D.locale.plan.plan_cost_label, data: plan.periods.map(p => planMoneyValue(p, 'plan_cost') || 0), backgroundColor: vcRgba(0, 0.7), borderRadius: 0},
       ]
     },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } } },
-      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: 'USD', color: '#64748b' } } } }
+      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtPlanMoney(ctx.raw) } } },
+      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: unitLabel, color: '#64748b' } } } }
   });
 
-  new Chart(document.getElementById('chartCostPerDay'), {
+  if (_planChartCostPerDay) _planChartCostPerDay.destroy();
+  _planChartCostPerDay = new Chart(document.getElementById('chartCostPerDay'), {
     type: 'bar',
     data: {
       labels: periodLabels,
-      datasets: [{ label: D.locale.plan.api_cost_per_day_label, data: plan.periods.map(p => p.cost_per_day),
+      datasets: [{ label: D.locale.plan.api_cost_per_day_label, data: plan.periods.map(p => planMoneyValue(p, 'cost_per_day') || 0),
         backgroundColor: plan.periods.map(p => p.plan === 'Max' ? vcRgba(2, 0.7) : vcRgba(1, 0.7)),
         borderRadius: 0 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: D.locale.plan.usd_per_day, color: '#64748b' } } } }
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => fmtPlanMoney(ctx.raw) + ' / ' + (D.locale.plan.day || 'day') } } },
+      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: perDayLabel, color: '#64748b' } } } }
   });
 
   // Period table
   const tbody = document.getElementById('planTableBody');
+  tbody.innerHTML = '';
   plan.periods.forEach(p => {
     const tr = document.createElement('tr');
+    const apiVal = planMoneyValue(p, 'api_cost') || 0;
+    const planVal = planMoneyValue(p, 'plan_cost') || 0;
+    const savingsVal = planMoneyValue(p, 'savings') || 0;
     const cells = [
-      {val: p.start + ' \u2013 ' + p.end, cls:''},
-      {val: p.plan, cls:''},
-      {val: p.total_days + ' (' + p.days_active + D.locale.plan.active_suffix + ')', cls:'num'},
-      {val: fmtUSD(p.api_cost), cls:'num'},
-      {val: fmtUSD(p.plan_cost_usd), cls:'num'},
-      {val: fmtUSD(p.savings), cls:'num'},
-      {val: p.roi_factor + 'x', cls:'num'},
-      {val: String(p.sessions), cls:'num'},
-      {val: fmt(p.messages), cls:'num'},
+      {val: p.start + ' \u2013 ' + p.end, cls:'', highlight:false},
+      {val: p.plan, cls:'', highlight:false},
+      {val: p.total_days + ' (' + p.days_active + D.locale.plan.active_suffix + ')', cls:'num', highlight:false},
+      {val: fmtPlanMoney(apiVal), cls:'num', highlight: apiVal > 100},
+      {val: fmtPlanMoney(planVal), cls:'num', highlight:false},
+      {val: fmtPlanMoney(savingsVal), cls:'num', highlight: savingsVal > 100},
+      {val: p.roi_factor + 'x', cls:'num', highlight:false},
+      {val: String(p.sessions), cls:'num', highlight:false},
+      {val: fmt(p.messages), cls:'num', highlight:false},
     ];
     cells.forEach(c => {
       const td = document.createElement('td');
       if (c.cls) td.className = c.cls;
       td.textContent = c.val;
-      if (c.val.startsWith('$') && parseFloat(c.val.replace(/[^0-9.-]/g, '')) > 100) td.style.color = 'var(--green)';
+      if (c.highlight) td.style.color = 'var(--green)';
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
@@ -1480,9 +1561,9 @@ function renderPlan() {
     {val: D.locale.plan.total, cls:''},
     {val: '', cls:''},
     {val: '', cls:'num'},
-    {val: fmtUSD(plan.total_api_cost), cls:'num'},
-    {val: fmtUSD(plan.total_plan_cost), cls:'num'},
-    {val: fmtUSD(plan.total_savings), cls:'num'},
+    {val: fmtPlanMoney(planTotal('api_cost')), cls:'num'},
+    {val: fmtPlanMoney(planTotal('plan_cost')), cls:'num'},
+    {val: fmtPlanMoney(planTotal('savings')), cls:'num'},
     {val: plan.overall_roi + 'x', cls:'num'},
     {val: '', cls:'num'},
     {val: '', cls:'num'},
@@ -2220,7 +2301,7 @@ function updateVcTabMetas() {
   _vcMeta('vcCostMeta', range + ' · daily · USD');
   _vcMeta('vcProjectsMeta', (F && F.projects ? F.projects.length : 0) + ' projects · ' + range);
   _vcMeta('vcSessionsMeta', (F && F.sessions ? F.sessions.length : 0) + ' sessions · ' + range);
-  _vcMeta('vcPlanMeta', (D && D.plan_summary && D.plan_summary.current_plan) || '');
+  // vcPlanMeta is owned by renderPlan (currency toggle)
 }
 updateVcTabMetas();
 // Re-run on filter change via wrapping

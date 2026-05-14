@@ -444,7 +444,9 @@ Right after the `GROUP_LABELS = { ... };` block, insert:
     for (const s of NICE_STEPS) {
       if (s >= value) return s;
     }
-    return NICE_STEPS[NICE_STEPS.length - 1];
+    // Beyond the predefined table: snap up to the next power of 10
+    // so very heavy sessions still get a sensible slider max.
+    return Math.pow(10, Math.ceil(Math.log10(value)));
   }
 
   function percentile(sorted, p) {

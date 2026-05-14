@@ -161,8 +161,8 @@ an immediate apply.
 New files in `templates/components/`:
 
 - `session_filters.js` — `mountSessionFilters(host, options)` returns
-  `{ getState(), setState(), getActiveFiltersList(), destroy() }` and
-  calls `options.onChange()` whenever the user state changes.
+  `{ getActiveFiltersList(), onPoolChanged(), destroy() }` and calls
+  `options.onChange()` whenever the user state changes.
 - `session_filters.css` — terminal-aesthetic styling matching
   `session_table.css`.
 
@@ -194,7 +194,8 @@ In `dashboard.js`:
 ### Filter state shape
 
 Stored per context in `localStorage` under
-`claudeStats.sessionFilters.<context>`:
+`sessionFilters.<context>` (matching the existing
+`sessionTable.<context>.<suffix>` convention).
 
 ```json
 {
@@ -258,7 +259,8 @@ client-side session list.
 - ≥ 1100 px: two-column slider grid inside the panel.
 - 700–1099 px: single-column slider grid.
 - < 700 px: presets and toggle wrap to multiple lines; sliders
-  collapse to single-column; chip row scrolls horizontally.
+  collapse to single-column; chip row wraps to additional lines as
+  needed.
 
 ## Edge Cases
 

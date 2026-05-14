@@ -104,6 +104,40 @@
     return out;
   }
 
+  // Slider position is always integer 0–1000. We convert to/from the
+  // attribute's domain using either linear or log10(value + 1).
+  const SLIDER_RES = 1000;
+
+  function valueToPos(attr, range, value) {
+    if (range.max <= range.min) return 0;
+    let v = Math.max(range.min, Math.min(range.max, value));
+    if (attr.scale === 'log') {
+      const a = Math.log10(range.min + 1);
+      const b = Math.log10(range.max + 1);
+      if (b <= a) return 0;
+      return Math.round((Math.log10(v + 1) - a) / (b - a) * SLIDER_RES);
+    }
+    return Math.round((v - range.min) / (range.max - range.min) * SLIDER_RES);
+  }
+
+  function posToValue(attr, range, pos) {
+    if (range.max <= range.min) return range.min;
+    const t = Math.max(0, Math.min(SLIDER_RES, pos)) / SLIDER_RES;
+    if (attr.scale === 'log') {
+      const a = Math.log10(range.min + 1);
+      const b = Math.log10(range.max + 1);
+      const raw = Math.pow(10, a + (b - a) * t) - 1;
+      return snap(attr, raw);
+    }
+    return snap(attr, range.min + (range.max - range.min) * t);
+  }
+
+  function snap(attr, v) {
+    if (attr.step >= 1) return Math.round(v / attr.step) * attr.step;
+    const inv = 1 / attr.step;
+    return Math.round(v * inv) / inv;
+  }
+
   // ── Storage helpers ─────────────────────────────────────────
   function storageKey(context) {
     return 'sessionFilters.' + context;
@@ -145,6 +179,12 @@
       if (k === 'panelOpen') return;
       if (!ATTRIBUTES_BY_ID[k]) delete state[k];
     });
+
+    let notifyTimer = null;
+    function scheduleNotify() {
+      if (notifyTimer) clearTimeout(notifyTimer);
+      notifyTimer = setTimeout(() => { notifyTimer = null; notifyChange(); }, 200);
+    }
 
     function persist() { saveState(ctx.context, state); }
 
@@ -251,7 +291,136 @@
     }
 
     function renderChips() { /* Task 7 fills this in */ }
-    function renderPanel() { /* Task 6 fills this in */ }
+
+    function renderPanel() {
+      panelHost.innerHTML = '';
+      if (!state.panelOpen) return;
+
+      const panel = document.createElement('div');
+      panel.className = 'sf-panel';
+
+      GROUP_ORDER.forEach(g => {
+        const attrs = ATTRIBUTES.filter(a => a.group === g);
+        if (attrs.length === 0) return;
+        const grp = document.createElement('div');
+        grp.className = 'sf-group';
+        const h = document.createElement('div');
+        h.className = 'sf-group-h';
+        h.textContent = GROUP_LABELS[g];
+        grp.appendChild(h);
+        attrs.forEach(a => grp.appendChild(buildRow(a)));
+        panel.appendChild(grp);
+      });
+
+      const actions = document.createElement('div');
+      actions.className = 'sf-panel-actions';
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.className = 'sf-action';
+      reset.textContent = 'Reset';
+      reset.addEventListener('click', () => {
+        clearAll();
+        renderAll();
+        notifyChange();
+      });
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'sf-action';
+      closeBtn.textContent = 'Schließen';
+      closeBtn.addEventListener('click', () => {
+        state.panelOpen = false;
+        persist();
+        renderAll();
+      });
+      actions.appendChild(reset);
+      actions.appendChild(closeBtn);
+      panel.appendChild(actions);
+
+      panelHost.appendChild(panel);
+    }
+
+    function buildRow(attr) {
+      const r = ranges[attr.id];
+      const v = state[attr.id];
+      const row = document.createElement('div');
+      row.className = 'sf-row';
+
+      const lbl = document.createElement('label');
+      lbl.className = 'sf-row-label';
+      lbl.textContent = attr.label + (attr.unit ? ' (' + attr.unit + ')' : '');
+      row.appendChild(lbl);
+
+      // Two-handle slider as two <input type=range> stacked.
+      const track = document.createElement('div');
+      track.className = 'sf-track';
+      const sMin = document.createElement('input');
+      sMin.type = 'range';
+      sMin.min = 0; sMin.max = SLIDER_RES; sMin.step = 1;
+      sMin.className = 'sf-slider sf-slider-min';
+      sMin.value = valueToPos(attr, r, v.min != null ? v.min : r.min);
+      sMin.setAttribute('aria-label', attr.label + ' minimum');
+      const sMax = document.createElement('input');
+      sMax.type = 'range';
+      sMax.min = 0; sMax.max = SLIDER_RES; sMax.step = 1;
+      sMax.className = 'sf-slider sf-slider-max';
+      sMax.value = valueToPos(attr, r, v.max != null ? v.max : r.max);
+      sMax.setAttribute('aria-label', attr.label + ' maximum');
+      track.appendChild(sMin);
+      track.appendChild(sMax);
+      row.appendChild(track);
+
+      const iMin = document.createElement('input');
+      iMin.type = 'number';
+      iMin.className = 'sf-num sf-num-min';
+      iMin.placeholder = 'min';
+      iMin.step = attr.step;
+      if (v.min != null) iMin.value = v.min;
+      const iMax = document.createElement('input');
+      iMax.type = 'number';
+      iMax.className = 'sf-num sf-num-max';
+      iMax.placeholder = 'max';
+      iMax.step = attr.step;
+      if (v.max != null) iMax.value = v.max;
+      row.appendChild(iMin);
+      row.appendChild(iMax);
+
+      function commit(side, raw) {
+        const num = (raw === '' || raw == null) ? null : Number(raw);
+        if (num == null || isNaN(num)) { setBound(attr.id, side, null); }
+        else { setBound(attr.id, side, Math.min(Math.max(num, r.min), r.max)); }
+        // Keep slider thumbs in sync with input values
+        sMin.value = valueToPos(attr, r, state[attr.id].min != null ? state[attr.id].min : r.min);
+        sMax.value = valueToPos(attr, r, state[attr.id].max != null ? state[attr.id].max : r.max);
+        scheduleNotify();
+        renderToolbar();
+        renderChips();
+      }
+
+      sMin.addEventListener('input', () => {
+        const val = posToValue(attr, r, Number(sMin.value));
+        let other = state[attr.id].max != null ? state[attr.id].max : r.max;
+        const minVal = Math.min(val, other);
+        setBound(attr.id, 'min', minVal);
+        iMin.value = minVal;
+        scheduleNotify();
+        renderToolbar();
+        renderChips();
+      });
+      sMax.addEventListener('input', () => {
+        const val = posToValue(attr, r, Number(sMax.value));
+        let other = state[attr.id].min != null ? state[attr.id].min : r.min;
+        const maxVal = Math.max(val, other);
+        setBound(attr.id, 'max', maxVal);
+        iMax.value = maxVal;
+        scheduleNotify();
+        renderToolbar();
+        renderChips();
+      });
+      iMin.addEventListener('change', () => commit('min', iMin.value));
+      iMax.addEventListener('change', () => commit('max', iMax.value));
+
+      return row;
+    }
 
     function renderAll() {
       renderToolbar();
@@ -262,6 +431,15 @@
     function notifyChange() { onChange(); }
 
     renderAll();
+
+    function onDocKey(e) {
+      if (e.key === 'Escape' && state.panelOpen) {
+        state.panelOpen = false;
+        persist();
+        renderAll();
+      }
+    }
+    document.addEventListener('keydown', onDocKey);
 
     return {
       getActiveFiltersList: function() {
@@ -286,7 +464,10 @@
         return list;
       },
       onPoolChanged: function() { refreshRanges(); renderAll(); },
-      destroy: function() { wrapper.remove(); },
+      destroy: function() {
+        document.removeEventListener('keydown', onDocKey);
+        wrapper.remove();
+      },
       _state: state,           // for test/debug only
       _activeCount: activeCount,
       _clearAll: clearAll,

@@ -974,8 +974,30 @@ def parse_session_transcripts():
                 # Detect subagent sessions
                 is_subagent = "/subagents/" in str(jsonl_file)
                 parent_id = ""
+                sub_agent_id = ""
+                sub_agent_type = ""
+                sub_agent_desc = ""
                 if is_subagent:
                     parent_id = jsonl_file.parent.parent.name
+                    # File stem: "agent-XXXXXXX" -> extract bare id "XXXXXXX"
+                    if file_session_id.startswith("agent-"):
+                        sub_agent_id = file_session_id[len("agent-"):]
+                    # Sidecar meta.json: {"agentType": "...", "description": "..."}
+                    meta_path = jsonl_file.with_suffix(".meta.json")
+                    try:
+                        if sudo_user:
+                            _mc = sudo_read_text(meta_path, sudo_user)
+                            if _mc:
+                                _mj = json.loads(_mc)
+                                sub_agent_type = _mj.get("agentType", "") or ""
+                                sub_agent_desc = _mj.get("description", "") or ""
+                        elif meta_path.exists():
+                            with open(meta_path, "r", encoding="utf-8", errors="replace") as _mf:
+                                _mj = json.load(_mf)
+                            sub_agent_type = _mj.get("agentType", "") or ""
+                            sub_agent_desc = _mj.get("description", "") or ""
+                    except (OSError, json.JSONDecodeError):
+                        pass
 
                 # Skip if this session was already fully parsed from migration
                 if file_session_id in sessions and source_label == SOURCE_LABEL:
@@ -1047,6 +1069,9 @@ def parse_session_transcripts():
                                     "subagents": [],
                                     "is_subagent": False,
                                     "parent_session_id": "",
+                                    "agent_id": "",
+                                    "agent_type": "",
+                                    "agent_description": "",
                                     "error_count": 0,
                                     "errors": [],
                                     "file_ops": [],
@@ -1059,6 +1084,12 @@ def parse_session_transcripts():
                             if is_subagent:
                                 sess["is_subagent"] = True
                                 sess["parent_session_id"] = parent_id
+                                if sub_agent_id:
+                                    sess["agent_id"] = sub_agent_id
+                                if sub_agent_type and not sess["agent_type"]:
+                                    sess["agent_type"] = sub_agent_type
+                                if sub_agent_desc and not sess["agent_description"]:
+                                    sess["agent_description"] = sub_agent_desc
 
                             if obj.get("cwd") and not sess["project_path"]:
                                 sess["project_path"] = obj["cwd"]
@@ -1083,11 +1114,21 @@ def parse_session_transcripts():
                                 sess["message_count"] += 1
                                 sess["user_message_count"] += 1
 
-                                # Extract errors from tool results
+                                # Link Agent tool_result -> dispatch via tool_use_id + toolUseResult.agentId
+                                tur = obj.get("toolUseResult") if isinstance(obj.get("toolUseResult"), dict) else None
                                 message = obj.get("message", {})
                                 content = message.get("content", "")
                                 if isinstance(content, list):
                                     for block in content:
+                                        if (isinstance(block, dict)
+                                            and block.get("type") == "tool_result"
+                                            and tur and tur.get("agentId")):
+                                            tid = block.get("tool_use_id", "")
+                                            if tid:
+                                                for ad in sess.get("agent_dispatches", []):
+                                                    if ad.get("tool_use_id") == tid:
+                                                        ad["agent_id"] = tur.get("agentId", "")
+                                                        break
                                         if isinstance(block, dict) and block.get("is_error"):
                                             sess["error_count"] += 1
                                             error_msg = str(block.get("content", ""))
@@ -1192,6 +1233,8 @@ def parse_session_transcripts():
                                             sess["agent_dispatches"].append({
                                                 "type": agent_input.get("subagent_type", "general-purpose"),
                                                 "description": agent_input.get("description", ""),
+                                                "tool_use_id": block.get("id", ""),
+                                                "agent_id": "",  # filled when tool_result arrives
                                             })
 
                                         # File operations
@@ -1249,11 +1292,43 @@ def parse_session_transcripts():
         sub = sessions[sub_id]
         parent_id = sub.get("parent_session_id", "")
         if parent_id and parent_id in sessions:
+            parent = sessions[parent_id]
+            sub_agent_id = sub.get("agent_id", "")
+            # Resolve subagent type: primary = meta.json on disk, secondary = matching dispatch in parent
+            sub_type = sub.get("agent_type", "")
+            sub_desc = sub.get("agent_description", "")
+            if not sub_type and sub_agent_id:
+                for ad in parent.get("agent_dispatches", []):
+                    if ad.get("agent_id") == sub_agent_id:
+                        sub_type = ad.get("type", "")
+                        if not sub_desc:
+                            sub_desc = ad.get("description", "")
+                        break
+            # Still no type? Insert synthetic dispatch so aggregation counts the spawn once.
+            if not sub_type:
+                sub_type = "<unlinked>"
+                parent.setdefault("agent_dispatches", []).append({
+                    "type": "<unlinked>",
+                    "description": sub_desc,
+                    "tool_use_id": "",
+                    "agent_id": sub_agent_id,
+                })
+            elif sub_agent_id:
+                # We have a type but did the parent dispatch get linked? If not, backfill agent_id
+                # on the first matching dispatch by type that's still unlinked.
+                for ad in parent.get("agent_dispatches", []):
+                    if ad.get("agent_id"):
+                        continue
+                    if ad.get("type") == sub_type:
+                        ad["agent_id"] = sub_agent_id
+                        break
             # Calculate subagent totals
             sub_tokens = sum(m["input_tokens"] + m["output_tokens"] for m in sub["models"].values())
             sub_cost = sum(m["cost"] for m in sub["models"].values())
-            sessions[parent_id]["subagents"].append({
+            parent["subagents"].append({
                 "agent_id": sub["session_id"],
+                "type": sub_type,
+                "description": sub_desc,
                 "tokens": sub_tokens,
                 "cost": round(sub_cost, 4),
                 "messages": sub["message_count"],

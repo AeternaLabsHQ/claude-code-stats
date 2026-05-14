@@ -506,15 +506,10 @@ function filterData(days, projectFilter) {
   F.sessions.forEach(s => {
     (s.agent_dispatches || []).forEach(ad => {
       totalDispatches++;
-      const t = ad.type || 'unknown';
+      const t = ad.type || 'general-purpose';
       agentTypeMap[t] = (agentTypeMap[t] || 0) + 1;
       const d = ad.description || ad.desc || '';
       if (d) agentDescMap[d] = (agentDescMap[d] || 0) + 1;
-    });
-    (s.subagents || []).forEach(sa => {
-      totalDispatches++;
-      const t = sa.type || 'unknown';
-      agentTypeMap[t] = (agentTypeMap[t] || 0) + 1;
     });
   });
   F.agent_summary = {

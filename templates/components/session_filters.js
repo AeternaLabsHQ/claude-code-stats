@@ -57,6 +57,51 @@
     cache: 'Cache Health', activity: 'Activity', errors: 'Errors',
   };
 
+  // ── Range computation ──────────────────────────────────────
+  const NICE_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500,
+                      1000, 2000, 5000, 10000, 20000, 50000,
+                      100000, 200000, 500000, 1000000, 2000000,
+                      5000000, 10000000];
+
+  function niceCeil(value) {
+    if (!isFinite(value) || value <= 0) return 1;
+    for (const s of NICE_STEPS) {
+      if (s >= value) return s;
+    }
+    return NICE_STEPS[NICE_STEPS.length - 1];
+  }
+
+  function percentile(sorted, p) {
+    if (sorted.length === 0) return 0;
+    if (sorted.length === 1) return sorted[0];
+    const idx = (sorted.length - 1) * p;
+    const lo = Math.floor(idx), hi = Math.ceil(idx);
+    if (lo === hi) return sorted[lo];
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+  }
+
+  function computeRanges(sessions) {
+    const out = {};
+    ATTRIBUTES.forEach(a => {
+      const vals = sessions.map(a.get).filter(v => Number.isFinite(v));
+      if (vals.length === 0) { out[a.id] = { min: 0, max: 0 }; return; }
+      vals.sort((x, y) => x - y);
+      const p99 = percentile(vals, 0.99);
+      let hi;
+      if (a.unit === 'USD') {
+        // Cents-precise nice ceil so cost sliders don't snap to $1.
+        hi = Math.max(1, Math.ceil(p99 * 100) / 100);
+        if (hi > 1) hi = niceCeil(hi);
+      } else if (a.unit === '%') {
+        hi = 100;
+      } else {
+        hi = niceCeil(p99 || 1);
+      }
+      out[a.id] = { min: 0, max: hi };
+    });
+    return out;
+  }
+
   // ── Storage helpers ─────────────────────────────────────────
   function storageKey(context) {
     return 'sessionFilters.' + context;
@@ -129,6 +174,20 @@
       return n;
     }
 
+    let ranges = computeRanges(getPool());
+
+    function refreshRanges() {
+      ranges = computeRanges(getPool());
+      // Clamp current bounds into the new range
+      ATTRIBUTES.forEach(a => {
+        const v = state[a.id];
+        const r = ranges[a.id];
+        if (v.min != null) v.min = Math.min(Math.max(v.min, r.min), r.max);
+        if (v.max != null) v.max = Math.min(Math.max(v.max, r.min), r.max);
+      });
+      persist();
+    }
+
     // ── DOM scaffold ────────────────────────────────────────
     const wrapper = document.createElement('div');
     wrapper.className = 'sf-wrapper';
@@ -157,7 +216,7 @@
         });
         return list;
       },
-      onPoolChanged: function() {},
+      onPoolChanged: function() { refreshRanges(); /* rerender hooked in Task 6 */ },
       destroy: function() { wrapper.remove(); },
       _state: state,           // for test/debug only
       _activeCount: activeCount,

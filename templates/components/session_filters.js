@@ -80,17 +80,89 @@
     const getPool = options.getPool || function() { return []; };
     const onChange = options.onChange || function() {};
 
-    // Placeholder DOM so consumers see *something* and verify
-    // the file is loaded. Subsequent tasks replace this.
+    // ── State ────────────────────────────────────────────────
+    // Shape: { user_messages: {min, max}, ..., panelOpen: bool }
+    // null on min/max means "unbounded on that side"
+    let state = loadState(ctx.context) || {};
+    state.panelOpen = !!state.panelOpen;
+    ATTRIBUTES.forEach(a => {
+      if (!state[a.id] || typeof state[a.id] !== 'object') {
+        state[a.id] = { min: null, max: null };
+      } else {
+        if (typeof state[a.id].min !== 'number') state[a.id].min = null;
+        if (typeof state[a.id].max !== 'number') state[a.id].max = null;
+      }
+    });
+    // Drop unknown attribute keys from older releases
+    Object.keys(state).forEach(k => {
+      if (k === 'panelOpen') return;
+      if (!ATTRIBUTES_BY_ID[k]) delete state[k];
+    });
+
+    function persist() { saveState(ctx.context, state); }
+
+    function setBound(attrId, side, value) {
+      const cur = state[attrId];
+      if (!cur) return;
+      cur[side] = (value == null || isNaN(value)) ? null : Number(value);
+      persist();
+    }
+
+    function clearAttr(attrId) {
+      if (!state[attrId]) return;
+      state[attrId].min = null;
+      state[attrId].max = null;
+      persist();
+    }
+
+    function clearAll() {
+      ATTRIBUTES.forEach(a => { state[a.id].min = null; state[a.id].max = null; });
+      persist();
+    }
+
+    function activeCount() {
+      let n = 0;
+      ATTRIBUTES.forEach(a => {
+        const v = state[a.id];
+        if (v && (v.min != null || v.max != null)) n++;
+      });
+      return n;
+    }
+
+    // ── DOM scaffold ────────────────────────────────────────
     const wrapper = document.createElement('div');
     wrapper.className = 'sf-wrapper';
     wrapper.setAttribute('data-context', ctx.context);
     container.appendChild(wrapper);
 
     return {
-      getActiveFiltersList: function() { return []; },
+      getActiveFiltersList: function() {
+        const list = [];
+        ATTRIBUTES.forEach(a => {
+          const v = state[a.id];
+          if (!v) return;
+          if (v.min == null && v.max == null) return;
+          list.push({
+            id: a.id,
+            label: a.label,
+            min: v.min,
+            max: v.max,
+            predicate: (s) => {
+              const n = a.get(s);
+              if (v.min != null && n < v.min) return false;
+              if (v.max != null && n > v.max) return false;
+              return true;
+            },
+          });
+        });
+        return list;
+      },
       onPoolChanged: function() {},
       destroy: function() { wrapper.remove(); },
+      _state: state,           // for test/debug only
+      _activeCount: activeCount,
+      _clearAll: clearAll,
+      _setBound: setBound,
     };
   }
 

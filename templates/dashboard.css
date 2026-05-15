@@ -861,13 +861,6 @@ body.vc-page > div[style*="text-align:center"] a {
 }
 .vc-tab:hover { color: var(--vc-fg-2); }
 .vc-tab.active { color: var(--vc-fg); }
-.vc-tab.active::after {
-  content: '';
-  position: absolute;
-  left: 12px; right: 12px; bottom: -1px;
-  height: 2px;
-  background: var(--vc-accent);
-}
 .vc-nav-right { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
 .vc-filter {
   display: flex;

@@ -2242,8 +2242,7 @@ function vcSection(title, meta) {
   const h = document.createElement('div');
   h.className = 'vc-tab-h';
   const t = document.createElement('div'); t.className = 'vc-tab-h-title';
-  const b = document.createElement('b'); b.textContent = '↳';
-  t.appendChild(b); t.appendChild(document.createTextNode(' ' + title));
+  t.textContent = title;
   const r = document.createElement('div'); r.className = 'vc-tab-h-rule';
   const m = document.createElement('div'); m.className = 'vc-tab-h-meta'; m.textContent = meta || '';
   h.appendChild(t); h.appendChild(r); h.appendChild(m);

@@ -226,7 +226,7 @@ Inside the IIFE, **above** the `// ── Storage helpers` block, insert:
       get: (s) => s.messages || 0,
       scale: 'linear', step: 1, unit: '' },
     { id: 'duration_min',   group: 'volume',   label: 'Duration',
-      get: (s) => Math.round((s.duration_sec || 0) / 60),
+      get: (s) => s.duration_min || 0,
       scale: 'linear', step: 1, unit: 'min' },
     { id: 'total_tokens',   group: 'tokens',   label: 'Total Tokens',
       get: (s) => (s.input_tokens||0) + (s.output_tokens||0)
@@ -252,9 +252,9 @@ Inside the IIFE, **above** the `// ── Storage helpers` block, insert:
       scale: 'log', step: 1, unit: '' },
     { id: 'agent_dispatches', group: 'activity', label: 'Agent Dispatches',
       get: (s) => Array.isArray(s.agent_dispatches) ? s.agent_dispatches.length : 0,
-      scale: 'linear', step: 1, unit: '' },
+      scale: 'log', step: 1, unit: '' },
     { id: 'errors',         group: 'errors',   label: 'Error Count',
-      get: (s) => Number(s.errors) || 0,
+      get: (s) => s.error_count || 0,
       scale: 'linear', step: 1, unit: '' },
   ];
   const ATTRIBUTES_BY_ID = {};
@@ -444,7 +444,9 @@ Right after the `GROUP_LABELS = { ... };` block, insert:
     for (const s of NICE_STEPS) {
       if (s >= value) return s;
     }
-    return NICE_STEPS[NICE_STEPS.length - 1];
+    // Beyond the predefined table: snap up to the next power of 10
+    // so very heavy sessions still get a sensible slider max.
+    return Math.pow(10, Math.ceil(Math.log10(value)));
   }
 
   function percentile(sorted, p) {
@@ -785,6 +787,7 @@ with:
         const minVal = Math.min(val, other);
         setBound(attr.id, 'min', minVal);
         iMin.value = minVal;
+        sMin.value = valueToPos(attr, r, minVal);
         scheduleNotify();
         renderToolbar();
         renderChips();
@@ -795,6 +798,7 @@ with:
         const maxVal = Math.max(val, other);
         setBound(attr.id, 'max', maxVal);
         iMax.value = maxVal;
+        sMax.value = valueToPos(attr, r, maxVal);
         scheduleNotify();
         renderToolbar();
         renderChips();
@@ -943,7 +947,7 @@ Replace the contents of `templates/components/session_filters.css` with:
   flex-direction: column;
   gap: 8px;
   margin-bottom: 12px;
-  font-family: var(--vc-font, inherit);
+  font-family: var(--vc-font-mono, inherit);
 }
 
 .sf-toolbar {
@@ -965,7 +969,7 @@ Replace the contents of `templates/components/session_filters.css` with:
   cursor: pointer;
 }
 .sf-preset:hover,
-.sf-toggle:hover { background: var(--bg4, #333); }
+.sf-toggle:hover { background: var(--vc-accent-soft, #333); border-color: var(--vc-accent, #2c8); }
 .sf-preset.is-on {
   background: var(--vc-accent, #2c8); color: #000;
   border-color: var(--vc-accent, #2c8);
@@ -1119,7 +1123,7 @@ Replace the contents of `templates/components/session_filters.css` with:
   font-size: 12px;
   cursor: pointer;
 }
-.sf-action:hover { background: var(--bg4, #333); }
+.sf-action:hover { background: var(--vc-accent-soft, #333); border-color: var(--vc-accent, #2c8); }
 
 @media (max-width: 699px) {
   .sf-row { grid-template-columns: 1fr; }
@@ -1372,3 +1376,5 @@ git commit -m "chore(filters): smoke verification complete"
 - URL-param sharing of filter state
 - Saved named filter presets
 - Filter-driven CSV/XLSX export header line ("filter applied: X ≥ 2 …")
+
+Smoke verified 2026-05-14

@@ -80,10 +80,42 @@ if (tf.length > 0) {
     '</tbody></table></div>';
 }
 
-mountSessionTable(document.getElementById('sessionList'), P.sessions, {
-  context: 'projectDetail',
-  hideChatInAnon: false,
-});
+let pdSessionTable = null;
+let pdSessionFilters = null;
+const pdAllSessions = Array.isArray(P.sessions) ? P.sessions.slice() : [];
+
+function pdApplyFilters() {
+  let list = pdAllSessions.slice();
+  if (pdSessionFilters) {
+    const active = pdSessionFilters.getActiveFiltersList();
+    for (const f of active) list = list.filter(f.predicate);
+  }
+  return list;
+}
+
+function pdRender() {
+  const next = pdApplyFilters();
+  if (!pdSessionTable) {
+    pdSessionTable = mountSessionTable(
+      document.getElementById('sessionList'),
+      next,
+      { context: 'projectDetail', hideChatInAnon: false }
+    );
+  } else {
+    pdSessionTable.update(next);
+  }
+}
+
+pdSessionFilters = mountSessionFilters(
+  document.getElementById('sessionFiltersMount'),
+  {
+    context: 'projectDetail',
+    getPool: () => pdAllSessions,
+    onChange: pdRender,
+  }
+);
+
+pdRender();
 
 // Workflow timeline
 const wf = P.workflow || [];

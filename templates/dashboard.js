@@ -1127,6 +1127,7 @@ function renderProjectTable(sortKey, sortDir) {
 }
 
 // ── Tab 4: Sessions ────────────────────────────────────────────────────
+let sessionFilters = null;
 let sessionTable = null;
 
 // ─── Markdown export helpers ───────────────────────────────────────────
@@ -1222,6 +1223,11 @@ function getFilteredSessions() {
     (s.first_prompt || '').toLowerCase().includes(search) ||
     s.project.toLowerCase().includes(search));
 
+  if (sessionFilters) {
+    const active = sessionFilters.getActiveFiltersList();
+    for (const f of active) list = list.filter(f.predicate);
+  }
+
   return list;
 }
 
@@ -1250,6 +1256,21 @@ function renderSessions() {
     srcSel.appendChild(o);
   });
   if (sources.includes(currentSrc)) srcSel.value = currentSrc;
+
+  if (!sessionFilters) {
+    const fm = document.getElementById('sessionFiltersMount');
+    sessionFilters = mountSessionFilters(fm, {
+      context: 'dashboard',
+      getPool: () => F.sessions,
+      onChange: () => {
+        const next = getFilteredSessions();
+        if (sessionTable) sessionTable.update(next);
+        updateBulkBtnLabel();
+      },
+    });
+  } else {
+    sessionFilters.onPoolChanged();
+  }
 
   // Mount table on first call, update on subsequent calls.
   const filtered = getFilteredSessions();
@@ -2221,8 +2242,7 @@ function vcSection(title, meta) {
   const h = document.createElement('div');
   h.className = 'vc-tab-h';
   const t = document.createElement('div'); t.className = 'vc-tab-h-title';
-  const b = document.createElement('b'); b.textContent = '↳';
-  t.appendChild(b); t.appendChild(document.createTextNode(' ' + title));
+  t.textContent = title;
   const r = document.createElement('div'); r.className = 'vc-tab-h-rule';
   const m = document.createElement('div'); m.className = 'vc-tab-h-meta'; m.textContent = meta || '';
   h.appendChild(t); h.appendChild(r); h.appendChild(m);

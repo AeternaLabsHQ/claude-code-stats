@@ -91,13 +91,13 @@ panel uses the existing terminal-aesthetic CSS vars (`--vc-bg`,
 |---|---|---|---|---|---|
 | Volume | User Msgs | `user_messages` | count | linear | 1 |
 | Volume | Messages (total) | `messages` | count | linear | 1 |
-| Volume | Duration | derived from `duration_sec / 60` | min | linear | 1 |
+| Volume | Duration | `s.duration_min` directly | min | linear | 1 |
 | Tokens | Total Tokens | sum of input + output + cache\_read + cache\_write | tokens | log | (snap) |
 | Cost | Cost | `cost` | USD | log | 0.01 |
 | Cache Health | Cache Eff. | derived (cache_read / inputSum × 100) | % | linear | 1 |
 | Activity | Tool Calls | `api_calls` (or sumTools) — see below | count | log | 1 |
-| Activity | Agent Dispatches | `agent_dispatches.length` | count | linear | 1 |
-| Errors | Error Count | `errors` | count | linear | 1 |
+| Activity | Agent Dispatches | `agent_dispatches.length` | count | log | 1 |
+| Errors | Error Count | `error_count` | count | linear | 1 |
 
 Open implementation detail: **Tool Calls** maps to whatever the
 `tool_calls` column in `session_table.js` already shows. Verify during
@@ -108,11 +108,11 @@ column the user sees (`sumTools(s)` per line 252-258 of
 ### Slider scale per attribute
 
 - **Linear** sliders for bounded counts (User Msgs, Messages, Duration
-  in minutes, Cache Eff %, Agent Dispatches, Error Count): min = 0,
+  in minutes, Cache Eff %, Error Count): min = 0,
   max = ceil of P99 of currently-loaded sessions, snapped to a "nice"
   value (1, 2, 5, 10, 20, 50, 100, …).
 - **Log** sliders for heavy-tail attributes (Total Tokens, Cost,
-  Tool Calls): position is mapped through `log10(value + 1)`. The
+  Tool Calls, Agent Dispatches): position is mapped through `log10(value + 1)`. The
   Min/Max text inputs display the linear value the user expects;
   internally the slider track is log-scaled. Both rails meet at
   P99-snap.
@@ -161,8 +161,8 @@ an immediate apply.
 New files in `templates/components/`:
 
 - `session_filters.js` — `mountSessionFilters(host, options)` returns
-  `{ getState(), setState(), getActiveFiltersList(), destroy() }` and
-  calls `options.onChange()` whenever the user state changes.
+  `{ getActiveFiltersList(), onPoolChanged(), destroy() }` and calls
+  `options.onChange()` whenever the user state changes.
 - `session_filters.css` — terminal-aesthetic styling matching
   `session_table.css`.
 
@@ -194,7 +194,8 @@ In `dashboard.js`:
 ### Filter state shape
 
 Stored per context in `localStorage` under
-`claudeStats.sessionFilters.<context>`:
+`sessionFilters.<context>` (matching the existing
+`sessionTable.<context>.<suffix>` convention).
 
 ```json
 {
@@ -258,7 +259,8 @@ client-side session list.
 - ≥ 1100 px: two-column slider grid inside the panel.
 - 700–1099 px: single-column slider grid.
 - < 700 px: presets and toggle wrap to multiple lines; sliders
-  collapse to single-column; chip row scrolls horizontally.
+  collapse to single-column; chip row wraps to additional lines as
+  needed.
 
 ## Edge Cases
 

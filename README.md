@@ -12,14 +12,14 @@ A comprehensive analytics dashboard for [Claude Code](https://docs.anthropic.com
 - **Time Range & Project Filter** -- Global pill buttons (All / 7D / 30D / 90D / 1Y) and project search to filter the entire dashboard; plan costs adjust proportionally to the selected range
 - **KPI Dashboard** -- Total API-equivalent cost, messages, sessions, token breakdown with hover tooltips explaining each metric
 - **Session Flow Visualization** -- Interactive canvas-based session replay with node graph, particle animations, auto-play timeline, and fullscreen mode
-- **Token & API Value** -- Daily costs, cumulative costs, model distribution
-- **Activity** -- Message patterns, hourly distribution, weekday distribution
+- **Token & API Value** -- Daily costs, cumulative costs, model distribution, cost by token type
+- **Activity** -- Message patterns, hourly distribution, weekday distribution, sessions per day
 - **Agents** -- Subagent type distribution, error breakdown by category and tool, task management
-- **Projects** -- Top projects by cost, detailed project pages with memories and workflow timeline
-- **Sessions** -- Filterable/searchable session details with chat replay and subagent prompt viewer; export individual chats or the entire filtered set as Markdown (ZIP)
-- **Plan & Billing** -- Cost savings analysis vs. your subscription plan, split into monthly billing cycles
-- **Insights** -- Tool usage, storage breakdown, git ops, telemetry, performance metrics
-- **Privacy** -- F2 anonymization mode, configurable display name, empty session filter
+- **Projects** -- Top projects by cost, detailed per-project pages with memories and workflow timeline
+- **Sessions** -- Multi-attribute filter panel (range sliders for tokens, cost, duration, messages, cache efficiency, tool calls, agent dispatches, errors), one-click presets, persistent filter state, free-text search, sortable session table with per-session detail pages, chat replay, and Markdown / CSV / XLSX / ZIP export
+- **Plan & Billing** -- Cost savings analysis vs. your subscription plan, per-billing-cycle slicing (monthly cycles even for annual plans), local-currency display alongside USD
+- **Insights** -- Tool usage, storage breakdown, installed plugins, plan-mode plans, file-history and todos
+- **Privacy** -- F2 anonymization mode, configurable display name, empty session filter, optional Session Flow hide-switch
 - **Mobile Responsive** -- Dashboard layout adapts to mobile screens
 
 <table>
@@ -70,8 +70,12 @@ See [`config.example.json`](config.example.json) for all options:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `language` | `string` | `"en"` | UI language (`"en"` or `"de"`) |
+| `display_name` | `string` | `""` | Account name shown in the dashboard header (overrides the auto-detected one) |
+| `source_label` | `string` | `"current"` | Label for the local `~/.claude` source in session metadata |
+| `hide_session_flow` | `bool` | `false` | Hide the Session Flow visualization (for screenshots/recordings) |
 | `plan_history` | `array` | `[]` | Your subscription plan history |
 | `migration.enabled` | `bool` | `false` | Enable data from a migration backup |
+| `migration.label` | `string` | `""` | Label for migrated sessions (e.g. `"archive:laptop"`) |
 | `migration.dir` | `string` | `null` | Path to migration backup directory |
 | `additional_sources` | `array` | `[]` | Extra `~/.claude` directories to merge (multi-user) |
 
@@ -81,17 +85,22 @@ Each entry in `plan_history` represents a subscription period:
 
 ```json
 {
-  "plan": "Max",
-  "start": "2026-01-23",
+  "plan": "Max 20x",
+  "start": "2026-04-27",
   "end": null,
-  "cost_eur": 87.61,
-  "cost_usd": 93.00,
-  "billing_day": 23
+  "cost_local": 214.20,
+  "currency_symbol": "€",
+  "cost_usd": 200.00,
+  "billing_day": 27,
+  "billing_cycle": "monthly"
 }
 ```
 
 - `end: null` means the plan is currently active
+- `cost_local` + `currency_symbol` are display values (what you actually pay, in any currency). The legacy field `cost_eur` is still accepted as a fallback
+- `cost_usd` drives the savings / ROI math against API-equivalent value
 - `billing_day` determines billing cycle boundaries for cost analysis
+- `billing_cycle` is `"monthly"` (default) or `"annual"`. Annual plans are sliced into 12 monthly cycles so a yearly upfront payment doesn't dominate a single chart bar
 
 ### Migration Support
 
@@ -120,7 +129,8 @@ To include Claude Code data from other users on the same machine (or any additio
     {
       "label": "alice",
       "claude_dir": "/home/alice/.claude",
-      "dot_claude_json": "/home/alice/.claude.json"
+      "dot_claude_json": "/home/alice/.claude.json",
+      "sudo_user": "alice"
     }
   ]
 }
@@ -129,8 +139,9 @@ To include Claude Code data from other users on the same machine (or any additio
 - `label` -- Identifies the source in session metadata
 - `claude_dir` -- Path to the user's `.claude` directory
 - `dot_claude_json` -- *(optional)* Path to their `.claude.json` file
+- `sudo_user` -- *(optional)* Run reads from this source as the given user via passwordless `sudo` (useful when the running user has no direct read access; requires a sudoers rule)
 
-The running user needs read access to the referenced directories. Sessions are deduplicated and all data (sessions, plans, todos, telemetry, etc.) is merged into the dashboard.
+When `sudo_user` is omitted the running user needs direct read access to the referenced directories. Sessions are deduplicated and all data (sessions, plans, todos, telemetry, etc.) is merged into the dashboard.
 
 ## Output
 

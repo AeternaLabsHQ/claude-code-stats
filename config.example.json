@@ -1,23 +1,28 @@
 {
   "language": "en",
   "display_name": "",
-  "source_label": "",
+  "source_label": "current",
+  "hide_session_flow": false,
   "plan_history": [
     {
       "plan": "Pro",
       "start": "2025-01-01",
       "end": "2025-01-31",
-      "cost_eur": 18.00,
+      "cost_local": 18.00,
+      "currency_symbol": "$",
       "cost_usd": 20.00,
-      "billing_day": null
+      "billing_day": 1,
+      "billing_cycle": "monthly"
     },
     {
-      "plan": "Max",
+      "plan": "Max 5x",
       "start": "2025-02-01",
       "end": null,
-      "cost_eur": 87.61,
-      "cost_usd": 93.00,
-      "billing_day": 1
+      "cost_local": 100.00,
+      "currency_symbol": "$",
+      "cost_usd": 100.00,
+      "billing_day": 1,
+      "billing_cycle": "monthly"
     }
   ],
   "migration": {
@@ -27,6 +32,5 @@
     "claude_dir_name": ".claude-windows",
     "dot_claude_json_name": ".claude-windows.json"
   },
-  "additional_sources": [],
-  "hide_session_flow": false
+  "additional_sources": []
 }

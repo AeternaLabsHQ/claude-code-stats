@@ -2078,7 +2078,13 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None, all
         api_cost_by_cycle[cid] = p.get("api_cost", 0)
 
     raw_current_tier = current_plan.get("plan", "")
-    normalized_current = _normalize_tier_name(raw_current_tier) or "Max 5x"
+    normalized_current = _normalize_tier_name(raw_current_tier)
+    if raw_current_tier and normalized_current is None:
+        print(f"  WARN: plan name '{raw_current_tier}' not recognized for "
+              f"recommendation; falling back to 'Max 5x'. Accepted forms: "
+              f"Pro / Max 5x / Max 20x (case-insensitive, '(annual)' suffix OK).")
+    if normalized_current is None:
+        normalized_current = "Max 5x"
 
     cap_info = _estimate_tier_capacity_usd(
         normalized_current,

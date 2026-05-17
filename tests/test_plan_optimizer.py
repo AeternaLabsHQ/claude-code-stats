@@ -357,3 +357,27 @@ def test_recommendation_none_if_nothing_holds():
     ]
     r = _summarize_recommendation(cycles, current_tier="Max 20x")
     assert r["recommended_tier"] is None
+
+
+def test_recommendation_empty_cycles_returns_none():
+    r = _summarize_recommendation([], current_tier="Pro")
+    assert r["recommended_tier"] is None
+    assert r["total_cycles"] == 0
+    assert r["held_count"] == {"Pro": 0, "Max 5x": 0, "Max 20x": 0}
+
+
+def test_estimate_capacity_unknown_current_tier_uses_5x_fallback_factor():
+    # Unknown tier name → falls back to factor 5.0 for the calibration math.
+    # 500 / 5 = 100.
+    events_by_cycle = {"c1": [{"x": 1}]}
+    cost_by_cycle = {"c1": 500.0}
+    r = _estimate_tier_capacity_usd("Enterprise", events_by_cycle, cost_by_cycle, None)
+    assert r["source"] == "empirical"
+    assert r["base_pro_usd"] == 100.0
+
+
+def test_estimate_capacity_negative_override_ignored():
+    # Negative override is rejected; falls through to default.
+    r = _estimate_tier_capacity_usd("Max 5x", {}, {}, override_pro=-50.0)
+    assert r["source"] == "default"
+    assert r["base_pro_usd"] == 100.0

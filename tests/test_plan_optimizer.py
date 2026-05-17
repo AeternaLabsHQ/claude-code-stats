@@ -100,3 +100,75 @@ def test_cache_flush_multiple_real_pauses_counted():
         _turn(40, cc=3000, cr=1500),
     ]
     assert _detect_cache_flushes(turns, has_1h_cache=False) == 2
+
+
+# ── Task 2: idle-gap summary ───────────────────────────────────────
+
+from extract_stats import _compute_idle_gap_summary
+
+
+def test_idle_gap_empty_session_returns_none():
+    assert _compute_idle_gap_summary([]) is None
+
+
+def test_idle_gap_single_turn_returns_none():
+    assert _compute_idle_gap_summary([_turn(0, cc=100)]) is None
+
+
+def test_idle_gap_all_short_gaps_summary():
+    turns = [_turn(i, cc=100) for i in range(5)]
+    s = _compute_idle_gap_summary(turns)
+    assert s["short"]["count"] == 4
+    assert s["mid"]["count"] == 0
+    assert s["long"]["count"] == 0
+    assert s["estimated_overspend_tokens"] == 0
+
+
+def test_idle_gap_mixed_buckets_classified_correctly():
+    turns = [
+        _turn(0,   cc=100),
+        _turn(1,   cc=100),    # 1min → short
+        _turn(2,   cc=100),    # 1min → short
+        _turn(10,  cc=500),    # 8min → mid
+        _turn(80,  cc=2000),   # 70min → long
+    ]
+    s = _compute_idle_gap_summary(turns)
+    assert s["short"]["count"] == 2
+    assert s["mid"]["count"] == 1
+    assert s["long"]["count"] == 1
+
+
+def test_idle_gap_overspend_uses_short_bucket_median_as_baseline():
+    turns = [
+        _turn(0,   cc=100),
+        _turn(1,   cc=100),
+        _turn(2,   cc=100),
+        _turn(10,  cc=500),     # mid
+        _turn(80,  cc=2000),    # long
+    ]
+    s = _compute_idle_gap_summary(turns)
+    assert s["baseline_per_turn_tokens"] == 100
+    assert s["estimated_overspend_tokens"] == 2300
+
+
+def test_idle_gap_overspend_falls_back_to_session_median_if_no_short_bucket():
+    turns = [
+        _turn(0,   cc=100),
+        _turn(10,  cc=500),
+        _turn(80,  cc=2000),
+    ]
+    s = _compute_idle_gap_summary(turns)
+    assert s["baseline_per_turn_tokens"] == 500
+    assert s["estimated_overspend_tokens"] == 1500
+
+
+def test_idle_gap_overspend_pct_of_session_total():
+    turns = [
+        _turn(0, cc=100),
+        _turn(1, cc=100),
+        _turn(2, cc=100),
+        _turn(10, cc=500),
+        _turn(80, cc=2000),
+    ]
+    s = _compute_idle_gap_summary(turns)
+    assert s["estimated_overspend_pct_of_session"] == 82

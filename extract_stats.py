@@ -967,6 +967,62 @@ def _detect_cache_flushes(turns: list[dict], has_1h_cache: bool) -> int:
     return flushes
 
 
+def _compute_idle_gap_summary(turns: list[dict]) -> dict | None:
+    """Classify per-turn gaps into short/mid/long buckets and estimate
+    overspend from lost cache-warmth.
+
+    Returns None for sessions with <2 turns (no gap possible).
+    """
+    if len(turns) < 2:
+        return None
+
+    sorted_turns = sorted(turns, key=lambda t: t["ts"])
+    buckets = {
+        "short": {"count": 0, "cache_creation_tokens": 0, "values": []},
+        "mid":   {"count": 0, "cache_creation_tokens": 0, "values": []},
+        "long":  {"count": 0, "cache_creation_tokens": 0, "values": []},
+    }
+
+    for i in range(1, len(sorted_turns)):
+        gap_sec = (sorted_turns[i]["ts"] - sorted_turns[i - 1]["ts"]) / 1000
+        cc = sorted_turns[i]["cache_creation"]
+        if gap_sec < 300:
+            bucket = "short"
+        elif gap_sec < 3600:
+            bucket = "mid"
+        else:
+            bucket = "long"
+        buckets[bucket]["count"] += 1
+        buckets[bucket]["cache_creation_tokens"] += cc
+        buckets[bucket]["values"].append(cc)
+
+    if buckets["short"]["values"]:
+        baseline = int(statistics.median(buckets["short"]["values"]))
+    else:
+        all_ccs = [t["cache_creation"] for t in sorted_turns if t["cache_creation"] > 0]
+        baseline = int(statistics.median(all_ccs)) if all_ccs else 0
+
+    overspend = 0
+    for bucket_name in ("mid", "long"):
+        for cc in buckets[bucket_name]["values"]:
+            overspend += max(0, cc - baseline)
+
+    total_cc = sum(t["cache_creation"] for t in sorted_turns)
+    overspend_pct = round(100 * overspend / total_cc) if total_cc > 0 else 0
+
+    for b in buckets.values():
+        b.pop("values", None)
+
+    return {
+        "short": buckets["short"],
+        "mid": buckets["mid"],
+        "long": buckets["long"],
+        "estimated_overspend_tokens": overspend,
+        "estimated_overspend_pct_of_session": overspend_pct,
+        "baseline_per_turn_tokens": baseline,
+    }
+
+
 def parse_session_transcripts():
     """Parse all session JSONL transcripts from all sources."""
     sessions = {}  # session_id -> session_data
@@ -1405,6 +1461,7 @@ def parse_session_transcripts():
             for m in sess.get("models", {}).values()
         )
         sess["cache_flush_count"] = _detect_cache_flushes(turns, has_1h)
+        sess["idle_gap_summary"] = _compute_idle_gap_summary(turns)
         sess.pop("_assistant_turns", None)
 
     migration_count = sum(1 for s in sessions.values() if s.get("source") == MIGRATION_LABEL)
@@ -1995,6 +2052,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "compactions": sess["compactions"],
             "compaction_events": sess["compaction_events"],
             "cache_flush_count": sess.get("cache_flush_count", 0),
+            "idle_gap_summary": sess.get("idle_gap_summary"),
             "first_prompt": sess["first_prompt"],
             "slug": sess["slug"],
             "file_size_mb": round(sess["file_size"] / 1_048_576, 2),
@@ -2783,6 +2841,23 @@ def main():
     print(f"\nGenerating project pages...")
     project_slugs = generate_project_pages(data["sessions"], data=data)
     data["project_slugs"] = project_slugs
+
+    # Idle-gap aggregate over all sessions (Task 2 dashboard).
+    total_overspend = 0
+    sessions_with_overspend = 0
+    for s in data.get("sessions", []):
+        igs = s.get("idle_gap_summary")
+        if igs and igs.get("estimated_overspend_tokens", 0) > 0:
+            total_overspend += igs["estimated_overspend_tokens"]
+            sessions_with_overspend += 1
+
+    # USD estimate: tokens × Sonnet 4.x cache_write_5m rate (conservative).
+    OVERSPEND_USD_PER_MILLION = 3.75
+    data["idle_gap_aggregate"] = {
+        "total_overspend_tokens": total_overspend,
+        "total_overspend_usd": round(total_overspend * OVERSPEND_USD_PER_MILLION / 1_000_000, 2),
+        "session_count_with_overspend": sessions_with_overspend,
+    }
 
     print(f"\nWriting {DASHBOARD_DATA}...")
     with open(DASHBOARD_DATA, "w", encoding="utf-8") as f:

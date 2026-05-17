@@ -215,5 +215,17 @@
     "th_reads": "Reads",
     "th_edits": "Edits",
     "th_writes": "Writes"
+  },
+  "idleGap": {
+    "title": "Idle Gaps",
+    "short": "<5 min",
+    "mid": "5–60 min",
+    "long": ">1 h",
+    "turns": "turns",
+    "overspend": "extra tokens spent on cache rebuild after pauses",
+    "pctOf": "of this session",
+    "tip": "Don't leave sessions open during longer breaks.",
+    "dashTitle": "Idle-gap overhead (full range)",
+    "sessions": "sessions"
   }
 }

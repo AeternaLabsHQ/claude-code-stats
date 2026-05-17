@@ -352,6 +352,7 @@ function filterData(days, projectFilter) {
   if (cutoff) filteredSessions = filteredSessions.filter(s => s.date >= cutoff);
   if (pf) filteredSessions = filteredSessions.filter(s => (s.project || '').toLowerCase().includes(pf));
   F.sessions = filteredSessions;
+  recomputeIdleGapAggregate(F.sessions);
 
   // Rebuild daily aggregates from filtered sessions
   const dailyCostMap = {};
@@ -750,6 +751,45 @@ function switchTab(name, btn) {
   document.getElementById('tab-' + name).classList.add('active');
 }
 
+// ── Idle-gap aggregate card (Task 2) ────────────────────────────────────
+function renderIdleGapAggregateCard() {
+  const el = document.getElementById('idleGapAggregateCard');
+  if (!el) return;
+  const agg = (F && F.idle_gap_aggregate) || null;
+  if (!agg || !agg.total_overspend_tokens) {
+    el.style.display = 'none';
+    return;
+  }
+  const L = (D && D.locale && D.locale.idleGap) || {};
+  const T = {
+    dashTitle: L.dashTitle || 'Idle-Gap-Mehrverbrauch (gesamte Range)',
+    sessions:  L.sessions  || 'Sessions',
+  };
+  const fmtTokensAgg = (n) => n >= 1_000_000 ? (n/1_000_000).toFixed(1) + 'M' : (n >= 1000 ? (n/1000).toFixed(0) + 'k' : String(n));
+  el.innerHTML =
+    '<span class="vc-k">' + T.dashTitle + '</span> ' +
+    '<span class="vc-v">≈ ' + fmtTokensAgg(agg.total_overspend_tokens) + ' Tokens · ≈ $' + (agg.total_overspend_usd || 0).toFixed(2) + ' · ' +
+    (agg.session_count_with_overspend || 0) + ' ' + T.sessions + '</span>';
+  el.style.display = '';
+}
+
+function recomputeIdleGapAggregate(filteredSessions) {
+  let totalOversp = 0;
+  let withOversp = 0;
+  for (const s of (filteredSessions || [])) {
+    const igs = s.idle_gap_summary;
+    if (igs && igs.estimated_overspend_tokens > 0) {
+      totalOversp += igs.estimated_overspend_tokens;
+      withOversp += 1;
+    }
+  }
+  F.idle_gap_aggregate = {
+    total_overspend_tokens: totalOversp,
+    total_overspend_usd: Math.round(totalOversp * 3.75 / 1_000_000 * 100) / 100,
+    session_count_with_overspend: withOversp,
+  };
+}
+
 // ── Tab 1: Costs ───────────────────────────────────────────────────────
 function renderCosts() {
   const dates = F.daily_costs.map(d => d.date);
@@ -966,6 +1006,8 @@ function renderCosts() {
       },
     });
   }
+
+  renderIdleGapAggregateCard();
 }
 
 function _vcAccentRgb() {

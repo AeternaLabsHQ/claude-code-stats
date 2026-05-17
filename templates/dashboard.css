@@ -1089,3 +1089,6 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
   .progress-stats { gap:12px; }
   .chart-box canvas { max-height:280px; }
 }
+.vc-idle-aggregate { padding: 8px 12px; margin-top: 4px; margin-bottom: 16px; border: 1px solid var(--vc-border, #333); background: var(--vc-bg2, #1a1a1a); font-family: monospace; font-size: 13px; }
+.vc-idle-aggregate .vc-k { color: var(--vc-text2, #999); }
+.vc-idle-aggregate .vc-v { color: var(--vc-text, #ddd); }

@@ -21,6 +21,58 @@ function effStyle(pct) {
   return {color:'var(--red)', emoji:'❌', label:pct.toFixed(1)+'%'};
 }
 
+function renderIdleGapPanel(sess) {
+  const igs = sess.idle_gap_summary;
+  if (!igs) return '';
+  if (((igs.mid && igs.mid.count) || 0) === 0 && ((igs.long && igs.long.count) || 0) === 0) return '';
+
+  const L = (typeof D !== 'undefined' && D && D.locale && D.locale.idleGap) || {};
+  const T = {
+    title:     L.title     || 'Idle Gaps',
+    short:     L.short     || '<5 min',
+    mid:       L.mid       || '5–60 min',
+    long:      L.long      || '>1 h',
+    turns:     L.turns     || 'Turns',
+    overspend: L.overspend || 'Mehrverbrauch durch Cache-Verlust wegen Pausen',
+    pctOf:     L.pctOf     || 'dieser Session',
+    tip:       L.tip       || 'Sessions nicht offen lassen bei längeren Pausen.',
+  };
+
+  const fmtNum = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n));
+
+  const maxCount = Math.max(igs.short.count, igs.mid.count, igs.long.count, 1);
+  const bar = (count) => {
+    const w = Math.round((count / maxCount) * 24);
+    return '█'.repeat(w) + '░'.repeat(24 - w);
+  };
+
+  const rows = [
+    {label: T.short, b: igs.short},
+    {label: T.mid,   b: igs.mid},
+    {label: T.long,  b: igs.long},
+  ].map(r =>
+    '<div class="igp-row">' +
+      '<span class="igp-lbl">' + r.label + '</span>' +
+      '<span class="igp-bar">' + bar(r.b.count) + '</span>' +
+      '<span class="igp-num">' + r.b.count + ' ' + T.turns + ' · ' + fmtNum(r.b.cache_creation_tokens) + ' tok</span>' +
+    '</div>'
+  ).join('');
+
+  const oversp = igs.estimated_overspend_tokens || 0;
+  const overspPct = igs.estimated_overspend_pct_of_session || 0;
+
+  return (
+    '<div class="card idle-gap-panel">' +
+      '<h3>' + T.title + '</h3>' +
+      '<div class="igp-rows">' + rows + '</div>' +
+      (oversp > 0 ?
+        '<div class="igp-summary">≈ ' + fmtNum(oversp) + ' tok ' + T.overspend +
+        ' (≈ ' + overspPct + '% ' + T.pctOf + ')</div>' : '') +
+      '<div class="igp-tip">ⓘ ' + T.tip + '</div>' +
+    '</div>'
+  );
+}
+
 document.getElementById('sessionTitle').textContent = sess.project;
 document.getElementById('sessionMeta').innerHTML =
   '<span>Session: <code>'+sess.session_id.slice(0,8)+'</code></span>' +
@@ -39,6 +91,10 @@ document.getElementById('statsBar').innerHTML =
   '<div class="stat-card"><div class="label">Cache Flushes</div><div class="value" title="Turns where cache likely went cold (post-buildup + gap > TTL + creation > 2× session median)" style="color:'+((sess.cache_flush_count||0)>0?'var(--red)':'var(--text2)')+'">'+((sess.cache_flush_count||0))+'</div></div>' +
   '<div class="stat-card"><div class="label">Est. Cost</div><div class="value" style="color:var(--orange)">'+fmtUSD(sess.cost)+'</div></div>' +
   '<div class="stat-card"><div class="label">Compactions</div><div class="value" style="color:'+((sess.compactions||0)>0?'var(--amber)':'var(--text2)')+'">'+((sess.compactions||0))+'</div></div>';
+
+// Idle-gap panel (Task 2): only renders if session has mid or long gaps
+const idleGapEl = document.getElementById('idleGapPanel');
+if (idleGapEl) idleGapEl.innerHTML = renderIdleGapPanel(sess);
 
 // Simple markdown rendering
 function renderMd(text) {

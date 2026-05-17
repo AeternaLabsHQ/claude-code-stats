@@ -36,7 +36,7 @@ document.getElementById('statsBar').innerHTML =
   '<div class="stat-card"><div class="label">Tool Calls</div><div class="value" style="color:var(--cyan)">'+toolCount+'</div></div>' +
   '<div class="stat-card"><div class="label">Tokens</div><div class="value" style="color:var(--purple)">'+fmtTokens(sess.input_tokens+sess.output_tokens)+'</div></div>' +
   '<div class="stat-card"><div class="label">Cache Eff.</div><div class="value" style="color:'+sessEffSt.color+'">'+sessEffSt.emoji+' '+sessEffSt.label+'</div></div>' +
-  '<div class="stat-card"><div class="label">Cache Flushes</div><div class="value" title="Turns where cache hit-rate was below 50%" style="color:'+((sess.cache_flush_count||0)>0?'var(--red)':'var(--text2)')+'">'+((sess.cache_flush_count||0))+'</div></div>' +
+  '<div class="stat-card"><div class="label">Cache Flushes</div><div class="value" title="Turns where cache likely went cold (post-buildup + gap > TTL + creation > 2× session median)" style="color:'+((sess.cache_flush_count||0)>0?'var(--red)':'var(--text2)')+'">'+((sess.cache_flush_count||0))+'</div></div>' +
   '<div class="stat-card"><div class="label">Est. Cost</div><div class="value" style="color:var(--orange)">'+fmtUSD(sess.cost)+'</div></div>' +
   '<div class="stat-card"><div class="label">Compactions</div><div class="value" style="color:'+((sess.compactions||0)>0?'var(--amber)':'var(--text2)')+'">'+((sess.compactions||0))+'</div></div>';
 

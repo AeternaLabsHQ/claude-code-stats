@@ -11,6 +11,7 @@ text (prompts) is escaped via textContent before display.
 import json
 import os
 import re
+import statistics
 import subprocess
 import sys
 import time
@@ -917,6 +918,55 @@ def _categorize_error(msg: str, tool_name: str) -> str:
     return "other"
 
 
+def _detect_cache_flushes(turns: list[dict], has_1h_cache: bool) -> int:
+    """Gap-based flush detection.
+
+    A turn counts as a cache-flush only if all three conditions hold:
+      1. Cache was previously established (post-buildup phase)
+      2. Gap since previous turn exceeds the active cache TTL
+      3. Turn's cache_creation > 2x rolling median of post-buildup
+         cache_creation values (floor: 100 tokens)
+    """
+    if len(turns) < 3:
+        return 0
+
+    gap_threshold_ms = (3600 if has_1h_cache else 300) * 1000
+    sorted_turns = sorted(turns, key=lambda t: t["ts"])
+
+    flushes = 0
+    buildup_over = False
+    creation_history: list[int] = []
+
+    for i, t in enumerate(sorted_turns):
+        prev = sorted_turns[i - 1] if i > 0 else None
+
+        if (not buildup_over
+                and t["cache_read"] > t["cache_creation"]
+                and t["cache_read"] > 0):
+            buildup_over = True
+            continue
+
+        if not buildup_over:
+            continue
+
+        if t["cache_creation"] > 0:
+            creation_history.append(t["cache_creation"])
+
+        if not prev:
+            continue
+        gap_ms = t["ts"] - prev["ts"]
+        if gap_ms < gap_threshold_ms:
+            continue
+
+        if len(creation_history) < 3:
+            continue
+        median = statistics.median(creation_history[:-1])
+        if t["cache_creation"] > 2 * max(median, 100):
+            flushes += 1
+
+    return flushes
+
+
 def parse_session_transcripts():
     """Parse all session JSONL transcripts from all sources."""
     sessions = {}  # session_id -> session_data
@@ -1058,6 +1108,7 @@ def parse_session_transcripts():
                                     "compactions": 0,
                                     "compaction_events": [],
                                     "cache_flush_count": 0,
+                                    "_assistant_turns": [],  # private: (ts_ms, cache_creation, cache_read) per turn — dropped before serialization
                                     "message_count": 0,
                                     "user_message_count": 0,
                                     "assistant_message_count": 0,
@@ -1189,14 +1240,23 @@ def parse_session_transcripts():
                                     m["cost"] += calc_cost(model, usage)
                                     m["calls"] += 1
 
-                                    # Cache flush = turn whose cache-hit-rate is < 50%.
-                                    # Hit rate = cache_read / (input + cache_read + cache_write).
-                                    turn_in = usage.get("input_tokens", 0)
-                                    turn_cr = usage.get("cache_read_input_tokens", 0)
-                                    turn_cw = usage.get("cache_creation_input_tokens", 0)
-                                    turn_in_sum = turn_in + turn_cr + turn_cw
-                                    if turn_in_sum > 0 and (turn_cr / turn_in_sum) < 0.5:
-                                        sess["cache_flush_count"] += 1
+                                    # Per-turn capture for gap-based cache-flush + idle-gap analysis (Tasks 1+2).
+                                    turn_ts_ms = None
+                                    if timestamp:
+                                        if isinstance(timestamp, str):
+                                            try:
+                                                _dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                                                turn_ts_ms = int(_dt.timestamp() * 1000)
+                                            except (ValueError, OSError):
+                                                pass
+                                        elif isinstance(timestamp, (int, float)):
+                                            turn_ts_ms = int(timestamp)
+                                    if turn_ts_ms is not None:
+                                        sess["_assistant_turns"].append({
+                                            "ts": turn_ts_ms,
+                                            "cache_creation": usage.get("cache_creation_input_tokens", 0),
+                                            "cache_read": usage.get("cache_read_input_tokens", 0),
+                                        })
 
                                     turn_output = usage.get("output_tokens", 0)
                                     turn_cost = calc_cost(model, usage)
@@ -1335,6 +1395,16 @@ def parse_session_transcripts():
                 "tools": dict(sub["tools"]),
             })
         del sessions[sub_id]
+
+    # Compute gap-based cache-flush count from per-turn data (Task 1).
+    for sess in sessions.values():
+        turns = sess.get("_assistant_turns", [])
+        has_1h = any(
+            m.get("cache_1h_tokens", 0) > 0
+            for m in sess.get("models", {}).values()
+        )
+        sess["cache_flush_count"] = _detect_cache_flushes(turns, has_1h)
+        sess.pop("_assistant_turns", None)
 
     migration_count = sum(1 for s in sessions.values() if s.get("source") == MIGRATION_LABEL)
     current_count = sum(1 for s in sessions.values() if s.get("source") == SOURCE_LABEL)

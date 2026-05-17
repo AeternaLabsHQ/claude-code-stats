@@ -236,5 +236,19 @@
     "explicit": "Expliziter Rate-Limit-Error",
     "heuristic": "5h-Fingerprint (Heuristik)",
     "click": "Klick auf Event \u2192 Session \u00f6ffnen (wenn verf\u00fcgbar)"
+  },
+  "planRec": {
+    "title": "Plan-Empfehlung",
+    "cycle": "Cycle",
+    "current": "Aktueller Tier",
+    "rec": "Empfehlung",
+    "held": "hielt in",
+    "of": "von",
+    "cycles": "Cycles",
+    "cal": "Kalibrierung",
+    "calEmpirical": "empirisch",
+    "calDefault": "Default-Fallback",
+    "calOverride": "Override aus config",
+    "disclaimer": "Sch\u00e4tzung basierend auf Anthropic-Faktoren (1:5:20). Anthropic publiziert keine exakten Token-Limits. Tats\u00e4chliche Limits k\u00f6nnen abweichen."
   }
 }

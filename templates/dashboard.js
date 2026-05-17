@@ -1712,10 +1712,68 @@ function renderLimitsEventTimeline() {
 }
 
 function renderPlanRecommendation() {
-  // Task 4 will implement. Stub for now so renderLimits() doesn't crash.
   const el = document.getElementById('limitsPlanRec');
   if (!el) return;
-  el.innerHTML = '';
+  const pr = D.plan_recommendation || null;
+  if (!pr || !pr.cycles || !pr.cycles.length) {
+    el.innerHTML = '';
+    return;
+  }
+
+  const L = (D.locale && D.locale.planRec) || {};
+  const T = {
+    title:        L.title        || 'Plan Recommendation',
+    cycle:        L.cycle        || 'Cycle',
+    current:      L.current      || 'Current tier',
+    rec:          L.rec          || 'Recommendation',
+    held:         L.held         || 'held in',
+    of:           L.of           || 'of',
+    cycles:       L.cycles       || 'cycles',
+    cal:          L.cal          || 'Calibration',
+    calEmpirical: L.calEmpirical || 'empirical',
+    calDefault:   L.calDefault   || 'default fallback',
+    calOverride:  L.calOverride  || 'config override',
+    disclaimer:   L.disclaimer   || "Estimate based on Anthropic's 1:5:20 factor. Anthropic does not publish exact token limits. Actual limits may differ.",
+  };
+
+  const fmtPct = (n) => n + '%';
+  const mark = (n) => n <= 100 ? '✓' : '⚠';
+
+  const headerRow = '<tr><th>' + T.cycle + '</th><th>Pro</th><th>Max 5x</th><th>Max 20x</th></tr>';
+  const bodyRows = pr.cycles.map(c => {
+    const u = c.tier_utilization || {};
+    const pro = u.Pro || 0;
+    const m5  = u['Max 5x'] || 0;
+    const m20 = u['Max 20x'] || 0;
+    return '<tr>' +
+      '<td class="cyc-lbl">' + (c.label || c.cycle_start) + '</td>' +
+      '<td class="' + (pro > 100 ? 'over' : 'under') + '">' + fmtPct(pro) + ' ' + mark(pro) + '</td>' +
+      '<td class="' + (m5 > 100 ? 'over' : 'under')  + '">' + fmtPct(m5)  + ' ' + mark(m5)  + '</td>' +
+      '<td class="' + (m20 > 100 ? 'over' : 'under') + '">' + fmtPct(m20) + ' ' + mark(m20) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  const hc = pr.held_count || {};
+  const tc = pr.total_cycles || 0;
+  const recLine = pr.recommended_tier
+    ? T.rec + ': ' + pr.recommended_tier + ' (' + T.held + ' ' + (hc[pr.recommended_tier] || 0) + '/' + tc + ' ' + T.cycles + ')'
+    : T.rec + ': —';
+
+  const cal = pr.calibration || {};
+  const calSrc = cal.source === 'empirical' ? T.calEmpirical
+    : cal.source === 'config_override' ? T.calOverride
+    : T.calDefault;
+  const calLine = T.cal + ': ' + calSrc + ' (Pro = $' + (cal.base_pro_usd || 0) + ' / cycle)';
+
+  el.innerHTML =
+    '<h3>' + T.title + '</h3>' +
+    '<table class="plan-rec-table"><thead>' + headerRow + '</thead><tbody>' + bodyRows + '</tbody></table>' +
+    '<div class="plan-rec-summary">' +
+      '<div>' + T.current + ': ' + (pr.current_tier || '—') + '</div>' +
+      '<div>' + recLine + '</div>' +
+      '<div class="plan-rec-cal">' + calLine + '</div>' +
+    '</div>' +
+    '<div class="plan-rec-disclaimer">⚠ ' + T.disclaimer + '</div>';
 }
 
 // ── Tab 6: Insights ───────────────────────────────────────────────────

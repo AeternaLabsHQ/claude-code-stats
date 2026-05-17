@@ -262,3 +262,98 @@ def test_5h_fingerprint_long_gap_ignored():
     ]
     events = _detect_5h_fingerprint_events(prompts)
     assert events == []
+
+
+# ── Task 4: plan-recommendation ────────────────────────────────────
+
+from extract_stats import (
+    _normalize_tier_name,
+    _estimate_tier_capacity_usd,
+    _summarize_recommendation,
+    PLAN_TIER_FACTORS,
+)
+
+
+def test_normalize_pro_variants():
+    assert _normalize_tier_name("Pro") == "Pro"
+    assert _normalize_tier_name("pro plan") == "Pro"
+    assert _normalize_tier_name("Pro (annual)") == "Pro"
+
+
+def test_normalize_max5x_variants():
+    assert _normalize_tier_name("Max 5x") == "Max 5x"
+    assert _normalize_tier_name("max5x") == "Max 5x"
+    assert _normalize_tier_name("5x") == "Max 5x"
+
+
+def test_normalize_max20x_variants():
+    assert _normalize_tier_name("Max 20x") == "Max 20x"
+    assert _normalize_tier_name("max20x") == "Max 20x"
+    assert _normalize_tier_name("20x") == "Max 20x"
+
+
+def test_normalize_unknown_returns_none():
+    assert _normalize_tier_name("Enterprise") is None
+    assert _normalize_tier_name("") is None
+
+
+def test_estimate_capacity_override_takes_precedence():
+    r = _estimate_tier_capacity_usd("Max 5x", {}, {}, override_pro=200.0)
+    assert r["source"] == "config_override"
+    assert r["base_pro_usd"] == 200.0
+    assert r["capacities"]["Pro"] == 200.0
+    assert r["capacities"]["Max 5x"] == 1000.0
+    assert r["capacities"]["Max 20x"] == 4000.0
+
+
+def test_estimate_capacity_empirical_from_limit_events():
+    events_by_cycle = {"c1": [{"x": 1}], "c2": [{"x": 1}], "c3": [{"x": 1}]}
+    cost_by_cycle = {"c1": 480.0, "c2": 510.0, "c3": 540.0}
+    r = _estimate_tier_capacity_usd("Max 5x", events_by_cycle, cost_by_cycle, None)
+    assert r["source"] == "empirical"
+    assert r["base_pro_usd"] == 102.0
+
+
+def test_estimate_capacity_fallback_to_default_without_events():
+    r = _estimate_tier_capacity_usd("Max 5x", {}, {}, None)
+    assert r["source"] == "default"
+    assert r["base_pro_usd"] == 100.0
+
+
+def test_estimate_capacity_ignores_cycles_without_events():
+    # Only cycles WITH events count toward calibration.
+    events_by_cycle = {"c1": [{"x": 1}], "c2": []}
+    cost_by_cycle = {"c1": 500.0, "c2": 200.0}
+    r = _estimate_tier_capacity_usd("Max 5x", events_by_cycle, cost_by_cycle, None)
+    assert r["source"] == "empirical"
+    assert r["base_pro_usd"] == 100.0  # 500 / 5
+
+
+def test_recommendation_recommends_cheapest_holding_tier():
+    cycles = [
+        {"tier_utilization": {"Pro": 50,  "Max 5x": 10, "Max 20x": 3}},
+        {"tier_utilization": {"Pro": 150, "Max 5x": 30, "Max 20x": 8}},
+        {"tier_utilization": {"Pro": 200, "Max 5x": 40, "Max 20x": 10}},
+    ]
+    r = _summarize_recommendation(cycles, current_tier="Max 5x")
+    assert r["recommended_tier"] == "Max 5x"
+    assert r["held_count"]["Pro"] == 1
+    assert r["held_count"]["Max 5x"] == 3
+    assert r["total_cycles"] == 3
+
+
+def test_recommendation_recommends_pro_if_always_held():
+    cycles = [
+        {"tier_utilization": {"Pro": 50, "Max 5x": 10, "Max 20x": 3}},
+        {"tier_utilization": {"Pro": 80, "Max 5x": 16, "Max 20x": 4}},
+    ]
+    r = _summarize_recommendation(cycles, current_tier="Max 5x")
+    assert r["recommended_tier"] == "Pro"
+
+
+def test_recommendation_none_if_nothing_holds():
+    cycles = [
+        {"tier_utilization": {"Pro": 150, "Max 5x": 150, "Max 20x": 150}},
+    ]
+    r = _summarize_recommendation(cycles, current_tier="Max 20x")
+    assert r["recommended_tier"] is None

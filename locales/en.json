@@ -236,5 +236,19 @@
     "explicit": "Explicit rate-limit error",
     "heuristic": "5h-fingerprint (heuristic)",
     "click": "Click event → open session (if available)"
+  },
+  "planRec": {
+    "title": "Plan Recommendation",
+    "cycle": "Cycle",
+    "current": "Current tier",
+    "rec": "Recommendation",
+    "held": "held in",
+    "of": "of",
+    "cycles": "cycles",
+    "cal": "Calibration",
+    "calEmpirical": "empirical",
+    "calDefault": "default fallback",
+    "calOverride": "config override",
+    "disclaimer": "Estimate based on Anthropic's 1:5:20 factor. Anthropic does not publish exact token limits. Actual limits may differ."
   }
 }

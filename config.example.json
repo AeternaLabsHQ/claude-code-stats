@@ -25,6 +25,7 @@
       "billing_cycle": "monthly"
     }
   ],
+  "plan_capacity_override_pro_usd": null,
   "migration": {
     "enabled": false,
     "label": "",

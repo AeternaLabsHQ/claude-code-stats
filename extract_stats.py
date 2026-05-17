@@ -188,6 +188,87 @@ TEMPLATE_HTML = Path(__file__).parent / "dashboard_template.html"
 
 # ── Plan Configuration (from config.json) ────────────────────────────────
 PLAN_HISTORY = CONFIG.get("plan_history", [])
+PLAN_CAPACITY_OVERRIDE_PRO_USD = CONFIG.get("plan_capacity_override_pro_usd")
+
+# Plan-recommendation constants (Task 4).
+# Source: Anthropic pricing communication / docs page (Pro = 1×, Max 5x = 5×,
+# Max 20x = 20×). Exact token limits are not published — these factors are
+# rough relative-capacity estimates from Anthropic, not measurements.
+PLAN_TIER_FACTORS = {"Pro": 1.0, "Max 5x": 5.0, "Max 20x": 20.0}
+
+# Fallback Pro-tier capacity in USD-API-equivalent per billing cycle.
+# Used only when no limit events are available for empirical calibration
+# and no config override is set. Heavily disclaimed in the UI.
+PRO_CAPACITY_USD_DEFAULT = 100.0
+
+
+def _normalize_tier_name(raw):
+    """Map user-config plan strings to PLAN_TIER_FACTORS keys."""
+    if not raw:
+        return None
+    s = str(raw).lower().strip()
+    s = s.replace("(annual)", "").strip()
+    if s in ("pro", "pro plan"):
+        return "Pro"
+    s_compact = s.replace(" ", "")
+    if s_compact in ("max5x", "5x", "max-5x"):
+        return "Max 5x"
+    if s_compact in ("max20x", "20x", "max-20x"):
+        return "Max 20x"
+    return None
+
+
+def _estimate_tier_capacity_usd(current_tier, limit_events_by_cycle, api_cost_by_cycle, override_pro):
+    """Return per-tier capacity in USD-API-equivalent.
+
+    Calibration priority:
+      1. config override (plan_capacity_override_pro_usd) — user knows best
+      2. empirical from limit-hit cycles on current tier
+      3. hardcoded PRO_CAPACITY_USD_DEFAULT
+    """
+    if override_pro is not None and override_pro > 0:
+        base = float(override_pro)
+        source = "config_override"
+    else:
+        limit_hit_costs = [
+            api_cost_by_cycle[cid]
+            for cid, evts in limit_events_by_cycle.items()
+            if evts and api_cost_by_cycle.get(cid, 0) > 0
+        ]
+        if limit_hit_costs:
+            current_factor = PLAN_TIER_FACTORS.get(current_tier, 5.0)
+            base = statistics.median(limit_hit_costs) / current_factor
+            source = "empirical"
+        else:
+            base = PRO_CAPACITY_USD_DEFAULT
+            source = "default"
+
+    capacities = {t: round(base * f, 2) for t, f in PLAN_TIER_FACTORS.items()}
+    return {"capacities": capacities, "base_pro_usd": round(base, 2), "source": source}
+
+
+def _summarize_recommendation(cycles, current_tier, threshold_pct=0.8):
+    """Pick cheapest tier that holds (<=100%) in >= threshold_pct of cycles."""
+    held = {tier: 0 for tier in PLAN_TIER_FACTORS}
+    for c in cycles:
+        for tier, pct in (c.get("tier_utilization") or {}).items():
+            if pct <= 100:
+                held[tier] += 1
+    total = len(cycles)
+
+    recommended = None
+    for tier in ("Pro", "Max 5x", "Max 20x"):
+        if total > 0 and held[tier] / total >= threshold_pct:
+            recommended = tier
+            break
+
+    return {
+        "current_tier": current_tier,
+        "recommended_tier": recommended,
+        "held_count": held,
+        "total_cycles": total,
+        "threshold_pct": threshold_pct,
+    }
 
 # ── Pricing (USD per 1M tokens) ───────────────────────────────────────────
 PRICING = {
@@ -1988,6 +2069,48 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None, all
             currency_symbol = ph["currency_symbol"]
             break
 
+    # ── Plan Recommendation (Task 4) ───────────────────────────────
+    limit_events_by_cycle = {}
+    api_cost_by_cycle = {}
+    for p in periods:
+        cid = p["start"] + "_" + p["end"]
+        limit_events_by_cycle[cid] = p.get("limit_events", [])
+        api_cost_by_cycle[cid] = p.get("api_cost", 0)
+
+    raw_current_tier = current_plan.get("plan", "")
+    normalized_current = _normalize_tier_name(raw_current_tier) or "Max 5x"
+
+    cap_info = _estimate_tier_capacity_usd(
+        normalized_current,
+        limit_events_by_cycle,
+        api_cost_by_cycle,
+        PLAN_CAPACITY_OVERRIDE_PRO_USD,
+    )
+
+    rec_cycles = []
+    for p in periods:
+        api = p.get("api_cost", 0)
+        util = {
+            tier: round(100 * api / cap)
+            for tier, cap in cap_info["capacities"].items()
+            if cap > 0
+        }
+        rec_cycles.append({
+            "cycle_start": p["start"],
+            "cycle_end": p["end"],
+            "label": p["plan"] + " · " + p["start"][:7],
+            "api_cost": api,
+            "tier_utilization": util,
+            "limit_event_count": p.get("limit_event_count", 0),
+        })
+
+    summary = _summarize_recommendation(rec_cycles, normalized_current)
+    plan_recommendation = {
+        **summary,
+        "calibration": cap_info,
+        "cycles": rec_cycles,
+    }
+
     result = {
         "periods": periods,
         "current_billing": current_billing,
@@ -1996,6 +2119,7 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None, all
         "total_plan_cost": round(total_plan, 2),
         "total_savings": round(total_api - total_plan, 2),
         "overall_roi": round(total_api / total_plan, 1) if total_plan > 0 else 0,
+        "plan_recommendation": plan_recommendation,
     }
     if have_local_totals:
         result["total_api_cost_local"] = round(total_api_local, 2)
@@ -2448,6 +2572,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "total_projects": len(project_list),
         },
         "plan": plan_analysis,
+        "plan_recommendation": plan_analysis.get("plan_recommendation"),
         "daily_costs": daily_cost_series,
         "cumulative_costs": cumulative_series,
         "daily_messages": daily_message_series,

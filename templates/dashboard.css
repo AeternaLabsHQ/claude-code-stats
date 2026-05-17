@@ -1107,3 +1107,13 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .lim-legend .evt { position: relative; display: inline-block; width: 10px; height: 10px; vertical-align: middle; transform: none; margin-right: 4px; }
 .lim-tip { margin-top: 6px; font-size: 12px; color: var(--vc-text2, #999); }
 .vc-empty { color: var(--vc-text2, #999); font-style: italic; }
+
+.plan-rec-table { border-collapse: collapse; width: 100%; margin-top: 8px; font-family: monospace; font-size: 13px; }
+.plan-rec-table th, .plan-rec-table td { border-bottom: 1px solid var(--vc-border, #333); padding: 4px 8px; text-align: right; }
+.plan-rec-table th:first-child, .plan-rec-table td.cyc-lbl { text-align: left; color: var(--vc-text2, #999); }
+.plan-rec-table td.over { color: var(--vc-accent-red, #ef4444); }
+.plan-rec-table td.under { color: var(--vc-text, #ddd); }
+.plan-rec-summary { margin-top: 16px; font-size: 14px; }
+.plan-rec-summary > div { margin-bottom: 4px; }
+.plan-rec-cal { color: var(--vc-text2, #999); font-size: 12px; }
+.plan-rec-disclaimer { margin-top: 16px; padding: 8px 12px; border: 1px solid var(--vc-accent-red, #ef4444); border-radius: 3px; color: var(--vc-text, #ddd); font-size: 13px; background: rgba(239, 68, 68, 0.08); }

@@ -26,16 +26,17 @@ function renderIdleGapPanel(sess) {
   if (!igs) return '';
   if (((igs.mid && igs.mid.count) || 0) === 0 && ((igs.long && igs.long.count) || 0) === 0) return '';
 
-  const L = (typeof D !== 'undefined' && D && D.locale && D.locale.idleGap) || {};
+  // session_detail has no locale injection (matches existing convention:
+  // 'Duration', 'Messages', 'Tool Calls' etc. are hardcoded English).
   const T = {
-    title:     L.title     || 'Idle Gaps',
-    short:     L.short     || '<5 min',
-    mid:       L.mid       || '5–60 min',
-    long:      L.long      || '>1 h',
-    turns:     L.turns     || 'Turns',
-    overspend: L.overspend || 'Mehrverbrauch durch Cache-Verlust wegen Pausen',
-    pctOf:     L.pctOf     || 'dieser Session',
-    tip:       L.tip       || 'Sessions nicht offen lassen bei längeren Pausen.',
+    title:     'Idle Gaps',
+    short:     '<5 min',
+    mid:       '5–60 min',
+    long:      '>1 h',
+    turns:     'turns',
+    overspend: 'extra tokens spent on cache rebuild after pauses',
+    pctOf:     'of this session',
+    tip:       "Don't leave sessions open during longer breaks.",
   };
 
   const fmtNum = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n));

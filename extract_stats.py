@@ -2842,22 +2842,9 @@ def main():
     project_slugs = generate_project_pages(data["sessions"], data=data)
     data["project_slugs"] = project_slugs
 
-    # Idle-gap aggregate over all sessions (Task 2 dashboard).
-    total_overspend = 0
-    sessions_with_overspend = 0
-    for s in data.get("sessions", []):
-        igs = s.get("idle_gap_summary")
-        if igs and igs.get("estimated_overspend_tokens", 0) > 0:
-            total_overspend += igs["estimated_overspend_tokens"]
-            sessions_with_overspend += 1
-
-    # USD estimate: tokens × Sonnet 4.x cache_write_5m rate (conservative).
-    OVERSPEND_USD_PER_MILLION = 3.75
-    data["idle_gap_aggregate"] = {
-        "total_overspend_tokens": total_overspend,
-        "total_overspend_usd": round(total_overspend * OVERSPEND_USD_PER_MILLION / 1_000_000, 2),
-        "session_count_with_overspend": sessions_with_overspend,
-    }
+    # Idle-gap aggregate is computed client-side in dashboard.js
+    # (recomputeIdleGapAggregate) from F.sessions, so it tracks the
+    # active date-range filter. No Python-side precomputation.
 
     print(f"\nWriting {DASHBOARD_DATA}...")
     with open(DASHBOARD_DATA, "w", encoding="utf-8") as f:

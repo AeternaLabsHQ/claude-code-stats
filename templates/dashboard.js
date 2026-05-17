@@ -773,6 +773,10 @@ function renderIdleGapAggregateCard() {
   el.style.display = '';
 }
 
+// Sonnet 4.x cache_write_5m rate, used to estimate idle-gap overspend
+// in USD. Update if Anthropic reprices the cache_write_5m tier.
+const IDLE_GAP_OVERSPEND_USD_PER_M = 3.75;
+
 function recomputeIdleGapAggregate(filteredSessions) {
   let totalOversp = 0;
   let withOversp = 0;
@@ -785,7 +789,7 @@ function recomputeIdleGapAggregate(filteredSessions) {
   }
   F.idle_gap_aggregate = {
     total_overspend_tokens: totalOversp,
-    total_overspend_usd: Math.round(totalOversp * 3.75 / 1_000_000 * 100) / 100,
+    total_overspend_usd: Math.round(totalOversp * IDLE_GAP_OVERSPEND_USD_PER_M / 1_000_000 * 100) / 100,
     session_count_with_overspend: withOversp,
   };
 }

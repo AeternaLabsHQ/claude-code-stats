@@ -896,7 +896,7 @@ def _categorize_error(msg: str, tool_name: str) -> str:
             or "over capacity" in msg_lower
             or "overloaded" in msg_lower
             or "usage limit reached" in msg_lower
-            or "limit reached" in msg_lower):
+            or "plan limit reached" in msg_lower):
         return "rate_limit"
     if "rejected" in msg_lower or "doesn't want to proceed" in msg_lower:
         return "rejected"
@@ -1074,6 +1074,8 @@ def _detect_5h_fingerprint_events(prompts: list[dict]) -> list[dict]:
             t_a - timedelta(seconds=LIMIT_5H_ACTIVE_WINDOW_SEC) <= parsed[j][0] < t_a
             for j in range(i - 1)
         )
+        if not active_prefix:
+            continue
 
         t_a_local = t_a.astimezone()
         t_b_local = t_b.astimezone()
@@ -1082,9 +1084,6 @@ def _detect_5h_fingerprint_events(prompts: list[dict]) -> list[dict]:
 
         anchor = t_a + timedelta(hours=5)
         aligned = abs((t_b - anchor).total_seconds()) <= LIMIT_5H_RESET_TOLERANCE_SEC
-
-        if not active_prefix:
-            continue
 
         confidence = "high" if (in_day and aligned) else "medium"
         events.append({
@@ -1259,6 +1258,7 @@ def parse_session_transcripts():
                                     "error_count": 0,
                                     "errors": [],
                                     "limit_event_candidates": [],
+                                    "user_timestamps": [],  # private: user-prompt ts_ms only, dropped before serialization
                                     "file_ops": [],
                                     "git_ops": [],
                                 }
@@ -1283,21 +1283,25 @@ def parse_session_transcripts():
                                 sess["slug"] = obj["slug"]
 
                             # Collect timestamps
+                            ts_ms_for_msg = None
                             if timestamp:
                                 if isinstance(timestamp, str):
                                     try:
                                         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-                                        ts_ms = int(dt.timestamp() * 1000)
-                                        sess["timestamps"].append(ts_ms)
+                                        ts_ms_for_msg = int(dt.timestamp() * 1000)
+                                        sess["timestamps"].append(ts_ms_for_msg)
                                     except (ValueError, OSError):
                                         pass
                                 elif isinstance(timestamp, (int, float)):
-                                    sess["timestamps"].append(int(timestamp))
+                                    ts_ms_for_msg = int(timestamp)
+                                    sess["timestamps"].append(ts_ms_for_msg)
 
                             # User messages
                             if msg_type == "user":
                                 sess["message_count"] += 1
                                 sess["user_message_count"] += 1
+                                if ts_ms_for_msg is not None:
+                                    sess["user_timestamps"].append(ts_ms_for_msg)
 
                                 # Link Agent tool_result -> dispatch via tool_use_id + toolUseResult.agentId
                                 tur = obj.get("toolUseResult") if isinstance(obj.get("toolUseResult"), dict) else None
@@ -1333,7 +1337,7 @@ def parse_session_transcripts():
                                                 sess["limit_event_candidates"].append({
                                                     "type": "explicit",
                                                     "subtype": "rate_limit_error",
-                                                    "timestamp": timestamp or "",
+                                                    "timestamp": str(timestamp) if timestamp else "",
                                                     "session_id": session_id,
                                                     "confidence": "high",
                                                 })
@@ -2390,10 +2394,12 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     account = dc.get("oauthAccount", {})
 
     # ── Limit-Event-Detection (Task 3) ────────────────────────────────────
-    # Collect all user prompts globally for 5h-fingerprint heuristic.
+    # Collect USER prompts only (not assistant turns) for the 5h-fingerprint
+    # heuristic. Using mixed timestamps would allow assistant-only sequences
+    # to qualify as 'gaps' and inflate false positives.
     all_user_prompts_for_limits = []
     for sid, sess in sessions.items():
-        for ts_ms in sess.get("timestamps", []):
+        for ts_ms in sess.get("user_timestamps", []):
             try:
                 all_user_prompts_for_limits.append({
                     "timestamp": datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).isoformat(),
@@ -2403,12 +2409,13 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
                 continue
     fingerprint_events = _detect_5h_fingerprint_events(all_user_prompts_for_limits)
 
-    # Aggregate explicit events from all sessions.
+    # Aggregate explicit events from all sessions. Drop private fields.
     explicit_events = []
     for sid, sess in sessions.items():
         for ev in sess.get("limit_event_candidates", []):
             explicit_events.append(ev)
         sess.pop("limit_event_candidates", None)
+        sess.pop("user_timestamps", None)
 
     all_limit_events = explicit_events + fingerprint_events
     all_limit_events.sort(key=lambda e: e.get("timestamp", ""))

@@ -1683,9 +1683,14 @@ function renderLimitsEventTimeline() {
       const tooltip = (ev.type === 'explicit' ? T.explicit : T.heuristic) +
                       ' · ' + (ev.subtype || '') +
                       ' · ' + (ev.timestamp || ev.gap_end || '');
-      const href = ev.session_id ? ('sessions/' + ev.session_id + '.html') : '#';
-      return '<a class="' + cls + '" style="left:' + pct.toFixed(1) + '%" title="' +
-             tooltip.replace(/"/g, '&quot;') + '" href="' + href + '"></a>';
+      const titleAttr = tooltip.replace(/"/g, '&quot;');
+      const style = 'left:' + pct.toFixed(1) + '%';
+      if (ev.session_id) {
+        return '<a class="' + cls + '" style="' + style + '" title="' + titleAttr +
+               '" href="sessions/' + ev.session_id + '.html"></a>';
+      }
+      // No session linkage — render a non-interactive marker (span avoids page-jump scroll-to-top).
+      return '<span class="' + cls + '" style="' + style + '" title="' + titleAttr + '"></span>';
     }).join('');
     return (
       '<div class="lim-row">' +

@@ -172,3 +172,93 @@ def test_idle_gap_overspend_pct_of_session_total():
     ]
     s = _compute_idle_gap_summary(turns)
     assert s["estimated_overspend_pct_of_session"] == 82
+
+
+# ── Task 3: rate-limit error categorization ─────────────────────────
+
+from extract_stats import _categorize_error
+
+
+def test_categorize_rate_limit_error_string():
+    assert _categorize_error("rate_limit_error", "API") == "rate_limit"
+
+
+def test_categorize_429_status():
+    assert _categorize_error("HTTP 429 Too Many Requests", "API") == "rate_limit"
+
+
+def test_categorize_over_capacity():
+    assert _categorize_error("API is over capacity", "API") == "rate_limit"
+
+
+def test_categorize_usage_limit_reached():
+    assert _categorize_error("Usage limit reached. Reset at 17:00 UTC.", "API") == "rate_limit"
+
+
+def test_categorize_overloaded():
+    assert _categorize_error("Anthropic overloaded right now", "API") == "rate_limit"
+
+
+def test_categorize_non_rate_limit_unchanged():
+    # Existing category 'permission_denied' still works.
+    assert _categorize_error("Permission denied", "Bash") == "permission_denied"
+
+
+def test_categorize_other_unchanged():
+    assert _categorize_error("random unexpected text", "Unknown") == "other"
+
+
+# ── Task 3: 5h-fingerprint heuristic ────────────────────────────────
+
+from extract_stats import _detect_5h_fingerprint_events
+from datetime import datetime, timezone, timedelta
+
+
+def _prompt(ts_iso, session_id="s1"):
+    return {"timestamp": ts_iso, "session_id": session_id}
+
+
+def test_5h_fingerprint_clean_5h_gap_with_active_prefix_detected():
+    base = datetime(2026, 5, 15, 9, 0, tzinfo=timezone.utc)
+    prompts = [
+        _prompt((base + timedelta(minutes=-90)).isoformat()),
+        _prompt((base + timedelta(minutes=-30)).isoformat()),
+        _prompt(base.isoformat()),
+        _prompt((base + timedelta(hours=5, minutes=2)).isoformat(), "s2"),
+    ]
+    events = _detect_5h_fingerprint_events(prompts)
+    assert len(events) == 1
+    assert events[0]["confidence"] in ("high", "medium")
+    assert events[0]["session_id"] == "s2"
+
+
+def test_5h_fingerprint_isolated_gap_without_activity_rejected():
+    base = datetime(2026, 5, 15, 9, 0, tzinfo=timezone.utc)
+    prompts = [
+        _prompt(base.isoformat()),
+        _prompt((base + timedelta(hours=5, minutes=2)).isoformat()),
+    ]
+    events = _detect_5h_fingerprint_events(prompts)
+    assert events == []
+
+
+def test_5h_fingerprint_short_gap_ignored():
+    base = datetime(2026, 5, 15, 9, 0, tzinfo=timezone.utc)
+    prompts = [
+        _prompt((base + timedelta(minutes=-30)).isoformat()),
+        _prompt(base.isoformat()),
+        _prompt((base + timedelta(hours=4)).isoformat()),
+    ]
+    events = _detect_5h_fingerprint_events(prompts)
+    assert events == []
+
+
+def test_5h_fingerprint_long_gap_ignored():
+    base = datetime(2026, 5, 15, 9, 0, tzinfo=timezone.utc)
+    prompts = [
+        _prompt((base + timedelta(minutes=-30)).isoformat()),
+        _prompt(base.isoformat()),
+        _prompt((base + timedelta(hours=6)).isoformat()),
+    ]
+    events = _detect_5h_fingerprint_events(prompts)
+    assert events == []

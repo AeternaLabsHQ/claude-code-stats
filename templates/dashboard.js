@@ -729,6 +729,7 @@ const TAB_NAMES = [
   {id:'projects', label:D.locale.tabs.projects},
   {id:'sessions', label:D.locale.tabs.sessions},
   {id:'plan', label:D.locale.tabs.plan},
+  {id:'limits', label:(D.locale.tabs && D.locale.tabs.limits) || 'Limits'},
   {id:'insights', label:D.locale.tabs.insights},
   {id:'agents', label:D.locale.tabs.agents},
 ];
@@ -1644,6 +1645,74 @@ function renderPlan() {
   tbody.appendChild(trTotal);
 }
 
+// ── Tab: Limits (Tasks 3+4) ────────────────────────────────────────
+function renderLimits() {
+  renderLimitsEventTimeline();
+  renderPlanRecommendation();
+}
+
+function renderLimitsEventTimeline() {
+  const el = document.getElementById('limitsEventTimeline');
+  if (!el) return;
+  const cycles = (D.plan && D.plan.periods) || [];
+  if (!cycles.length) {
+    el.innerHTML = '<p class="vc-empty">Keine Plan-Cycles vorhanden.</p>';
+    return;
+  }
+
+  const L = (D.locale && D.locale.limits) || {};
+  const T = {
+    title:     L.eventsTitle || 'Limit Events',
+    events:    L.events      || 'events',
+    explicit:  L.explicit    || 'Explicit rate-limit error',
+    heuristic: L.heuristic   || '5h-Fingerprint (Heuristik)',
+    click:     L.click       || 'Klick auf Event → Session öffnen (wenn verfügbar)',
+  };
+
+  const rows = cycles.map(cy => {
+    const events = cy.limit_events || [];
+    const cyStart = new Date(cy.start);
+    const cyEnd = new Date(cy.end);
+    const cyDurMs = Math.max(1, cyEnd - cyStart);
+    const markers = events.map(ev => {
+      const ts = new Date(ev.timestamp || ev.gap_end || cy.start);
+      const pct = Math.max(0, Math.min(100, 100 * (ts - cyStart) / cyDurMs));
+      const cls = ev.type === 'explicit'
+        ? 'evt evt-explicit'
+        : (ev.confidence === 'high' ? 'evt evt-heuristic-high' : 'evt evt-heuristic-med');
+      const tooltip = (ev.type === 'explicit' ? T.explicit : T.heuristic) +
+                      ' · ' + (ev.subtype || '') +
+                      ' · ' + (ev.timestamp || ev.gap_end || '');
+      const href = ev.session_id ? ('sessions/' + ev.session_id + '.html') : '#';
+      return '<a class="' + cls + '" style="left:' + pct.toFixed(1) + '%" title="' +
+             tooltip.replace(/"/g, '&quot;') + '" href="' + href + '"></a>';
+    }).join('');
+    return (
+      '<div class="lim-row">' +
+        '<div class="lim-lbl">' + (cy.plan || '') + ' · ' + (cy.start || '').slice(0, 7) + '</div>' +
+        '<div class="lim-bar">' + markers + '</div>' +
+        '<div class="lim-cnt">' + events.length + ' ' + T.events + '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  el.innerHTML =
+    '<h3>' + T.title + '</h3>' +
+    '<div class="lim-rows">' + rows + '</div>' +
+    '<div class="lim-legend">' +
+      '<span class="evt evt-explicit"></span> ' + T.explicit + ' &nbsp; ' +
+      '<span class="evt evt-heuristic-high"></span> ' + T.heuristic +
+    '</div>' +
+    '<div class="lim-tip">' + T.click + '</div>';
+}
+
+function renderPlanRecommendation() {
+  // Task 4 will implement. Stub for now so renderLimits() doesn't crash.
+  const el = document.getElementById('limitsPlanRec');
+  if (!el) return;
+  el.innerHTML = '';
+}
+
 // ── Tab 6: Insights ───────────────────────────────────────────────────
 function renderInsights() {
   const ins = D.insights;
@@ -2041,6 +2110,7 @@ document.getElementById('bulkDownloadBtn').addEventListener('click', bulkDownloa
 document.getElementById('exportXlsxBtn').addEventListener('click', () => sessionTable && sessionTable.exportXlsx());
 document.getElementById('exportCsvBtn').addEventListener('click', () => sessionTable && sessionTable.exportCsv());
 renderPlan();
+renderLimits();
 renderInsights();
 renderAgentsTab();
 

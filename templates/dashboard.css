@@ -1092,3 +1092,18 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .vc-idle-aggregate { padding: 8px 12px; margin-top: 4px; margin-bottom: 16px; border: 1px solid var(--vc-border, #333); background: var(--vc-bg2, #1a1a1a); font-family: monospace; font-size: 13px; }
 .vc-idle-aggregate .vc-k { color: var(--vc-text2, #999); }
 .vc-idle-aggregate .vc-v { color: var(--vc-text, #ddd); }
+.vc-limits-section { margin: 20px 0; }
+.vc-limits-section h3 { margin-bottom: 12px; }
+.lim-rows { display: flex; flex-direction: column; gap: 4px; }
+.lim-row { display: grid; grid-template-columns: 180px 1fr 90px; align-items: center; gap: 12px; font-size: 13px; }
+.lim-lbl { color: var(--vc-text2, #999); font-family: monospace; }
+.lim-bar { position: relative; height: 16px; background: var(--vc-bg2, #1a1a1a); border-radius: 3px; }
+.lim-cnt { color: var(--vc-text2, #999); text-align: right; font-family: monospace; }
+.lim-bar .evt { position: absolute; top: 2px; width: 8px; height: 12px; border-radius: 2px; transform: translateX(-50%); cursor: pointer; text-decoration: none; }
+.evt-explicit { background: var(--vc-accent-red, #ef4444); }
+.evt-heuristic-high { background: var(--vc-accent, #a78bfa); }
+.evt-heuristic-med { background: var(--vc-accent, #a78bfa); opacity: 0.55; }
+.lim-legend { margin-top: 12px; font-size: 12px; color: var(--vc-text2, #999); }
+.lim-legend .evt { position: relative; display: inline-block; width: 10px; height: 10px; vertical-align: middle; transform: none; margin-right: 4px; }
+.lim-tip { margin-top: 6px; font-size: 12px; color: var(--vc-text2, #999); }
+.vc-empty { color: var(--vc-text2, #999); font-style: italic; }

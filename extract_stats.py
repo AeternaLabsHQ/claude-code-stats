@@ -891,6 +891,13 @@ def load_tasks():
 def _categorize_error(msg: str, tool_name: str) -> str:
     """Categorize an error message into a human-readable category."""
     msg_lower = msg.lower()
+    if ("rate_limit_error" in msg_lower
+            or "429" in msg_lower
+            or "over capacity" in msg_lower
+            or "overloaded" in msg_lower
+            or "usage limit reached" in msg_lower
+            or "limit reached" in msg_lower):
+        return "rate_limit"
     if "rejected" in msg_lower or "doesn't want to proceed" in msg_lower:
         return "rejected"
     if "does not exist" in msg_lower or "not found" in msg_lower or "no such file" in msg_lower:
@@ -1021,6 +1028,76 @@ def _compute_idle_gap_summary(turns: list[dict]) -> dict | None:
         "estimated_overspend_pct_of_session": overspend_pct,
         "baseline_per_turn_tokens": baseline,
     }
+
+
+# 5h-fingerprint heuristic for Anthropic plan-tier rate limits.
+LIMIT_5H_GAP_MIN_SEC = 4 * 3600 + 45 * 60   # 4h45m
+LIMIT_5H_GAP_MAX_SEC = 5 * 3600 + 30 * 60   # 5h30m
+LIMIT_5H_RESET_TOLERANCE_SEC = 15 * 60      # ±15 min around the 5h anchor
+LIMIT_5H_ACTIVE_WINDOW_SEC = 2 * 3600       # active-prefix lookback
+LIMIT_5H_DAY_START_HOUR = 7                 # local time
+LIMIT_5H_DAY_END_HOUR = 22                  # local time
+
+
+def _detect_5h_fingerprint_events(prompts: list[dict]) -> list[dict]:
+    """Detect 5h-rate-limit fingerprints in a chronological list of user prompts.
+
+    prompts: [{"timestamp": ISO8601 str, "session_id": str}, ...]
+    Returns events sorted by timestamp.
+    """
+    if len(prompts) < 2:
+        return []
+
+    parsed: list[tuple[datetime, str]] = []
+    for p in prompts:
+        ts = p.get("timestamp")
+        if not ts:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            parsed.append((dt, p.get("session_id", "")))
+        except (ValueError, TypeError):
+            continue
+    parsed.sort(key=lambda x: x[0])
+
+    events = []
+    for i in range(1, len(parsed)):
+        t_a, _ = parsed[i - 1]
+        t_b, sid_b = parsed[i]
+        gap_sec = (t_b - t_a).total_seconds()
+        if not (LIMIT_5H_GAP_MIN_SEC <= gap_sec <= LIMIT_5H_GAP_MAX_SEC):
+            continue
+
+        active_prefix = any(
+            t_a - timedelta(seconds=LIMIT_5H_ACTIVE_WINDOW_SEC) <= parsed[j][0] < t_a
+            for j in range(i - 1)
+        )
+
+        t_a_local = t_a.astimezone()
+        t_b_local = t_b.astimezone()
+        in_day = (LIMIT_5H_DAY_START_HOUR <= t_a_local.hour <= LIMIT_5H_DAY_END_HOUR
+                  and LIMIT_5H_DAY_START_HOUR <= t_b_local.hour <= LIMIT_5H_DAY_END_HOUR)
+
+        anchor = t_a + timedelta(hours=5)
+        aligned = abs((t_b - anchor).total_seconds()) <= LIMIT_5H_RESET_TOLERANCE_SEC
+
+        if not active_prefix:
+            continue
+
+        confidence = "high" if (in_day and aligned) else "medium"
+        events.append({
+            "type": "heuristic",
+            "subtype": "5h_fingerprint",
+            "timestamp": t_b.isoformat(),
+            "gap_start": t_a.isoformat(),
+            "gap_end": t_b.isoformat(),
+            "session_id": sid_b,
+            "confidence": confidence,
+        })
+
+    return events
 
 
 def parse_session_transcripts():
@@ -1181,6 +1258,7 @@ def parse_session_transcripts():
                                     "agent_description": "",
                                     "error_count": 0,
                                     "errors": [],
+                                    "limit_event_candidates": [],
                                     "file_ops": [],
                                     "git_ops": [],
                                 }
@@ -1251,6 +1329,14 @@ def parse_session_transcripts():
                                                 "tool_use_id": tid,
                                                 "timestamp": timestamp or "",
                                             })
+                                            if category == "rate_limit":
+                                                sess["limit_event_candidates"].append({
+                                                    "type": "explicit",
+                                                    "subtype": "rate_limit_error",
+                                                    "timestamp": timestamp or "",
+                                                    "session_id": session_id,
+                                                    "confidence": "high",
+                                                })
 
                                 if not sess["first_prompt"]:
                                     message = obj.get("message", {})
@@ -1281,6 +1367,19 @@ def parse_session_transcripts():
                                 message = obj.get("message", {})
                                 model = message.get("model", "unknown")
                                 usage = message.get("usage", {})
+
+                                # Top-level error field on assistant messages (rate-limit etc.)
+                                err = message.get("error") or obj.get("error")
+                                if isinstance(err, dict):
+                                    err_msg = str(err.get("message", "")) + " " + str(err.get("type", ""))
+                                    if _categorize_error(err_msg, "API") == "rate_limit":
+                                        sess["limit_event_candidates"].append({
+                                            "type": "explicit",
+                                            "subtype": err.get("type", "rate_limit_error"),
+                                            "timestamp": timestamp or "",
+                                            "session_id": session_id,
+                                            "confidence": "high",
+                                        })
 
                                 if usage and usage.get("output_tokens", 0) > 0:
                                     m = sess["models"][model]
@@ -1691,13 +1790,14 @@ def _expand_billing_cycles(ph, start_str, end_str):
     return cycles
 
 
-def build_plan_analysis(daily_cost_series, session_list, first_session=None):
+def build_plan_analysis(daily_cost_series, session_list, first_session=None, all_limit_events=None):
     """Analyze cost savings per plan period and current billing cycle.
 
     If first_session is given, billing cycles that end strictly before that date
     are excluded from the periods list (and totals) - they represent paid time
     with no tracked Claude usage.
     """
+    all_limit_events = all_limit_events or []
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     periods = []
@@ -1769,6 +1869,13 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None):
                 period_entry["api_cost_local"] = round(api_cost * fx, 2)
                 period_entry["savings_local"] = round(savings * fx, 2)
                 period_entry["cost_per_day_local"] = round(cost_per_day * fx, 2)
+
+            cycle_events = [
+                e for e in all_limit_events
+                if cycle_start <= ((e.get("timestamp") or "")[:10]) <= cycle_end
+            ]
+            period_entry["limit_events"] = cycle_events
+            period_entry["limit_event_count"] = len(cycle_events)
             periods.append(period_entry)
 
     # Current billing period (from last billing day to now)
@@ -2282,9 +2389,33 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     dc = dot_claude
     account = dc.get("oauthAccount", {})
 
+    # ── Limit-Event-Detection (Task 3) ────────────────────────────────────
+    # Collect all user prompts globally for 5h-fingerprint heuristic.
+    all_user_prompts_for_limits = []
+    for sid, sess in sessions.items():
+        for ts_ms in sess.get("timestamps", []):
+            try:
+                all_user_prompts_for_limits.append({
+                    "timestamp": datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).isoformat(),
+                    "session_id": sid,
+                })
+            except (OSError, ValueError):
+                continue
+    fingerprint_events = _detect_5h_fingerprint_events(all_user_prompts_for_limits)
+
+    # Aggregate explicit events from all sessions.
+    explicit_events = []
+    for sid, sess in sessions.items():
+        for ev in sess.get("limit_event_candidates", []):
+            explicit_events.append(ev)
+        sess.pop("limit_event_candidates", None)
+
+    all_limit_events = explicit_events + fingerprint_events
+    all_limit_events.sort(key=lambda e: e.get("timestamp", ""))
+
     # ── Plan-Analyse ───────────────────────────────────────────────────────
     first_session_date = all_dates[0] if all_dates else None
-    plan_analysis = build_plan_analysis(daily_cost_series, session_list, first_session=first_session_date)
+    plan_analysis = build_plan_analysis(daily_cost_series, session_list, first_session=first_session_date, all_limit_events=all_limit_events)
 
     # ── Actual plan cost for KPI ─────────────────────────────────────────
     actual_plan_cost = plan_analysis.get("total_plan_cost", 0)
@@ -2358,6 +2489,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         },
         "_memories": memories or {},
         "_file_ops_by_session": {sid: sess.get("file_ops", []) for sid, sess in sessions.items()},
+        "limit_events_all": all_limit_events,
     }
 
     return data

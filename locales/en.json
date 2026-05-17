@@ -30,6 +30,7 @@
     "projects": "Projects",
     "sessions": "Sessions",
     "plan": "Plan & Billing",
+    "limits": "Limits",
     "insights": "Insights",
     "agents": "Agents"
   },
@@ -227,5 +228,13 @@
     "tip": "Don't leave sessions open during longer breaks.",
     "dashTitle": "Idle-gap overhead (full range)",
     "sessions": "sessions"
+  },
+  "limits": {
+    "tabLabel": "Limits",
+    "eventsTitle": "Limit Events",
+    "events": "events",
+    "explicit": "Explicit rate-limit error",
+    "heuristic": "5h-fingerprint (heuristic)",
+    "click": "Click event → open session (if available)"
   }
 }

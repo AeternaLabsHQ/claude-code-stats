@@ -1108,7 +1108,7 @@ def parse_session_transcripts():
                                     "compactions": 0,
                                     "compaction_events": [],
                                     "cache_flush_count": 0,
-                                    "_assistant_turns": [],  # private: (ts_ms, cache_creation, cache_read) per turn — dropped before serialization
+                                    "_assistant_turns": [],  # private: {"ts","cache_creation","cache_read","model"} dicts per assistant turn — dropped before serialization
                                     "message_count": 0,
                                     "user_message_count": 0,
                                     "assistant_message_count": 0,
@@ -1256,6 +1256,7 @@ def parse_session_transcripts():
                                             "ts": turn_ts_ms,
                                             "cache_creation": usage.get("cache_creation_input_tokens", 0),
                                             "cache_read": usage.get("cache_read_input_tokens", 0),
+                                            "model": model,
                                         })
 
                                     turn_output = usage.get("output_tokens", 0)

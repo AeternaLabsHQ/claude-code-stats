@@ -235,7 +235,8 @@
     "events": "Events",
     "explicit": "Expliziter Rate-Limit-Error",
     "heuristic": "5h-Fingerprint (Heuristik)",
-    "click": "Klick auf Event \u2192 Session \u00f6ffnen (wenn verf\u00fcgbar)"
+    "click": "Klick auf Event \u2192 Session \u00f6ffnen (wenn verf\u00fcgbar)",
+    "noCycles": "Keine Plan-Cycles vorhanden."
   },
   "planRec": {
     "title": "Plan-Empfehlung",

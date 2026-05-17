@@ -235,7 +235,8 @@
     "events": "events",
     "explicit": "Explicit rate-limit error",
     "heuristic": "5h-fingerprint (heuristic)",
-    "click": "Click event → open session (if available)"
+    "click": "Click event → open session (if available)",
+    "noCycles": "No billing cycles found."
   },
   "planRec": {
     "title": "Plan Recommendation",

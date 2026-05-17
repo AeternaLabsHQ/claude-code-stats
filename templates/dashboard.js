@@ -1654,20 +1654,20 @@ function renderLimits() {
 function renderLimitsEventTimeline() {
   const el = document.getElementById('limitsEventTimeline');
   if (!el) return;
-  const cycles = (D.plan && D.plan.periods) || [];
-  if (!cycles.length) {
-    el.innerHTML = '<p class="vc-empty">Keine Plan-Cycles vorhanden.</p>';
-    return;
-  }
-
   const L = (D.locale && D.locale.limits) || {};
   const T = {
     title:     L.eventsTitle || 'Limit Events',
     events:    L.events      || 'events',
     explicit:  L.explicit    || 'Explicit rate-limit error',
-    heuristic: L.heuristic   || '5h-Fingerprint (Heuristik)',
-    click:     L.click       || 'Klick auf Event → Session öffnen (wenn verfügbar)',
+    heuristic: L.heuristic   || '5h-fingerprint (heuristic)',
+    click:     L.click       || 'Click an event to open the session (when available)',
+    noCycles:  L.noCycles    || 'No billing cycles found.',
   };
+  const cycles = (D.plan && D.plan.periods) || [];
+  if (!cycles.length) {
+    el.innerHTML = '<p class="vc-empty">' + T.noCycles + '</p>';
+    return;
+  }
 
   const rows = cycles.map(cy => {
     const events = cy.limit_events || [];

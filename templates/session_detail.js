@@ -173,16 +173,28 @@ document.querySelectorAll('.agent-toggle').forEach(el => {
 document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
 
 // If the URL points at a specific event marker (#evt-<slug>), scroll it
-// into view and briefly flash it so the visitor lands at the right spot.
+// into view and briefly flash it. The chat-panel is its own scroll
+// container (overflow-y: auto), so we need to wait for hljs syntax
+// highlighting and chart canvases to settle — otherwise the target's
+// offsetTop is stale by the time scrollIntoView fires and the panel
+// ends up scrolled past the marker. Smooth-scroll amplifies the drift,
+// so use instant. Re-scroll once more 250ms after load to absorb late
+// reflows from canvas/font/chart initialization.
 if (location.hash && location.hash.startsWith('#evt-')) {
-  const target = document.getElementById(location.hash.slice(1));
-  if (target) {
-    requestAnimationFrame(() => {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.classList.add('marker-flash');
-      setTimeout(() => target.classList.remove('marker-flash'), 1800);
-    });
-  }
+  const scrollToMarker = () => {
+    const target = document.getElementById(location.hash.slice(1));
+    if (target) target.scrollIntoView({ behavior: 'instant', block: 'center' });
+    return target;
+  };
+  const flash = (el) => {
+    if (!el) return;
+    el.classList.add('marker-flash');
+    setTimeout(() => el.classList.remove('marker-flash'), 1800);
+  };
+  window.addEventListener('load', () => {
+    const t = scrollToMarker();
+    setTimeout(() => { scrollToMarker(); flash(t); }, 250);
+  });
 }
 
 // Role filter

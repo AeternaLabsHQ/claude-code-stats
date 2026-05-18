@@ -740,7 +740,7 @@ function initTabs() {
     const btn = document.createElement('button');
     btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
     btn.textContent = t.label;
-    btn.addEventListener('click', () => switchTab(t.id, btn));
+    btn.addEventListener('click', () => activateTabByName(t.id, true));
     bar.appendChild(btn);
   });
 }
@@ -750,6 +750,38 @@ function switchTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
+}
+
+// Central tab activator + hash router. Activates the named tab across
+// both UIs (legacy .tab-btn + Variant-C .vc-tab) and keeps location.hash
+// in sync so deep links (#limits) and F5 reload preserve the visible tab.
+function activateTabByName(name, updateHash) {
+  const tab = TAB_NAMES.find(t => t.id === name);
+  if (!tab) return false;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.vc-tab').forEach(b => b.classList.remove('active'));
+  const legacy = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.textContent === tab.label);
+  if (legacy) legacy.classList.add('active');
+  const target = document.getElementById('tab-' + name);
+  if (target) target.classList.add('active');
+  const vc = document.querySelector('.vc-tab[data-tab="' + name + '"]');
+  if (vc) vc.classList.add('active');
+  if (updateHash) {
+    const newHash = '#' + name;
+    if (location.hash !== newHash) {
+      // replaceState so tab clicks don't pollute browser history with
+      // back-stack entries for every navigation flick.
+      history.replaceState(null, '', newHash);
+    }
+  }
+  return true;
+}
+
+function tabFromHash() {
+  const h = (location.hash || '').slice(1).split('?')[0];
+  if (!h) return null;
+  return TAB_NAMES.find(t => t.id === h) ? h : null;
 }
 
 // ── Idle-gap aggregate card (Task 2) ────────────────────────────────────
@@ -2328,21 +2360,18 @@ document.addEventListener('keydown', function(e) {
     btn.className = 'vc-tab' + (i === 0 ? ' active' : '');
     btn.textContent = (t.label || '').toUpperCase();
     btn.dataset.tab = t.id;
-    btn.addEventListener('click', () => {
-      tabsEl.querySelectorAll('.vc-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      // Drive legacy switchTab via the corresponding hidden tab-btn (simpler than calling switchTab(id, btn) which expects the legacy btn)
-      const legacy = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.textContent === t.label);
-      if (legacy) {
-        switchTab(t.id, legacy);
-      } else {
-        // Fallback: directly toggle tab-content
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        const target = document.getElementById('tab-' + t.id);
-        if (target) target.classList.add('active');
-      }
-    });
+    btn.addEventListener('click', () => activateTabByName(t.id, true));
     tabsEl.appendChild(btn);
+  });
+
+  // Hash router: on page load, switch to the tab from #limits / #plan etc.
+  // F5 preserves the visible tab because the URL still carries the hash.
+  // hashchange handles back/forward and external hash edits.
+  const initial = tabFromHash();
+  if (initial) activateTabByName(initial, false);
+  window.addEventListener('hashchange', () => {
+    const t = tabFromHash();
+    if (t) activateTabByName(t, false);
   });
 
   // Range buttons

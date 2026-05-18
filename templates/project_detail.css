@@ -184,16 +184,25 @@ html.theme-light body.vc-page {
   color: var(--vc-fg) !important;
   border-bottom-color: var(--vc-accent) !important;
 }
-.vc .info-grid { gap: 0 !important; border: 1px solid var(--vc-grid); }
+.vc .info-grid { gap: 0 !important; border: 1px solid var(--vc-grid); margin-bottom: 16px !important; }
 .vc .info-grid > * {
   background: var(--vc-panel);
-  border-right: 1px solid var(--vc-grid);
-  border-bottom: 1px solid var(--vc-grid);
+  /* Reset legacy .info-card border + radius so the wrapper's outer border
+     does not stack with each cell's border (read as thicker than other panels
+     on the page). Mirrors the .vc .kpi-card pattern. */
+  border: none !important;
+  border-right: 1px solid var(--vc-grid) !important;
+  border-bottom: 1px solid var(--vc-grid) !important;
   padding: 14px 18px;
   font-family: var(--vc-font-mono);
   font-size: var(--vc-fs-sm);
   color: var(--vc-fg);
 }
+/* Drop the right edge on the last column and the bottom edge on the last
+   row so the inner grid lines stop where the wrapper's outer border takes
+   over — no duplicated edge. */
+.vc .info-grid > *:nth-child(3n) { border-right: none !important; }
+.vc .info-grid > *:nth-last-child(-n+3) { border-bottom: none !important; }
 .vc .memory-content { color: var(--vc-fg-2) !important; font-family: var(--vc-font-sans); font-size: var(--vc-fs-sm); }
 
 /* Variant-C top bar (mini) for detail pages. Width matches .container

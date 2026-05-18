@@ -1797,7 +1797,7 @@ function renderPlanRecommendation() {
     : T.rec + ': ' + T.none;
 
   el.innerHTML =
-    '<h3>' + T.title + '</h3>' +
+    '<h3>' + T.title + ' <span class="vc-tag acc">beta</span></h3>' +
     renderTable(T.fiveHHits,  (c) => c.tier_5h_hits || {},     'tier_total_5h_hits') +
     renderTable(T.weeklyHits, (c) => c.tier_weekly_hits || {}, 'tier_total_weekly_hits') +
     '<div class="plan-rec-summary">' +

@@ -217,16 +217,18 @@
       <div class="vc-tab-h-rule"></div>
       <div class="vc-tab-h-meta" id="vcSessionsMeta"></div>
     </div>
-    <div class="session-filters">
-      <select id="filterProject"><option value="">__L_sessions_tab_all_projects__</option></select>
-      <select id="filterSource"><option value="">All Sources</option></select>
-      <input type="text" id="filterSearch" placeholder="__L_sessions_tab_search_placeholder__">
-      <button id="exportXlsxBtn" class="bulk-download-btn" style="margin-left:auto" title="Export all currently filtered sessions as XLSX (Excel)">&#11015; XLSX</button>
-      <button id="exportCsvBtn" class="bulk-download-btn" title="Export all currently filtered sessions as CSV">&#11015; CSV</button>
-      <button id="bulkDownloadBtn" class="bulk-download-btn" title="Download all currently filtered sessions as a ZIP of Markdown files">&#11015; Download all (0)</button>
+    <div class="chart-box sessions-box">
+      <div class="session-filters">
+        <select id="filterProject"><option value="">__L_sessions_tab_all_projects__</option></select>
+        <select id="filterSource"><option value="">All Sources</option></select>
+        <input type="text" id="filterSearch" placeholder="__L_sessions_tab_search_placeholder__">
+        <button id="exportXlsxBtn" class="bulk-download-btn" style="margin-left:auto" title="Export all currently filtered sessions as XLSX (Excel)">&#11015; XLSX</button>
+        <button id="exportCsvBtn" class="bulk-download-btn" title="Export all currently filtered sessions as CSV">&#11015; CSV</button>
+        <button id="bulkDownloadBtn" class="bulk-download-btn" title="Download all currently filtered sessions as a ZIP of Markdown files">&#11015; Download all (0)</button>
+      </div>
+      <div id="sessionFiltersMount"></div>
+      <div id="sessionTableMount"></div>
     </div>
-    <div id="sessionFiltersMount"></div>
-    <div id="sessionTableMount"></div>
   </div>
 
   <div class="tab-content" id="tab-plan">
@@ -265,10 +267,10 @@
       <div class="vc-tab-h-rule"></div>
       <div class="vc-tab-h-meta" id="vcLimitsMeta"></div>
     </div>
-    <div id="limitsEventTimeline" class="vc-limits-section">
+    <div id="limitsEventTimeline" class="vc-limits-section chart-box">
       <!-- populated by renderLimits() -->
     </div>
-    <div id="limitsPlanRec" class="vc-limits-section">
+    <div id="limitsPlanRec" class="vc-limits-section chart-box">
       <!-- populated by renderPlanRecommendation() — Task 4 -->
     </div>
   </div>

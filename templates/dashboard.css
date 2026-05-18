@@ -1097,7 +1097,7 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .lim-rows { display: flex; flex-direction: column; gap: 4px; }
 .lim-row { display: grid; grid-template-columns: 180px 1fr 90px; align-items: center; gap: 12px; font-size: 13px; }
 .lim-lbl { color: var(--text2); font-family: monospace; }
-.lim-bar { position: relative; height: 16px; background: var(--bg2); border-radius: 3px; }
+.lim-bar { position: relative; height: 16px; background: var(--bg3); border-radius: 3px; }
 .lim-cnt { color: var(--text2); text-align: right; font-family: monospace; }
 .lim-bar .evt { position: absolute; top: 2px; width: 8px; height: 12px; border-radius: 2px; transform: translateX(-50%); cursor: pointer; text-decoration: none; }
 .evt-explicit { background: var(--red); }

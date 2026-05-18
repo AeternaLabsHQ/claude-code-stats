@@ -196,7 +196,8 @@ html.theme-light body.vc-page {
 }
 .vc .memory-content { color: var(--vc-fg-2) !important; font-family: var(--vc-font-sans); font-size: var(--vc-fs-sm); }
 
-/* Variant-C top bar (mini) for detail pages */
+/* Variant-C top bar (mini) for detail pages. Width matches .container
+   below so the page reads as one centered column on wide monitors. */
 .vc-top {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -208,6 +209,8 @@ html.theme-light body.vc-page {
   font-family: var(--vc-font-mono);
   font-size: var(--vc-fs-xs);
   color: var(--vc-fg);
+  max-width: 1400px;
+  margin: 0 auto;
 }
 .vc-top-left { display: flex; align-items: center; gap: 10px; }
 .vc-brand-mark { display: inline-block; width: 8px; height: 8px; background: var(--vc-accent); }
@@ -249,7 +252,7 @@ html.theme-light body.vc-page {
 body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,-apple-system,sans-serif; font-size:14px; }
 a { color:var(--accent2); text-decoration:none; }
 a:hover { text-decoration:underline; }
-.header { background:var(--bg2); border-bottom:1px solid var(--border); padding:16px 24px; }
+.header { background:var(--bg2); border-bottom:1px solid var(--border); padding:16px 24px; max-width:1400px; margin:0 auto; }
 .header-top { display:flex; align-items:center; gap:16px; margin-bottom:4px; }
 .header h1 { font-size:20px; font-weight:600; }
 .container { max-width:1400px; margin:0 auto; padding:20px; }

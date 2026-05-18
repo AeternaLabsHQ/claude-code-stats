@@ -297,6 +297,10 @@ body.flow-hidden .left-column { max-height: calc(100vh - 180px); }
 .marker { padding:6px 16px; margin-bottom:8px; font-size:11px; border-radius:6px; display:flex; align-items:center; gap:8px; }
 .marker.hook { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:var(--amber); }
 .marker.compaction { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--red); }
+.marker.rate-limit { background:rgba(239,68,68,0.16); border:1px solid var(--red); color:var(--red); font-weight:500; font-size:12px; padding:8px 16px; }
+.marker.rate-limit strong { font-weight:600; }
+@keyframes marker-flash-kf { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } 30% { box-shadow: 0 0 0 4px rgba(239,68,68,0.45); } }
+.marker-flash { animation: marker-flash-kf 1.8s ease-out 1; }
 .marker.agent-dispatch { background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); color:var(--accent2); cursor:pointer; flex-wrap:wrap; }
 .marker.agent-dispatch .agent-prompt { display:none; width:100%; margin-top:8px; padding:8px 12px; background:var(--bg); border-radius:6px; font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-word; color:var(--text); max-height:400px; overflow-y:auto; }
 .marker.agent-dispatch.expanded .agent-prompt { display:block; }

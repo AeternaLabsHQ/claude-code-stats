@@ -109,12 +109,19 @@ function renderMd(text) {
 
 // Chat panel
 const chatEl = document.getElementById('chatPanel');
+// Slug helper: timestamp -> URL-fragment-safe id, must match the form used
+// by the Limits-tab event-link in dashboard.js.
+function evtId(ts) { return 'evt-' + String(ts || '').replace(/[^a-zA-Z0-9]/g, '-'); }
 let chatHtml = '';
 msgs.forEach((m,i) => {
   if (m.role==='hook') {
     chatHtml += '<div class="marker hook" id="marker-'+i+'"><span>&#9881;</span> Hook: '+escHtml(m.hook_name)+' <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='compaction') {
     chatHtml += '<div class="marker compaction" id="marker-'+i+'"><span>&#9889;</span> Context Compaction <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+  } else if (m.role==='rate_limit') {
+    chatHtml += '<div class="marker rate-limit" id="'+evtId(m.timestamp)+'">' +
+      '<span>&#9888;</span> Rate-Limit-Event: <strong>'+escHtml(m.content)+'</strong>' +
+      '<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else {
     // Check for Agent dispatches in tools
     const agentTools = (m.tools || []).filter(t => t.name === 'Agent');
@@ -164,6 +171,19 @@ document.querySelectorAll('.agent-toggle').forEach(el => {
 
 // Syntax highlighting
 document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+
+// If the URL points at a specific event marker (#evt-<slug>), scroll it
+// into view and briefly flash it so the visitor lands at the right spot.
+if (location.hash && location.hash.startsWith('#evt-')) {
+  const target = document.getElementById(location.hash.slice(1));
+  if (target) {
+    requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('marker-flash');
+      setTimeout(() => target.classList.remove('marker-flash'), 1800);
+    });
+  }
+}
 
 // Role filter
 let activeFilter = 'all';

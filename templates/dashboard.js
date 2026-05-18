@@ -1686,8 +1686,13 @@ function renderLimitsEventTimeline() {
       const titleAttr = tooltip.replace(/"/g, '&quot;');
       const style = 'left:' + pct.toFixed(1) + '%';
       if (ev.session_id) {
+        // Anchor to the in-chat rate-limit marker (only meaningful for
+        // explicit events). Slug form must match evtId() in session_detail.js.
+        const frag = (ev.type === 'explicit' && ev.timestamp)
+          ? '#evt-' + String(ev.timestamp).replace(/[^a-zA-Z0-9]/g, '-')
+          : '';
         return '<a class="' + cls + '" style="' + style + '" title="' + titleAttr +
-               '" href="sessions/' + ev.session_id + '.html"></a>';
+               '" href="sessions/' + ev.session_id + '.html' + frag + '"></a>';
       }
       // No session linkage — render a non-interactive marker (span avoids page-jump scroll-to-top).
       return '<span class="' + cls + '" style="' + style + '" title="' + titleAttr + '"></span>';

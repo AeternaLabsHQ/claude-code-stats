@@ -176,7 +176,7 @@ def test_idle_gap_overspend_pct_of_session_total():
 
 # ── Task 3: rate-limit error categorization ─────────────────────────
 
-from extract_stats import _categorize_error
+from extract_stats import _categorize_error, _is_user_plan_limit_text
 
 
 def test_categorize_rate_limit_error_string():
@@ -217,6 +217,47 @@ def test_categorize_non_rate_limit_unchanged():
 
 def test_categorize_other_unchanged():
     assert _categorize_error("random unexpected text", "Unknown") == "other"
+
+
+# ── User-plan-limit text detection (isApiErrorMessage path) ────────
+
+def test_user_plan_limit_text_matches_session_cap():
+    # Claude Code's 5h-session limit banner.
+    assert _is_user_plan_limit_text("You've hit your limit · resets 6pm (Europe/Berlin)")
+    assert _is_user_plan_limit_text("You've hit your limit · resets 6:30pm (Europe/Berlin)")
+
+
+def test_user_plan_limit_text_matches_monthly_cap():
+    assert _is_user_plan_limit_text("You've hit your org's monthly usage limit")
+
+
+def test_user_plan_limit_text_matches_api_phrases():
+    assert _is_user_plan_limit_text("API Error: Rate limit reached")
+
+
+def test_user_plan_limit_text_rejects_sibling_api_errors():
+    # These ALL come through isApiErrorMessage too but are NOT plan limits.
+    assert not _is_user_plan_limit_text(
+        'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}'
+    )
+    assert not _is_user_plan_limit_text(
+        'Please run /login · API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"Invalid authentication credentials"}}'
+    )
+    assert not _is_user_plan_limit_text(
+        'API Error: 500 Internal server error. This is a server-side issue, usually temporary.'
+    )
+    assert not _is_user_plan_limit_text("API Error: Stream idle timeout - partial response received")
+    assert not _is_user_plan_limit_text(
+        'API Error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Could not process image"}}'
+    )
+
+
+def test_user_plan_limit_text_rejects_incidental_text():
+    # Function is only fed isApiErrorMessage text, but sanity-check that
+    # nearby phrases that share words don't pattern-match accidentally.
+    assert not _is_user_plan_limit_text("Subtest: throws on 429 rate limit · ok 4")
+    assert not _is_user_plan_limit_text("")
+    assert not _is_user_plan_limit_text("Prompt is too long")  # context overflow != plan limit
 
 
 # ── Task 3: 5h-fingerprint heuristic ────────────────────────────────

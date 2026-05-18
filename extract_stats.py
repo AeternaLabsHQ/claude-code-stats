@@ -969,6 +969,27 @@ def load_tasks():
     }
 
 
+# Empirically derived from real Claude Code JSONLs: only these phrases
+# uniquely indicate a USER-plan rate-limit hit (vs auth, server overload,
+# network, invalid request). Used by the isApiErrorMessage-driven
+# limit-event detection — see _is_user_plan_limit_text().
+_USER_PLAN_LIMIT_SIGNALS = (
+    "you've hit your limit",         # Claude Code 5h-session cap banner
+    "hit your org's monthly usage",  # Weekly/monthly org cap
+    "usage limit reached",
+    "plan limit reached",
+    "rate limit reached",            # "API Error: Rate limit reached"
+)
+
+
+def _is_user_plan_limit_text(text: str) -> bool:
+    """True iff an API-error message clearly indicates a user / plan
+    rate-limit. Distinguishes from auth / server-overload / network errors
+    that Claude Code also reports via isApiErrorMessage."""
+    t = (text or "").lower()
+    return any(needle in t for needle in _USER_PLAN_LIMIT_SIGNALS)
+
+
 def _categorize_error(msg: str, tool_name: str) -> str:
     """Categorize an error message into a human-readable category."""
     msg_lower = msg.lower()
@@ -1383,6 +1404,29 @@ def parse_session_transcripts():
                                     ts_ms_for_msg = int(timestamp)
                                     sess["timestamps"].append(ts_ms_for_msg)
 
+                            # API-error messages flagged by Claude Code itself.
+                            # This is the canonical channel for real user-plan
+                            # rate-limit hits (e.g. "You've hit your limit ·
+                            # resets 6pm (Europe/Berlin)"). Sibling buckets
+                            # like auth / overloaded / 500 share the flag, so
+                            # filter to plan-limit phrasing only.
+                            if obj.get("isApiErrorMessage"):
+                                _api_msg = obj.get("message", {})
+                                _api_txt = _api_msg.get("content", "") if isinstance(_api_msg, dict) else ""
+                                if isinstance(_api_txt, list):
+                                    _api_txt = next((b.get("text", "") for b in _api_txt
+                                                     if isinstance(b, dict) and b.get("type") == "text"), "")
+                                _api_txt = str(_api_txt)
+                                if _is_user_plan_limit_text(_api_txt):
+                                    sess["limit_event_candidates"].append({
+                                        "type": "explicit",
+                                        "subtype": "user_plan_limit",
+                                        "timestamp": str(timestamp) if timestamp else "",
+                                        "session_id": session_id,
+                                        "confidence": "high",
+                                        "message_text": _api_txt[:400],
+                                    })
+
                             # User messages
                             if msg_type == "user":
                                 sess["message_count"] += 1
@@ -1420,14 +1464,14 @@ def parse_session_transcripts():
                                                 "tool_use_id": tid,
                                                 "timestamp": timestamp or "",
                                             })
-                                            if category == "rate_limit":
-                                                sess["limit_event_candidates"].append({
-                                                    "type": "explicit",
-                                                    "subtype": "rate_limit_error",
-                                                    "timestamp": str(timestamp) if timestamp else "",
-                                                    "session_id": session_id,
-                                                    "confidence": "high",
-                                                })
+                                            # NOTE: tool_result.is_error is intentionally NOT
+                                            # used as a limit-event signal. Tool failures
+                                            # often contain code snippets / test output that
+                                            # mention "rate_limit_error" or "429" incidentally
+                                            # (see _categorize_error). User-plan limits come
+                                            # in via isApiErrorMessage on a separate code path
+                                            # below; the tool-error category here is just for
+                                            # the per-session errors[] display.
 
                                 if not sess["first_prompt"]:
                                     message = obj.get("message", {})
@@ -1458,19 +1502,6 @@ def parse_session_transcripts():
                                 message = obj.get("message", {})
                                 model = message.get("model", "unknown")
                                 usage = message.get("usage", {})
-
-                                # Top-level error field on assistant messages (rate-limit etc.)
-                                err = message.get("error") or obj.get("error")
-                                if isinstance(err, dict):
-                                    err_msg = str(err.get("message", "")) + " " + str(err.get("type", ""))
-                                    if _categorize_error(err_msg, "API") == "rate_limit":
-                                        sess["limit_event_candidates"].append({
-                                            "type": "explicit",
-                                            "subtype": err.get("type", "rate_limit_error"),
-                                            "timestamp": timestamp or "",
-                                            "session_id": session_id,
-                                            "confidence": "high",
-                                        })
 
                                 if usage and usage.get("output_tokens", 0) > 0:
                                     m = sess["models"][model]
@@ -1726,10 +1757,27 @@ def extract_session_messages(session_id, project_dir_name):
             msg_type = obj.get("type")
             timestamp = obj.get("timestamp", "")
 
+            # Real user-plan rate-limit events surface as isApiErrorMessage
+            # entries with specific phrasing. Emit a chat marker so the Limits
+            # tab event-link has a visible landing spot.
+            if obj.get("isApiErrorMessage"):
+                _api_msg = obj.get("message", {})
+                _api_txt = _api_msg.get("content", "") if isinstance(_api_msg, dict) else ""
+                if isinstance(_api_txt, list):
+                    _api_txt = next((b.get("text", "") for b in _api_txt
+                                     if isinstance(b, dict) and b.get("type") == "text"), "")
+                _api_txt = str(_api_txt)
+                if _is_user_plan_limit_text(_api_txt):
+                    messages.append({
+                        "role": "rate_limit",
+                        "content": _api_txt[:400],
+                        "timestamp": timestamp,
+                    })
+
             if msg_type == "user":
                 message = obj.get("message", {})
                 content = message.get("content", "")
-                # Skip tool results
+                # Skip tool results.
                 if isinstance(content, list):
                     texts = []
                     is_tool_result = False

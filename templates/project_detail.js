@@ -93,13 +93,23 @@ function pdApplyFilters() {
   return list;
 }
 
+// Anon-source helper for the source column (project_detail has no global
+// anonName plumbing; this gives it a per-page Source-N substitution that
+// matches what dashboard.js uses).
+const _pdAnonSrcMap = {};
+let _pdAnonSrcN = 0;
+function pdAnonSource(name) {
+  if (!_pdAnonSrcMap[name]) { _pdAnonSrcN++; _pdAnonSrcMap[name] = 'Source ' + _pdAnonSrcN; }
+  return _pdAnonSrcMap[name];
+}
+
 function pdRender() {
   const next = pdApplyFilters();
   if (!pdSessionTable) {
     pdSessionTable = mountSessionTable(
       document.getElementById('sessionList'),
       next,
-      { context: 'projectDetail', hideChatInAnon: false }
+      { context: 'projectDetail', hideChatInAnon: false, anonSource: pdAnonSource }
     );
   } else {
     pdSessionTable.update(next);

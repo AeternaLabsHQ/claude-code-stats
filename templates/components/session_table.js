@@ -133,7 +133,11 @@
     { id: 'source', label: 'Source', group: 'identity', align: 'left', sortable: true,
       defaultIn: [],
       get: (s) => s.source || '',
-      render: (s) => s.source ? '<span class="st-source">' + escHtml(s.source) + '</span>' : ''
+      render: (s, ctx) => {
+        if (!s.source) return '';
+        const lbl = ctx.anonMode && ctx.anonSource ? ctx.anonSource(s.source) : s.source;
+        return '<span class="st-source">' + escHtml(lbl) + '</span>';
+      }
     },
     { id: 'model', label: 'Model', group: 'identity', align: 'left', sortable: true,
       defaultIn: ['dashboard','projectDetail'],
@@ -325,6 +329,7 @@
       locale: options.locale,
       anonMode: false,
       anonName: options.anonName || ((x) => x),
+      anonSource: options.anonSource || ((x) => x),
       hideChatInAnon: !!options.hideChatInAnon,
     };
     const onChange = options.onChange || function() {};

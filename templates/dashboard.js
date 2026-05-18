@@ -1152,7 +1152,8 @@ function renderProjectTable(sortKey, sortDir) {
     const nameCell = (!anonMode && slug) ? '<a href="projects/'+slug+'.html">'+escHtml(dispPName)+'</a>' : escHtml(dispPName);
     const sourceCell = (p.sources || []).map(function(src) {
       const c = sourceColor(src);
-      return '<span class="source-badge" style="background:'+c.bg+';color:'+c.fg+'">'+escHtml(src)+'</span>';
+      const lbl = anonMode ? anonSource(src) : src;
+      return '<span class="source-badge" style="background:'+c.bg+';color:'+c.fg+'">'+escHtml(lbl)+'</span>';
     }).join(' ');
     const cells = [
       {html: nameCell, cls: ''},
@@ -1299,7 +1300,7 @@ function renderSessions() {
   const sources = [...new Set(F.sessions.map(s => s.source).filter(Boolean))].sort();
   sources.forEach(src => {
     const o = document.createElement('option');
-    o.value = src; o.textContent = src;
+    o.value = src; o.textContent = anonMode ? anonSource(src) : src;
     srcSel.appendChild(o);
   });
   if (sources.includes(currentSrc)) srcSel.value = currentSrc;
@@ -1327,6 +1328,7 @@ function renderSessions() {
       context: 'dashboard',
       locale: D.locale.locale_code,
       anonName: anonName,
+      anonSource: anonSource,
       hideChatInAnon: true,
       showExportButtons: false,
       onChange: updateBulkBtnLabel
@@ -2188,6 +2190,12 @@ let anonCounter = 0;
 function anonName(name) {
   if (!anonMap[name]) { anonCounter++; anonMap[name] = 'Project ' + anonCounter; }
   return anonMap[name];
+}
+const anonSourceMap = {};
+let anonSourceCounter = 0;
+function anonSource(name) {
+  if (!anonSourceMap[name]) { anonSourceCounter++; anonSourceMap[name] = 'Source ' + anonSourceCounter; }
+  return anonSourceMap[name];
 }
 document.addEventListener('keydown', function(e) {
   if (e.key === 'F2') {

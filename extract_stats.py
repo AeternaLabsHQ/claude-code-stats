@@ -2690,11 +2690,14 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
 def generate_dashboard(data):
     """Generate self-contained HTML dashboard with embedded data."""
     data_json = json.dumps(data, ensure_ascii=False)
+    # Same </script>-in-string protection as session pages — avoid premature
+    # script-tag close when any embedded text contains "</...".
+    data_json_inline = data_json.replace("</", "<\\/")
 
     if TEMPLATE_HTML.exists():
         with open(TEMPLATE_HTML, "r", encoding="utf-8") as f:
             template = f.read()
-        html = template.replace("/*__DASHBOARD_DATA__*/", f"const DASHBOARD_DATA = {data_json};")
+        html = template.replace("/*__DASHBOARD_DATA__*/", f"const DASHBOARD_DATA = {data_json_inline};")
         html = _inject_locale(html, LOCALE)
     else:
         html = build_inline_html(data_json)
@@ -2924,10 +2927,16 @@ def generate_session_pages(sessions, session_list):
             "session": sess_data,
             "messages": messages,
         }, ensure_ascii=False)
+        # Embedded inside <script>...</script>: a literal "</script>" inside any
+        # message text (e.g. when the user pastes HTML / discusses inline scripts)
+        # would close the script tag prematurely and break the page. Escape the
+        # boundary case; "<\/" is equivalent to "</" inside a JS string literal.
+        session_json = session_json.replace("</", "<\\/")
 
         html = _get_session_html_template()
         html = html.replace('"__SESSION_DATA__"', session_json)
         flow_json = json.dumps(flow_data, ensure_ascii=False, separators=(',', ':'))
+        flow_json = flow_json.replace("</", "<\\/")
         html = html.replace('"__FLOW_DATA__"', flow_json)
         html = html.replace('__VERSION__', VERSION)
         body_classes = "flow-hidden" if CONFIG.get("hide_session_flow", False) else ""

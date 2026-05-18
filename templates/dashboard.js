@@ -1770,7 +1770,10 @@ function renderPlanRecommendation() {
   const calSrc = cal.source === 'empirical' ? T.calEmpirical
     : cal.source === 'config_override' ? T.calOverride
     : T.calDefault;
-  const calLine = T.cal + ': ' + calSrc + ' (Pro = $' + (cal.base_pro_usd || 0) + ' / cycle)';
+  const baseDay = cal.base_pro_per_day_usd || 0;
+  const nAnchors = cal.anchor_cycle_count || 0;
+  const anchorNote = nAnchors > 0 ? ' · n=' + nAnchors + ' anchor cycles' : '';
+  const calLine = T.cal + ': ' + calSrc + ' (Pro = $' + baseDay.toFixed(2) + ' / day' + anchorNote + ')';
 
   el.innerHTML =
     '<h3>' + T.title + '</h3>' +

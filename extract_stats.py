@@ -218,33 +218,52 @@ def _normalize_tier_name(raw):
     return None
 
 
-def _estimate_tier_capacity_usd(current_tier, limit_events_by_cycle, api_cost_by_cycle, override_pro):
-    """Return per-tier capacity in USD-API-equivalent.
+def _estimate_tier_capacity_per_day_usd(periods_info, override_pro_per_day):
+    """Return per-tier capacity in USD-API-equivalent **per day**.
+
+    Anthropic's plan limits are continuous (per-5h-session, per-week,
+    per-month), not strictly "X $ per billing cycle" — so we calibrate as
+    a daily rate and let the caller multiply by the cycle's actual length.
 
     Calibration priority:
-      1. config override (plan_capacity_override_pro_usd) — user knows best
-      2. empirical from limit-hit cycles on current tier
-      3. hardcoded PRO_CAPACITY_USD_DEFAULT
+      1. config override (plan_capacity_override_pro_usd) — interpreted
+         as USD-per-day Pro-tier capacity
+      2. empirical from each limit-hit cycle: api_cost / total_days /
+         tier_factor of THAT cycle (each cycle anchored to its own tier);
+         take the median across cycles
+      3. hardcoded default
+
+    periods_info: list of {plan_normalized, api_cost, total_days,
+                          limit_event_count} for every cycle.
     """
-    if override_pro is not None and override_pro > 0:
-        base = float(override_pro)
+    if override_pro_per_day is not None and override_pro_per_day > 0:
+        base_per_day = float(override_pro_per_day)
         source = "config_override"
     else:
-        limit_hit_costs = [
-            api_cost_by_cycle[cid]
-            for cid, evts in limit_events_by_cycle.items()
-            if evts and api_cost_by_cycle.get(cid, 0) > 0
-        ]
-        if limit_hit_costs:
-            current_factor = PLAN_TIER_FACTORS.get(current_tier, 5.0)
-            base = statistics.median(limit_hit_costs) / current_factor
+        anchors = []
+        for p in periods_info:
+            if p["limit_event_count"] <= 0:
+                continue
+            if p["total_days"] <= 0 or p["api_cost"] <= 0:
+                continue
+            factor = PLAN_TIER_FACTORS.get(p["plan_normalized"])
+            if not factor:
+                continue
+            anchors.append(p["api_cost"] / p["total_days"] / factor)
+        if anchors:
+            base_per_day = statistics.median(anchors)
             source = "empirical"
         else:
-            base = PRO_CAPACITY_USD_DEFAULT
+            base_per_day = PRO_CAPACITY_USD_DEFAULT / 30.0
             source = "default"
 
-    capacities = {t: round(base * f, 2) for t, f in PLAN_TIER_FACTORS.items()}
-    return {"capacities": capacities, "base_pro_usd": round(base, 2), "source": source}
+    capacities_per_day = {t: round(base_per_day * f, 4) for t, f in PLAN_TIER_FACTORS.items()}
+    return {
+        "capacities_per_day": capacities_per_day,
+        "base_pro_per_day_usd": round(base_per_day, 4),
+        "anchor_cycle_count": len([p for p in periods_info if p["limit_event_count"] > 0]),
+        "source": source,
+    }
 
 
 def _summarize_recommendation(cycles, current_tier, threshold_pct=0.8):
@@ -2129,13 +2148,6 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None, all
             break
 
     # ── Plan Recommendation (Task 4) ───────────────────────────────
-    limit_events_by_cycle = {}
-    api_cost_by_cycle = {}
-    for p in periods:
-        cid = p["start"] + "_" + p["end"]
-        limit_events_by_cycle[cid] = p.get("limit_events", [])
-        api_cost_by_cycle[cid] = p.get("api_cost", 0)
-
     raw_current_tier = current_plan.get("plan", "")
     normalized_current = _normalize_tier_name(raw_current_tier)
     if raw_current_tier and normalized_current is None:
@@ -2145,21 +2157,39 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None, all
     if normalized_current is None:
         normalized_current = "Max 5x"
 
-    cap_info = _estimate_tier_capacity_usd(
-        normalized_current,
-        limit_events_by_cycle,
-        api_cost_by_cycle,
+    # Per-cycle metadata for the capacity estimator: each cycle's own tier
+    # (not the user's current tier) plus its duration. The estimator
+    # normalises to a per-day Pro baseline so cycles of different lengths
+    # do not distort each other.
+    periods_info = []
+    for p in periods:
+        plan_norm = _normalize_tier_name(p.get("plan", ""))
+        periods_info.append({
+            "plan_normalized": plan_norm,
+            "api_cost": p.get("api_cost", 0),
+            "total_days": p.get("total_days", 0),
+            "limit_event_count": p.get("limit_event_count", 0),
+        })
+
+    cap_info = _estimate_tier_capacity_per_day_usd(
+        periods_info,
         PLAN_CAPACITY_OVERRIDE_PRO_USD,
     )
 
     rec_cycles = []
     for p in periods:
         api = p.get("api_cost", 0)
-        util = {
-            tier: round(100 * api / cap)
-            for tier, cap in cap_info["capacities"].items()
-            if cap > 0
-        }
+        days = p.get("total_days", 0)
+        util = {}
+        for tier, cap_per_day in cap_info["capacities_per_day"].items():
+            if cap_per_day > 0 and days > 0:
+                cycle_cap = cap_per_day * days
+                pct = round(100 * api / cycle_cap)
+                # Cap the displayed value: anything past 999% is a sign the
+                # calibration anchor was a short / extreme cycle or that
+                # Anthropic reset limits mid-cycle. The raw ratio above that
+                # point is not informative.
+                util[tier] = min(pct, 999)
         rec_cycles.append({
             "cycle_start": p["start"],
             "cycle_end": p["end"],

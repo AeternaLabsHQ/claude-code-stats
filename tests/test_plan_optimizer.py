@@ -320,10 +320,20 @@ def test_5h_fingerprint_long_gap_ignored():
 
 from extract_stats import (
     _normalize_tier_name,
-    _estimate_tier_capacity_usd,
+    _estimate_tier_capacity_per_day_usd,
     _summarize_recommendation,
     PLAN_TIER_FACTORS,
 )
+
+
+def _pi(plan, api_cost, total_days, limit_event_count):
+    """Shorthand: build a periods_info entry for the calibration tests."""
+    return {
+        "plan_normalized": plan,
+        "api_cost": api_cost,
+        "total_days": total_days,
+        "limit_event_count": limit_event_count,
+    }
 
 
 def test_normalize_pro_variants():
@@ -350,35 +360,72 @@ def test_normalize_unknown_returns_none():
 
 
 def test_estimate_capacity_override_takes_precedence():
-    r = _estimate_tier_capacity_usd("Max 5x", {}, {}, override_pro=200.0)
+    # Override is interpreted as USD-per-day for Pro tier.
+    r = _estimate_tier_capacity_per_day_usd([], override_pro_per_day=5.0)
     assert r["source"] == "config_override"
-    assert r["base_pro_usd"] == 200.0
-    assert r["capacities"]["Pro"] == 200.0
-    assert r["capacities"]["Max 5x"] == 1000.0
-    assert r["capacities"]["Max 20x"] == 4000.0
+    assert r["base_pro_per_day_usd"] == 5.0
+    assert r["capacities_per_day"]["Pro"] == 5.0
+    assert r["capacities_per_day"]["Max 5x"] == 25.0
+    assert r["capacities_per_day"]["Max 20x"] == 100.0
 
 
-def test_estimate_capacity_empirical_from_limit_events():
-    events_by_cycle = {"c1": [{"x": 1}], "c2": [{"x": 1}], "c3": [{"x": 1}]}
-    cost_by_cycle = {"c1": 480.0, "c2": 510.0, "c3": 540.0}
-    r = _estimate_tier_capacity_usd("Max 5x", events_by_cycle, cost_by_cycle, None)
+def test_estimate_capacity_empirical_normalises_by_tier_and_duration():
+    # Each limit-hit cycle anchored to its own tier; per-day rate is taken
+    # before mixing across tiers.
+    #   Max5x cycle, 30d, $1500 → $50/d → $10/d Pro
+    #   Max5x cycle, 30d, $1800 → $60/d → $12/d Pro
+    #   Max20x cycle, 30d, $7200 → $240/d → $12/d Pro
+    # Median of [$10, $12, $12] = $12/d Pro.
+    info = [
+        _pi("Max 5x",  1500.0, 30, 1),
+        _pi("Max 5x",  1800.0, 30, 2),
+        _pi("Max 20x", 7200.0, 30, 1),
+    ]
+    r = _estimate_tier_capacity_per_day_usd(info, None)
     assert r["source"] == "empirical"
-    assert r["base_pro_usd"] == 102.0
+    assert r["base_pro_per_day_usd"] == 12.0
+    assert r["capacities_per_day"]["Max 5x"] == 60.0
+    assert r["capacities_per_day"]["Max 20x"] == 240.0
+    assert r["anchor_cycle_count"] == 3
+
+
+def test_estimate_capacity_ignores_short_cycle_distortion():
+    # A short limit-hit cycle (4 days at $1400) and a long limit-hit cycle
+    # (30 days at $1500) on the same tier — the per-day normalisation
+    # should make the short cycle stand out as a real high-rate anchor,
+    # not be smeared with the long-cycle data. Per-day rates:
+    #   $1400/4d = $350/d → $70/d Pro
+    #   $1500/30d = $50/d → $10/d Pro
+    # Median of [$10, $70] = $40/d Pro.
+    info = [
+        _pi("Max 5x", 1400.0,  4, 2),
+        _pi("Max 5x", 1500.0, 30, 1),
+    ]
+    r = _estimate_tier_capacity_per_day_usd(info, None)
+    assert r["source"] == "empirical"
+    assert r["base_pro_per_day_usd"] == 40.0
 
 
 def test_estimate_capacity_fallback_to_default_without_events():
-    r = _estimate_tier_capacity_usd("Max 5x", {}, {}, None)
+    # No limit-hit cycles at all → fall back to PRO_CAPACITY_USD_DEFAULT/30.
+    info = [_pi("Max 5x", 500.0, 30, 0)]
+    r = _estimate_tier_capacity_per_day_usd(info, None)
     assert r["source"] == "default"
-    assert r["base_pro_usd"] == 100.0
+    # PRO_CAPACITY_USD_DEFAULT is 100/cycle → ~3.33/day with the 30-day spread.
+    assert round(r["base_pro_per_day_usd"], 2) == round(100.0 / 30.0, 2)
+    assert r["anchor_cycle_count"] == 0
 
 
 def test_estimate_capacity_ignores_cycles_without_events():
-    # Only cycles WITH events count toward calibration.
-    events_by_cycle = {"c1": [{"x": 1}], "c2": []}
-    cost_by_cycle = {"c1": 500.0, "c2": 200.0}
-    r = _estimate_tier_capacity_usd("Max 5x", events_by_cycle, cost_by_cycle, None)
+    info = [
+        _pi("Max 5x", 1500.0, 30, 1),  # used
+        _pi("Max 5x",  200.0, 30, 0),  # ignored — no limit hit
+    ]
+    r = _estimate_tier_capacity_per_day_usd(info, None)
     assert r["source"] == "empirical"
-    assert r["base_pro_usd"] == 100.0  # 500 / 5
+    # Only the first cycle contributes: $1500/30d = $50/d → $10/d Pro.
+    assert r["base_pro_per_day_usd"] == 10.0
+    assert r["anchor_cycle_count"] == 1
 
 
 def test_recommendation_recommends_cheapest_holding_tier():
@@ -418,18 +465,22 @@ def test_recommendation_empty_cycles_returns_none():
     assert r["held_count"] == {"Pro": 0, "Max 5x": 0, "Max 20x": 0}
 
 
-def test_estimate_capacity_unknown_current_tier_uses_5x_fallback_factor():
-    # Unknown tier name → falls back to factor 5.0 for the calibration math.
-    # 500 / 5 = 100.
-    events_by_cycle = {"c1": [{"x": 1}]}
-    cost_by_cycle = {"c1": 500.0}
-    r = _estimate_tier_capacity_usd("Enterprise", events_by_cycle, cost_by_cycle, None)
+def test_estimate_capacity_skips_unknown_tier_anchors():
+    # An unknown tier name on a limit-hit cycle is skipped (no factor),
+    # not forcibly normalised against a guessed factor.
+    info = [
+        _pi(None,      500.0, 30, 1),   # "Enterprise" → unknown, ignored
+        _pi("Max 5x", 1500.0, 30, 1),
+    ]
+    r = _estimate_tier_capacity_per_day_usd(info, None)
     assert r["source"] == "empirical"
-    assert r["base_pro_usd"] == 100.0
+    # Only Max 5x contributes: $1500/30d = $50/d → $10/d Pro
+    assert r["base_pro_per_day_usd"] == 10.0
 
 
 def test_estimate_capacity_negative_override_ignored():
-    # Negative override is rejected; falls through to default.
-    r = _estimate_tier_capacity_usd("Max 5x", {}, {}, override_pro=-50.0)
-    assert r["source"] == "default"
-    assert r["base_pro_usd"] == 100.0
+    info = [_pi("Max 5x", 1500.0, 30, 1)]
+    r = _estimate_tier_capacity_per_day_usd(info, override_pro_per_day=-50.0)
+    # Negative override is rejected; falls through to empirical.
+    assert r["source"] == "empirical"
+    assert r["base_pro_per_day_usd"] == 10.0

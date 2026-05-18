@@ -250,11 +250,11 @@
 
     // Preset configs.
     const PRESETS = [
-      { id: 'real',     label: 'Nur echte Sessions',
+      { id: 'real',     label: 'Real sessions only',
         apply:  () => { state.user_messages.min = 2; persist(); },
         clear:  () => { state.user_messages.min = null; persist(); },
         isOn:   () => state.user_messages.min === 2 },
-      { id: 'expensive', label: 'Nur teure Sessions',
+      { id: 'expensive', label: 'Costly sessions only',
         apply:  () => { state.cost.min = 1.00; persist(); },
         clear:  () => { state.cost.min = null; persist(); },
         isOn:   () => state.cost.min === 1.00 },
@@ -279,7 +279,7 @@
       toggle.type = 'button';
       toggle.className = 'sf-toggle' + (state.panelOpen ? ' is-open' : '');
       const n = activeCount();
-      toggle.innerHTML = '&#9881; Weitere Filter'
+      toggle.innerHTML = '&#9881; More filters'
         + (n > 0 ? ' (' + n + ')' : '')
         + ' <span class="sf-caret">' + (state.panelOpen ? '▴' : '▾') + '</span>';
       toggle.addEventListener('click', () => {
@@ -370,7 +370,7 @@
       const closeBtn = document.createElement('button');
       closeBtn.type = 'button';
       closeBtn.className = 'sf-action';
-      closeBtn.textContent = 'Schließen';
+      closeBtn.textContent = 'Close';
       closeBtn.addEventListener('click', () => {
         state.panelOpen = false;
         persist();

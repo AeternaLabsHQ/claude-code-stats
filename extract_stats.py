@@ -2700,7 +2700,7 @@ def generate_dashboard(data):
         html = template.replace("/*__DASHBOARD_DATA__*/", f"const DASHBOARD_DATA = {data_json_inline};")
         html = _inject_locale(html, LOCALE)
     else:
-        html = build_inline_html(data_json)
+        html = build_inline_html(data_json_inline)
 
     with open(DASHBOARD_HTML, "w", encoding="utf-8") as f:
         f.write(html)

@@ -972,10 +972,16 @@ def load_tasks():
 def _categorize_error(msg: str, tool_name: str) -> str:
     """Categorize an error message into a human-readable category."""
     msg_lower = msg.lower()
-    if ("rate_limit_error" in msg_lower
-            or "429" in msg_lower
-            or "over capacity" in msg_lower
+    # Server-side overload (Anthropic's overloaded_error / HTTP 529). This is
+    # infrastructure capacity, not a user plan-limit, so it must NOT feed the
+    # Limits-tab event detection. Categorized separately on purpose.
+    if ("overloaded_error" in msg_lower
             or "overloaded" in msg_lower
+            or re.search(r"\b529\b", msg_lower)):
+        return "server_overload"
+    if ("rate_limit_error" in msg_lower
+            or re.search(r"\b429\b", msg_lower)
+            or "over capacity" in msg_lower
             or "usage limit reached" in msg_lower
             or "plan limit reached" in msg_lower):
         return "rate_limit"

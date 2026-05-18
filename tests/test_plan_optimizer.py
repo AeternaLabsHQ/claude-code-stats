@@ -195,8 +195,19 @@ def test_categorize_usage_limit_reached():
     assert _categorize_error("Usage limit reached. Reset at 17:00 UTC.", "API") == "rate_limit"
 
 
-def test_categorize_overloaded():
-    assert _categorize_error("Anthropic overloaded right now", "API") == "rate_limit"
+def test_categorize_overloaded_is_server_overload_not_rate_limit():
+    # 'overloaded' / 'overloaded_error' / HTTP 529 are Anthropic-side capacity
+    # issues, NOT user plan-limits. They must categorize separately so they
+    # do not pollute Limit-Event detection on the Limits tab.
+    assert _categorize_error("Anthropic overloaded right now", "API") == "server_overload"
+    assert _categorize_error('{"type":"overloaded_error"}', "API") == "server_overload"
+    assert _categorize_error("HTTP 529 Overloaded", "API") == "server_overload"
+
+
+def test_categorize_429_requires_word_boundary():
+    # Bare digit sequences inside unrelated numbers must not trigger.
+    assert _categorize_error("queue had 1429 items", "API") != "rate_limit"
+    assert _categorize_error("processed 42900 tokens", "API") != "rate_limit"
 
 
 def test_categorize_non_rate_limit_unchanged():

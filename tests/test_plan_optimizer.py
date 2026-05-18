@@ -320,20 +320,12 @@ def test_5h_fingerprint_long_gap_ignored():
 
 from extract_stats import (
     _normalize_tier_name,
-    _estimate_tier_capacity_per_day_usd,
-    _summarize_recommendation,
+    _compute_5h_windows,
+    _compute_weekly_buckets,
+    _estimate_5h_window_cap_usd,
     PLAN_TIER_FACTORS,
+    FIVE_HOUR_MS,
 )
-
-
-def _pi(plan, api_cost, total_days, limit_event_count):
-    """Shorthand: build a periods_info entry for the calibration tests."""
-    return {
-        "plan_normalized": plan,
-        "api_cost": api_cost,
-        "total_days": total_days,
-        "limit_event_count": limit_event_count,
-    }
 
 
 def test_normalize_pro_variants():
@@ -359,128 +351,138 @@ def test_normalize_unknown_returns_none():
     assert _normalize_tier_name("") is None
 
 
-def test_estimate_capacity_override_takes_precedence():
-    # Override is interpreted as USD-per-day for Pro tier.
-    r = _estimate_tier_capacity_per_day_usd([], override_pro_per_day=5.0)
+# ── 5h-window aggregation ───────────────────────────────────────────
+
+def _wt(ts_ms, cost, session_id="s1"):
+    """Helper for window/weekly tests — distinct from _turn() above."""
+    return {"ts": ts_ms, "cost": cost, "session_id": session_id}
+
+
+def test_5h_windows_empty_input():
+    assert _compute_5h_windows([]) == []
+
+
+def test_5h_windows_single_window():
+    # Three turns within 5h → single window.
+    turns = [
+        _wt(0,                     1.0),
+        _wt(60 * 60 * 1000,        2.0),  # +1h
+        _wt(4 * 60 * 60 * 1000,    3.0),  # +4h
+    ]
+    w = _compute_5h_windows(turns)
+    assert len(w) == 1
+    assert w[0]["cost"] == 6.0
+    assert w[0]["turn_count"] == 3
+
+
+def test_5h_windows_split_at_5h_boundary():
+    # Turn exactly at +5h opens a new window.
+    turns = [
+        _wt(0, 1.0),
+        _wt(FIVE_HOUR_MS - 1, 2.0),   # still in first window
+        _wt(FIVE_HOUR_MS,     3.0),    # opens window 2
+        _wt(FIVE_HOUR_MS + 3600 * 1000, 4.0),  # in window 2
+    ]
+    w = _compute_5h_windows(turns)
+    assert len(w) == 2
+    assert w[0]["cost"] == 3.0
+    assert w[1]["cost"] == 7.0
+
+
+def test_5h_windows_session_ids_aggregated():
+    turns = [
+        _wt(0, 1.0, "A"),
+        _wt(60 * 1000, 1.0, "B"),
+        _wt(60 * 60 * 1000, 1.0, "A"),
+    ]
+    w = _compute_5h_windows(turns)
+    assert w[0]["session_ids"] == ["A", "B"]
+
+
+# ── Weekly bucket aggregation ───────────────────────────────────────
+
+def test_weekly_buckets_groups_same_iso_week():
+    # All three timestamps are in ISO week 2026-W01 (Mon 2025-12-29 → Sun 2026-01-04).
+    import datetime
+    def ms(y, m, d, h=12):
+        return int(datetime.datetime(y, m, d, h, tzinfo=datetime.timezone.utc).timestamp() * 1000)
+    turns = [
+        _wt(ms(2025, 12, 30), 1.0),  # Tue W01
+        _wt(ms(2025, 12, 31), 2.0),  # Wed W01
+        _wt(ms(2026,  1,  3), 4.0),  # Sat W01
+    ]
+    b = _compute_weekly_buckets(turns)
+    assert len(b) == 1
+    assert b[0]["week_key"] == "2026-W01"
+    assert b[0]["cost"] == 7.0
+
+
+def test_weekly_buckets_splits_across_weeks():
+    import datetime
+    def ms(y, m, d):
+        return int(datetime.datetime(y, m, d, 12, tzinfo=datetime.timezone.utc).timestamp() * 1000)
+    turns = [
+        _wt(ms(2026, 1, 4),  1.0),  # Sun W01
+        _wt(ms(2026, 1, 5),  2.0),  # Mon W02
+    ]
+    b = _compute_weekly_buckets(turns)
+    assert len(b) == 2
+    assert b[0]["week_key"] == "2026-W01"
+    assert b[1]["week_key"] == "2026-W02"
+
+
+# ── Per-tier 5h-window cap estimation ───────────────────────────────
+
+def test_5h_cap_empirical_from_anchor_windows():
+    # Two anchor windows on different tiers should normalise to a
+    # consistent Pro baseline per the 1:5:20 ratio:
+    #   Max5x window cost $30 → Pro per-window = $30 / 5 = $6
+    #   Max20x window cost $120 → Pro per-window = $120 / 20 = $6
+    # Median = $6.
+    windows = [
+        {"cost": 30.0, "start_ts": 0, "end_ts": 1, "turn_count": 1, "session_ids": ["s1"]},
+        {"cost": 120.0, "start_ts": 2, "end_ts": 3, "turn_count": 1, "session_ids": ["s2"]},
+    ]
+    tier_by_idx = {0: "Max 5x", 1: "Max 20x"}
+    r = _estimate_5h_window_cap_usd(windows, {0, 1}, tier_by_idx, None)
+    assert r["source"] == "empirical"
+    assert r["base_pro_per_window_usd"] == 6.0
+    assert r["caps_per_window"]["Pro"] == 6.0
+    assert r["caps_per_window"]["Max 5x"] == 30.0
+    assert r["caps_per_window"]["Max 20x"] == 120.0
+    assert r["anchor_window_count"] == 2
+
+
+def test_5h_cap_config_override_takes_precedence():
+    r = _estimate_5h_window_cap_usd([], set(), {}, override_pro=5.0)
     assert r["source"] == "config_override"
-    assert r["base_pro_per_day_usd"] == 5.0
-    assert r["capacities_per_day"]["Pro"] == 5.0
-    assert r["capacities_per_day"]["Max 5x"] == 25.0
-    assert r["capacities_per_day"]["Max 20x"] == 100.0
+    assert r["base_pro_per_window_usd"] == 5.0
+    assert r["caps_per_window"]["Max 5x"] == 25.0
+    assert r["caps_per_window"]["Max 20x"] == 100.0
 
 
-def test_estimate_capacity_empirical_normalises_by_tier_and_duration():
-    # Each limit-hit cycle anchored to its own tier; per-day rate is taken
-    # before mixing across tiers.
-    #   Max5x cycle, 30d, $1500 → $50/d → $10/d Pro
-    #   Max5x cycle, 30d, $1800 → $60/d → $12/d Pro
-    #   Max20x cycle, 30d, $7200 → $240/d → $12/d Pro
-    # Median of [$10, $12, $12] = $12/d Pro.
-    info = [
-        _pi("Max 5x",  1500.0, 30, 1),
-        _pi("Max 5x",  1800.0, 30, 2),
-        _pi("Max 20x", 7200.0, 30, 1),
-    ]
-    r = _estimate_tier_capacity_per_day_usd(info, None)
-    assert r["source"] == "empirical"
-    assert r["base_pro_per_day_usd"] == 12.0
-    assert r["capacities_per_day"]["Max 5x"] == 60.0
-    assert r["capacities_per_day"]["Max 20x"] == 240.0
-    assert r["anchor_cycle_count"] == 3
-
-
-def test_estimate_capacity_ignores_short_cycle_distortion():
-    # A short limit-hit cycle (4 days at $1400) and a long limit-hit cycle
-    # (30 days at $1500) on the same tier — the per-day normalisation
-    # should make the short cycle stand out as a real high-rate anchor,
-    # not be smeared with the long-cycle data. Per-day rates:
-    #   $1400/4d = $350/d → $70/d Pro
-    #   $1500/30d = $50/d → $10/d Pro
-    # Median of [$10, $70] = $40/d Pro.
-    info = [
-        _pi("Max 5x", 1400.0,  4, 2),
-        _pi("Max 5x", 1500.0, 30, 1),
-    ]
-    r = _estimate_tier_capacity_per_day_usd(info, None)
-    assert r["source"] == "empirical"
-    assert r["base_pro_per_day_usd"] == 40.0
-
-
-def test_estimate_capacity_fallback_to_default_without_events():
-    # No limit-hit cycles at all → fall back to PRO_CAPACITY_USD_DEFAULT/30.
-    info = [_pi("Max 5x", 500.0, 30, 0)]
-    r = _estimate_tier_capacity_per_day_usd(info, None)
+def test_5h_cap_default_fallback_without_anchors():
+    r = _estimate_5h_window_cap_usd([], set(), {}, None)
     assert r["source"] == "default"
-    # PRO_CAPACITY_USD_DEFAULT is 100/cycle → ~3.33/day with the 30-day spread.
-    assert round(r["base_pro_per_day_usd"], 2) == round(100.0 / 30.0, 2)
-    assert r["anchor_cycle_count"] == 0
+    # PRO_CAPACITY_USD_DEFAULT is 100 → Pro cap = $100 per window.
+    assert r["base_pro_per_window_usd"] == 100.0
 
 
-def test_estimate_capacity_ignores_cycles_without_events():
-    info = [
-        _pi("Max 5x", 1500.0, 30, 1),  # used
-        _pi("Max 5x",  200.0, 30, 0),  # ignored — no limit hit
+def test_5h_cap_skips_unknown_tier_anchors():
+    windows = [
+        {"cost": 50.0, "start_ts": 0, "end_ts": 1, "turn_count": 1, "session_ids": []},
+        {"cost": 30.0, "start_ts": 2, "end_ts": 3, "turn_count": 1, "session_ids": []},
     ]
-    r = _estimate_tier_capacity_per_day_usd(info, None)
+    tier_by_idx = {0: None, 1: "Max 5x"}  # idx 0 is unknown tier → skipped
+    r = _estimate_5h_window_cap_usd(windows, {0, 1}, tier_by_idx, None)
     assert r["source"] == "empirical"
-    # Only the first cycle contributes: $1500/30d = $50/d → $10/d Pro.
-    assert r["base_pro_per_day_usd"] == 10.0
-    assert r["anchor_cycle_count"] == 1
+    # Only the Max 5x window contributes: $30 / 5 = $6.
+    assert r["base_pro_per_window_usd"] == 6.0
+    assert r["anchor_window_count"] == 1
 
 
-def test_recommendation_recommends_cheapest_holding_tier():
-    cycles = [
-        {"tier_utilization": {"Pro": 50,  "Max 5x": 10, "Max 20x": 3}},
-        {"tier_utilization": {"Pro": 150, "Max 5x": 30, "Max 20x": 8}},
-        {"tier_utilization": {"Pro": 200, "Max 5x": 40, "Max 20x": 10}},
-    ]
-    r = _summarize_recommendation(cycles, current_tier="Max 5x")
-    assert r["recommended_tier"] == "Max 5x"
-    assert r["held_count"]["Pro"] == 1
-    assert r["held_count"]["Max 5x"] == 3
-    assert r["total_cycles"] == 3
-
-
-def test_recommendation_recommends_pro_if_always_held():
-    cycles = [
-        {"tier_utilization": {"Pro": 50, "Max 5x": 10, "Max 20x": 3}},
-        {"tier_utilization": {"Pro": 80, "Max 5x": 16, "Max 20x": 4}},
-    ]
-    r = _summarize_recommendation(cycles, current_tier="Max 5x")
-    assert r["recommended_tier"] == "Pro"
-
-
-def test_recommendation_none_if_nothing_holds():
-    cycles = [
-        {"tier_utilization": {"Pro": 150, "Max 5x": 150, "Max 20x": 150}},
-    ]
-    r = _summarize_recommendation(cycles, current_tier="Max 20x")
-    assert r["recommended_tier"] is None
-
-
-def test_recommendation_empty_cycles_returns_none():
-    r = _summarize_recommendation([], current_tier="Pro")
-    assert r["recommended_tier"] is None
-    assert r["total_cycles"] == 0
-    assert r["held_count"] == {"Pro": 0, "Max 5x": 0, "Max 20x": 0}
-
-
-def test_estimate_capacity_skips_unknown_tier_anchors():
-    # An unknown tier name on a limit-hit cycle is skipped (no factor),
-    # not forcibly normalised against a guessed factor.
-    info = [
-        _pi(None,      500.0, 30, 1),   # "Enterprise" → unknown, ignored
-        _pi("Max 5x", 1500.0, 30, 1),
-    ]
-    r = _estimate_tier_capacity_per_day_usd(info, None)
+def test_5h_cap_negative_override_ignored():
+    windows = [{"cost": 30.0, "start_ts": 0, "end_ts": 1, "turn_count": 1, "session_ids": []}]
+    r = _estimate_5h_window_cap_usd(windows, {0}, {0: "Max 5x"}, override_pro=-50.0)
     assert r["source"] == "empirical"
-    # Only Max 5x contributes: $1500/30d = $50/d → $10/d Pro
-    assert r["base_pro_per_day_usd"] == 10.0
-
-
-def test_estimate_capacity_negative_override_ignored():
-    info = [_pi("Max 5x", 1500.0, 30, 1)]
-    r = _estimate_tier_capacity_per_day_usd(info, override_pro_per_day=-50.0)
-    # Negative override is rejected; falls through to empirical.
-    assert r["source"] == "empirical"
-    assert r["base_pro_per_day_usd"] == 10.0
+    assert r["base_pro_per_window_usd"] == 6.0

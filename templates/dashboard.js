@@ -1731,57 +1731,80 @@ function renderPlanRecommendation() {
   const T = {
     title:        L.title        || 'Plan Recommendation',
     cycle:        L.cycle        || 'Cycle',
+    windows:      L.windows      || '5h-windows',
+    weeks:        L.weeks        || 'Weeks',
+    fiveHHits:    L.fiveHHits    || '5h-limit hits',
+    weeklyHits:   L.weeklyHits   || 'Weekly-limit hits',
     current:      L.current      || 'Current tier',
     rec:          L.rec          || 'Recommendation',
-    held:         L.held         || 'held in',
-    of:           L.of           || 'of',
-    cycles:       L.cycles       || 'cycles',
+    none:         L.none         || 'None — no tier holds without hits',
+    totals:       L.totals       || 'Total hits across all cycles',
     cal:          L.cal          || 'Calibration',
     calEmpirical: L.calEmpirical || 'empirical',
     calDefault:   L.calDefault   || 'default fallback',
     calOverride:  L.calOverride  || 'config override',
-    disclaimer:   L.disclaimer   || "Estimate based on Anthropic's 1:5:20 factor. Anthropic does not publish exact token limits. Actual limits may differ.",
+    calDerived:   L.calDerived   || 'derived from 5h cap',
+    capPerWindow: L.capPerWindow || 'per 5h-window',
+    capPerWeek:   L.capPerWeek   || 'per week',
+    anchors:      L.anchors      || 'anchor windows',
+    disclaimer:   L.disclaimer   || "Hit counts use empirical caps derived from windows that contained an explicit or 5h-fingerprint limit event. Anthropic does not publish exact token limits — the 1:5:20 tier ratio is approximate. Weekly cap is estimated as 7 × the 5h cap until a dedicated weekly-limit detector is added.",
   };
 
-  const fmtPct = (n) => n + '%';
-  const mark = (n) => n <= 100 ? '✓' : '⚠';
+  const hitCell = (n) => '<td class="' + (n > 0 ? 'over' : 'under') + '">' + n + '</td>';
 
-  const headerRow = '<tr><th>' + T.cycle + '</th><th>Pro</th><th>Max 5x</th><th>Max 20x</th></tr>';
-  const bodyRows = pr.cycles.map(c => {
-    const u = c.tier_utilization || {};
-    const pro = u.Pro || 0;
-    const m5  = u['Max 5x'] || 0;
-    const m20 = u['Max 20x'] || 0;
-    return '<tr>' +
-      '<td class="cyc-lbl">' + (c.label || c.cycle_start) + '</td>' +
-      '<td class="' + (pro > 100 ? 'over' : 'under') + '">' + fmtPct(pro) + ' ' + mark(pro) + '</td>' +
-      '<td class="' + (m5 > 100 ? 'over' : 'under')  + '">' + fmtPct(m5)  + ' ' + mark(m5)  + '</td>' +
-      '<td class="' + (m20 > 100 ? 'over' : 'under') + '">' + fmtPct(m20) + ' ' + mark(m20) + '</td>' +
+  // Two side-by-side tables: 5h hits and weekly hits per cycle.
+  const renderTable = (titleText, getHits, totalsField) => {
+    const head = '<tr><th>' + T.cycle + '</th><th>Pro</th><th>Max 5x</th><th>Max 20x</th></tr>';
+    const body = pr.cycles.map(c => {
+      const u = getHits(c);
+      return '<tr>' +
+        '<td class="cyc-lbl">' + (c.label || c.cycle_start) + '</td>' +
+        hitCell(u.Pro || 0) +
+        hitCell(u['Max 5x'] || 0) +
+        hitCell(u['Max 20x'] || 0) +
+      '</tr>';
+    }).join('');
+    const totals = pr[totalsField] || {};
+    const totalRow = '<tr class="plan-rec-totals"><td class="cyc-lbl">' + T.totals + '</td>' +
+      hitCell(totals.Pro || 0) +
+      hitCell(totals['Max 5x'] || 0) +
+      hitCell(totals['Max 20x'] || 0) +
     '</tr>';
-  }).join('');
+    return '<h4 style="margin:8px 0 4px;font-size:13px;text-transform:uppercase;letter-spacing:0.12em;color:var(--text2)">' + titleText + '</h4>' +
+      '<table class="plan-rec-table"><thead>' + head + '</thead><tbody>' + body + totalRow + '</tbody></table>';
+  };
 
-  const hc = pr.held_count || {};
-  const tc = pr.total_cycles || 0;
-  const recLine = pr.recommended_tier
-    ? T.rec + ': ' + pr.recommended_tier + ' (' + T.held + ' ' + (hc[pr.recommended_tier] || 0) + '/' + tc + ' ' + T.cycles + ')'
-    : T.rec + ': —';
-
-  const cal = pr.calibration || {};
-  const calSrc = cal.source === 'empirical' ? T.calEmpirical
-    : cal.source === 'config_override' ? T.calOverride
+  const cal5 = pr.calibration_5h || {};
+  const calSrc5 = cal5.source === 'empirical' ? T.calEmpirical
+    : cal5.source === 'config_override' ? T.calOverride
     : T.calDefault;
-  const baseDay = cal.base_pro_per_day_usd || 0;
-  const nAnchors = cal.anchor_cycle_count || 0;
-  const anchorNote = nAnchors > 0 ? ' · n=' + nAnchors + ' anchor cycles' : '';
-  const calLine = T.cal + ': ' + calSrc + ' (Pro = $' + baseDay.toFixed(2) + ' / day' + anchorNote + ')';
+  const caps5 = cal5.caps_per_window || {};
+  const cal5Line = T.cal + ' (5h): ' + calSrc5 + ' — Pro $' + (caps5.Pro || 0).toFixed(2) +
+    ' / Max 5x $' + (caps5['Max 5x'] || 0).toFixed(2) +
+    ' / Max 20x $' + (caps5['Max 20x'] || 0).toFixed(2) + ' ' + T.capPerWindow +
+    ' (n=' + (cal5.anchor_window_count || 0) + ' ' + T.anchors + ')';
+
+  const calW = pr.calibration_weekly || {};
+  const capsW = calW.caps_per_week || {};
+  const calWLine = T.cal + ' (' + T.weeks + '): ' + T.calDerived +
+    ' × ' + (calW.ratio_vs_5h || 7) +
+    ' — Pro $' + (capsW.Pro || 0).toFixed(0) +
+    ' / Max 5x $' + (capsW['Max 5x'] || 0).toFixed(0) +
+    ' / Max 20x $' + (capsW['Max 20x'] || 0).toFixed(0) + ' ' + T.capPerWeek;
+
+  const recLine = pr.recommended_tier
+    ? T.rec + ': ' + pr.recommended_tier
+    : T.rec + ': ' + T.none;
 
   el.innerHTML =
     '<h3>' + T.title + '</h3>' +
-    '<table class="plan-rec-table"><thead>' + headerRow + '</thead><tbody>' + bodyRows + '</tbody></table>' +
+    renderTable(T.fiveHHits,  (c) => c.tier_5h_hits || {},     'tier_total_5h_hits') +
+    renderTable(T.weeklyHits, (c) => c.tier_weekly_hits || {}, 'tier_total_weekly_hits') +
     '<div class="plan-rec-summary">' +
       '<div>' + T.current + ': ' + (pr.current_tier || '—') + '</div>' +
       '<div>' + recLine + '</div>' +
-      '<div class="plan-rec-cal">' + calLine + '</div>' +
+      '<div class="plan-rec-cal">' + cal5Line + '</div>' +
+      '<div class="plan-rec-cal">' + calWLine + '</div>' +
     '</div>' +
     '<div class="plan-rec-disclaimer">⚠ ' + T.disclaimer + '</div>';
 }

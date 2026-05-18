@@ -218,76 +218,131 @@ def _normalize_tier_name(raw):
     return None
 
 
-def _estimate_tier_capacity_per_day_usd(periods_info, override_pro_per_day):
-    """Return per-tier capacity in USD-API-equivalent **per day**.
+FIVE_HOUR_MS = 5 * 60 * 60 * 1000
 
-    Anthropic's plan limits are continuous (per-5h-session, per-week,
-    per-month), not strictly "X $ per billing cycle" — so we calibrate as
-    a daily rate and let the caller multiply by the cycle's actual length.
 
-    Calibration priority:
-      1. config override (plan_capacity_override_pro_usd) — interpreted
-         as USD-per-day Pro-tier capacity
-      2. empirical from each limit-hit cycle: api_cost / total_days /
-         tier_factor of THAT cycle (each cycle anchored to its own tier);
-         take the median across cycles
-      3. hardcoded default
+def _compute_5h_windows(turns):
+    """Group chronological per-turn data into Anthropic 5h-session windows.
 
-    periods_info: list of {plan_normalized, api_cost, total_days,
-                          limit_event_count} for every cycle.
+    A 5h-window opens with the first turn after the previous window closes,
+    and stays open for 5h. Any turn within that 5h is part of the same
+    window — matches Claude Code's actual session-limit semantics. Returns
+    a list of {start_ts, end_ts, cost, turn_count, session_ids} dicts.
     """
-    if override_pro_per_day is not None and override_pro_per_day > 0:
-        base_per_day = float(override_pro_per_day)
+    if not turns:
+        return []
+    sorted_turns = sorted(turns, key=lambda t: t.get("ts", 0))
+    windows = []
+    current = None
+    for t in sorted_turns:
+        ts = t.get("ts")
+        if ts is None:
+            continue
+        if current is None or ts >= current["start_ts"] + FIVE_HOUR_MS:
+            if current is not None:
+                windows.append(current)
+            current = {
+                "start_ts": ts,
+                "end_ts": ts,
+                "cost": 0.0,
+                "turn_count": 0,
+                "session_ids": set(),
+            }
+        current["end_ts"] = ts
+        current["cost"] += t.get("cost", 0.0)
+        current["turn_count"] += 1
+        sid = t.get("session_id")
+        if sid:
+            current["session_ids"].add(sid)
+    if current is not None:
+        windows.append(current)
+    # Convert session_ids set to sorted list for JSON-friendliness.
+    for w in windows:
+        w["session_ids"] = sorted(w["session_ids"])
+    return windows
+
+
+def _compute_weekly_buckets(turns):
+    """Group chronological per-turn data into ISO calendar weeks.
+
+    Returns a list of {week_key, week_start_ts, week_end_ts, cost,
+    turn_count, session_ids} dicts. week_key is "YYYY-Www" (ISO).
+    """
+    if not turns:
+        return []
+    buckets = {}
+    for t in turns:
+        ts = t.get("ts")
+        if ts is None:
+            continue
+        dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+        iso_year, iso_week, _ = dt.isocalendar()
+        key = f"{iso_year}-W{iso_week:02d}"
+        if key not in buckets:
+            # Monday 00:00 UTC of that ISO week
+            mon = datetime.fromisocalendar(iso_year, iso_week, 1).replace(tzinfo=timezone.utc)
+            buckets[key] = {
+                "week_key": key,
+                "week_start_ts": int(mon.timestamp() * 1000),
+                "week_end_ts":   int(mon.timestamp() * 1000) + 7 * 24 * 3600 * 1000 - 1,
+                "cost": 0.0,
+                "turn_count": 0,
+                "session_ids": set(),
+            }
+        b = buckets[key]
+        b["cost"] += t.get("cost", 0.0)
+        b["turn_count"] += 1
+        sid = t.get("session_id")
+        if sid:
+            b["session_ids"].add(sid)
+    for b in buckets.values():
+        b["session_ids"] = sorted(b["session_ids"])
+    return sorted(buckets.values(), key=lambda b: b["week_start_ts"])
+
+
+def _estimate_5h_window_cap_usd(windows, limit_event_window_ids,
+                                 cycle_tier_by_window_id, override_pro):
+    """Estimate per-tier 5h-window cap from windows that hit a limit event.
+
+    Each limit-hit window's cost ≈ 100% of the cap on the tier that was
+    active during that window. Normalise to a Pro baseline by dividing by
+    that tier's factor (1.0 for Pro, 5.0 for Max 5x, 20.0 for Max 20x),
+    take the median across all limit-hit windows, then scale.
+
+    override_pro: USD per Pro-tier 5h-window (config override)
+    cycle_tier_by_window_id: window_index → normalized tier name (or None)
+    limit_event_window_ids: set of window indices that contain a limit event
+    """
+    if override_pro is not None and override_pro > 0:
+        base = float(override_pro)
         source = "config_override"
+        anchors = []
     else:
         anchors = []
-        for p in periods_info:
-            if p["limit_event_count"] <= 0:
+        for idx in limit_event_window_ids:
+            if idx >= len(windows):
                 continue
-            if p["total_days"] <= 0 or p["api_cost"] <= 0:
+            w = windows[idx]
+            tier = cycle_tier_by_window_id.get(idx)
+            factor = PLAN_TIER_FACTORS.get(tier)
+            if not factor or w["cost"] <= 0:
                 continue
-            factor = PLAN_TIER_FACTORS.get(p["plan_normalized"])
-            if not factor:
-                continue
-            anchors.append(p["api_cost"] / p["total_days"] / factor)
+            anchors.append(w["cost"] / factor)
         if anchors:
-            base_per_day = statistics.median(anchors)
+            base = statistics.median(anchors)
             source = "empirical"
         else:
-            base_per_day = PRO_CAPACITY_USD_DEFAULT / 30.0
+            base = PRO_CAPACITY_USD_DEFAULT
             source = "default"
 
-    capacities_per_day = {t: round(base_per_day * f, 4) for t, f in PLAN_TIER_FACTORS.items()}
+    caps = {t: round(base * f, 2) for t, f in PLAN_TIER_FACTORS.items()}
     return {
-        "capacities_per_day": capacities_per_day,
-        "base_pro_per_day_usd": round(base_per_day, 4),
-        "anchor_cycle_count": len([p for p in periods_info if p["limit_event_count"] > 0]),
+        "caps_per_window": caps,
+        "base_pro_per_window_usd": round(base, 2),
+        "anchor_window_count": len(anchors),
         "source": source,
     }
 
-
-def _summarize_recommendation(cycles, current_tier, threshold_pct=0.8):
-    """Pick cheapest tier that holds (<=100%) in >= threshold_pct of cycles."""
-    held = {tier: 0 for tier in PLAN_TIER_FACTORS}
-    for c in cycles:
-        for tier, pct in (c.get("tier_utilization") or {}).items():
-            if pct <= 100:
-                held[tier] += 1
-    total = len(cycles)
-
-    recommended = None
-    for tier in ("Pro", "Max 5x", "Max 20x"):
-        if total > 0 and held[tier] / total >= threshold_pct:
-            recommended = tier
-            break
-
-    return {
-        "current_tier": current_tier,
-        "recommended_tier": recommended,
-        "held_count": held,
-        "total_cycles": total,
-        "threshold_pct": threshold_pct,
-    }
 
 # ── Pricing (USD per 1M tokens) ───────────────────────────────────────────
 PRICING = {
@@ -1547,16 +1602,17 @@ def parse_session_transcripts():
                                                 pass
                                         elif isinstance(timestamp, (int, float)):
                                             turn_ts_ms = int(timestamp)
+                                    turn_output = usage.get("output_tokens", 0)
+                                    turn_cost = calc_cost(model, usage)
                                     if turn_ts_ms is not None:
                                         sess["_assistant_turns"].append({
                                             "ts": turn_ts_ms,
                                             "cache_creation": usage.get("cache_creation_input_tokens", 0),
                                             "cache_read": usage.get("cache_read_input_tokens", 0),
                                             "model": model,
+                                            "cost": turn_cost,
                                         })
 
-                                    turn_output = usage.get("output_tokens", 0)
-                                    turn_cost = calc_cost(model, usage)
                                     turn_tool_names = [
                                         b.get("name", "unknown")
                                         for b in message.get("content", [])
@@ -1694,6 +1750,9 @@ def parse_session_transcripts():
         del sessions[sub_id]
 
     # Compute gap-based cache-flush count from per-turn data (Task 1).
+    # _assistant_turns stays on the session for build_dashboard_data() to
+    # use in the 5h-window aggregation; it gets dropped in there before
+    # serialization.
     for sess in sessions.values():
         turns = sess.get("_assistant_turns", [])
         has_1h = any(
@@ -1702,7 +1761,6 @@ def parse_session_transcripts():
         )
         sess["cache_flush_count"] = _detect_cache_flushes(turns, has_1h)
         sess["idle_gap_summary"] = _compute_idle_gap_summary(turns)
-        sess.pop("_assistant_turns", None)
 
     migration_count = sum(1 for s in sessions.values() if s.get("source") == MIGRATION_LABEL)
     current_count = sum(1 for s in sessions.values() if s.get("source") == SOURCE_LABEL)
@@ -1953,7 +2011,11 @@ def _expand_billing_cycles(ph, start_str, end_str):
     return cycles
 
 
-def build_plan_analysis(daily_cost_series, session_list, first_session=None, all_limit_events=None):
+WEEKLY_VS_5H_RATIO = 7  # weekly cap ≈ 7 × 5h-cap (rough — one full 5h-session per day × 7 days)
+
+
+def build_plan_analysis(daily_cost_series, session_list, first_session=None,
+                          all_limit_events=None, windows_5h=None, weekly_buckets=None):
     """Analyze cost savings per plan period and current billing cycle.
 
     If first_session is given, billing cycles that end strictly before that date
@@ -2148,6 +2210,9 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None, all
             break
 
     # ── Plan Recommendation (Task 4) ───────────────────────────────
+    # Anthropic plans cap usage per 5h-window and per week, not per month.
+    # We compute hit-counts on each tier hypothesis: "how many 5h-windows /
+    # weeks in this cycle would have exceeded that tier's cap?"
     raw_current_tier = current_plan.get("plan", "")
     normalized_current = _normalize_tier_name(raw_current_tier)
     if raw_current_tier and normalized_current is None:
@@ -2157,52 +2222,112 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None, all
     if normalized_current is None:
         normalized_current = "Max 5x"
 
-    # Per-cycle metadata for the capacity estimator: each cycle's own tier
-    # (not the user's current tier) plus its duration. The estimator
-    # normalises to a per-day Pro baseline so cycles of different lengths
-    # do not distort each other.
-    periods_info = []
-    for p in periods:
-        plan_norm = _normalize_tier_name(p.get("plan", ""))
-        periods_info.append({
-            "plan_normalized": plan_norm,
-            "api_cost": p.get("api_cost", 0),
-            "total_days": p.get("total_days", 0),
-            "limit_event_count": p.get("limit_event_count", 0),
-        })
+    windows_5h = windows_5h or []
+    weekly_buckets = weekly_buckets or []
+    all_limit_events = all_limit_events or []
 
-    cap_info = _estimate_tier_capacity_per_day_usd(
-        periods_info,
-        PLAN_CAPACITY_OVERRIDE_PRO_USD,
+    # Determine the tier that was active during each window (lookup against
+    # PLAN_HISTORY using the window's start_ts).
+    def _tier_at_ts(ts_ms):
+        if ts_ms is None:
+            return None
+        d = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        for ph in PLAN_HISTORY:
+            start = ph.get("start", "")
+            end = ph.get("end") or "9999-12-31"
+            if start <= d <= end:
+                return _normalize_tier_name(ph.get("plan", ""))
+        return None
+
+    cycle_tier_by_window_idx = {i: _tier_at_ts(w["start_ts"]) for i, w in enumerate(windows_5h)}
+
+    # Match limit events to windows by timestamp (event.timestamp falls in
+    # [window.start_ts, window.end_ts]). These windows are the calibration
+    # anchors — their cost ≈ 100% of that-tier's 5h cap.
+    def _ts_to_ms(s):
+        try:
+            return int(datetime.fromisoformat(str(s).replace("Z", "+00:00")).timestamp() * 1000)
+        except (ValueError, OSError, AttributeError):
+            return None
+
+    limit_event_window_ids = set()
+    for ev in all_limit_events:
+        ev_ms = _ts_to_ms(ev.get("timestamp") or ev.get("gap_end"))
+        if ev_ms is None:
+            continue
+        for i, w in enumerate(windows_5h):
+            if w["start_ts"] <= ev_ms <= w["end_ts"]:
+                limit_event_window_ids.add(i)
+                break
+
+    cap_info_5h = _estimate_5h_window_cap_usd(
+        windows_5h, limit_event_window_ids,
+        cycle_tier_by_window_idx, PLAN_CAPACITY_OVERRIDE_PRO_USD,
     )
+
+    # Weekly caps: rough estimate as WEEKLY_VS_5H_RATIO × 5h cap. We don't
+    # have a separate weekly-fingerprint detector yet, so the calibration
+    # source for weekly is "derived_from_5h" — surfaced in the UI so the
+    # estimate is not presented as primary evidence.
+    cap_info_weekly = {
+        "caps_per_week": {t: round(c * WEEKLY_VS_5H_RATIO, 2)
+                           for t, c in cap_info_5h["caps_per_window"].items()},
+        "ratio_vs_5h": WEEKLY_VS_5H_RATIO,
+        "source": "derived_from_5h",
+    }
+
+    def _cycle_contains_ts(p, ts_ms):
+        if ts_ms is None:
+            return False
+        d = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        return p["start"] <= d <= p["end"]
 
     rec_cycles = []
     for p in periods:
         api = p.get("api_cost", 0)
-        days = p.get("total_days", 0)
-        util = {}
-        for tier, cap_per_day in cap_info["capacities_per_day"].items():
-            if cap_per_day > 0 and days > 0:
-                cycle_cap = cap_per_day * days
-                pct = round(100 * api / cycle_cap)
-                # Cap the displayed value: anything past 999% is a sign the
-                # calibration anchor was a short / extreme cycle or that
-                # Anthropic reset limits mid-cycle. The raw ratio above that
-                # point is not informative.
-                util[tier] = min(pct, 999)
+        cycle_windows = [w for w in windows_5h if _cycle_contains_ts(p, w["start_ts"])]
+        cycle_weeks   = [b for b in weekly_buckets if _cycle_contains_ts(p, b["week_start_ts"])]
+        hits_5h = {}
+        for tier, cap in cap_info_5h["caps_per_window"].items():
+            hits_5h[tier] = sum(1 for w in cycle_windows if w["cost"] > cap) if cap > 0 else 0
+        hits_weekly = {}
+        for tier, cap in cap_info_weekly["caps_per_week"].items():
+            hits_weekly[tier] = sum(1 for b in cycle_weeks if b["cost"] > cap) if cap > 0 else 0
         rec_cycles.append({
             "cycle_start": p["start"],
-            "cycle_end": p["end"],
+            "cycle_end":   p["end"],
             "label": p["plan"] + " · " + p["start"][:7],
             "api_cost": api,
-            "tier_utilization": util,
+            "total_5h_windows": len(cycle_windows),
+            "total_weeks":      len(cycle_weeks),
+            "tier_5h_hits":     hits_5h,
+            "tier_weekly_hits": hits_weekly,
             "limit_event_count": p.get("limit_event_count", 0),
         })
 
-    summary = _summarize_recommendation(rec_cycles, normalized_current)
+    # Recommendation: cheapest tier whose total 5h-hits across all cycles
+    # is 0 (or below a small slack). Weekly hits factor in as a tiebreaker:
+    # if multiple tiers have 0 5h-hits, pick the cheapest that also has 0
+    # weekly-hits.
+    SLACK = 0  # zero tolerance — any hit means the tier was insufficient
+    tier_total_5h     = {t: sum(c["tier_5h_hits"].get(t, 0) for c in rec_cycles)
+                          for t in PLAN_TIER_FACTORS}
+    tier_total_weekly = {t: sum(c["tier_weekly_hits"].get(t, 0) for c in rec_cycles)
+                          for t in PLAN_TIER_FACTORS}
+    recommended_tier = None
+    for tier in ("Pro", "Max 5x", "Max 20x"):
+        if tier_total_5h[tier] <= SLACK and tier_total_weekly[tier] <= SLACK:
+            recommended_tier = tier
+            break
+
     plan_recommendation = {
-        **summary,
-        "calibration": cap_info,
+        "current_tier":     normalized_current,
+        "recommended_tier": recommended_tier,
+        "total_cycles":     len(rec_cycles),
+        "tier_total_5h_hits":     tier_total_5h,
+        "tier_total_weekly_hits": tier_total_weekly,
+        "calibration_5h":      cap_info_5h,
+        "calibration_weekly":  cap_info_weekly,
         "cycles": rec_cycles,
     }
 
@@ -2639,9 +2764,32 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     all_limit_events = explicit_events + fingerprint_events
     all_limit_events.sort(key=lambda e: e.get("timestamp", ""))
 
+    # ── 5h-Window + Weekly aggregation across ALL sessions ──────────────
+    # Build a chronological flat list of every assistant turn (timestamp +
+    # cost + session_id) so we can group into Anthropic-shaped 5h and weekly
+    # buckets. Drops the per-session _assistant_turns afterwards.
+    all_turns = []
+    for sid, sess in sessions.items():
+        for t in sess.get("_assistant_turns", []):
+            all_turns.append({
+                "ts": t.get("ts"),
+                "cost": t.get("cost", 0.0),
+                "session_id": sid,
+            })
+        sess.pop("_assistant_turns", None)
+    all_turns.sort(key=lambda t: t.get("ts", 0))
+    windows_5h     = _compute_5h_windows(all_turns)
+    weekly_buckets = _compute_weekly_buckets(all_turns)
+
     # ── Plan-Analyse ───────────────────────────────────────────────────────
     first_session_date = all_dates[0] if all_dates else None
-    plan_analysis = build_plan_analysis(daily_cost_series, session_list, first_session=first_session_date, all_limit_events=all_limit_events)
+    plan_analysis = build_plan_analysis(
+        daily_cost_series, session_list,
+        first_session=first_session_date,
+        all_limit_events=all_limit_events,
+        windows_5h=windows_5h,
+        weekly_buckets=weekly_buckets,
+    )
 
     # ── Actual plan cost for KPI ─────────────────────────────────────────
     actual_plan_cost = plan_analysis.get("total_plan_cost", 0)

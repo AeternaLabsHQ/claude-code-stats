@@ -1115,8 +1115,10 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .plan-rec-table { border-collapse: collapse; width: 100%; margin-top: 8px; font-family: monospace; font-size: 13px; }
 .plan-rec-table th, .plan-rec-table td { border-bottom: 1px solid var(--border); padding: 4px 8px; text-align: right; }
 .plan-rec-table th:first-child, .plan-rec-table td.cyc-lbl { text-align: left; color: var(--text2); }
-.plan-rec-table td.over { color: var(--red); }
-.plan-rec-table td.under { color: var(--text); }
+.plan-rec-table td.over { color: var(--red); font-weight: 600; }
+.plan-rec-table td.under { color: var(--text2); }
+.plan-rec-table tr.plan-rec-totals td { border-top: 1px solid var(--border); padding-top: 6px; font-weight: 600; }
+.plan-rec-table tr.plan-rec-totals td.cyc-lbl { color: var(--text); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
 .plan-rec-summary { margin-top: 16px; font-size: 14px; }
 .plan-rec-summary > div { margin-bottom: 4px; }
 .plan-rec-cal { color: var(--text2); font-size: 12px; }

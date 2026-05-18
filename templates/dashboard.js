@@ -826,7 +826,7 @@ function renderCosts() {
         borderColor: vcColor(1), backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } } },
+      plugins: { legend: { display: false } },
       scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: 'USD', color: '#64748b' } } } }
   });
 
@@ -978,7 +978,7 @@ function renderCosts() {
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { labels: { color: window.__vcFg2 || '#4d4a42' } },
+          legend: { display: false },
           tooltip: {
             mode: 'index', intersect: false,
             callbacks: {
@@ -1088,7 +1088,7 @@ function renderActivity() {
     data: { labels: F.daily_messages.map(d => d.date),
       datasets: [{ label: D.locale.activity.messages_label, data: F.daily_messages.map(d => d.messages), backgroundColor: vcColor(0), borderRadius: 0 }] },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } } }, scales: scaleDefaults }
+      plugins: { legend: { display: false } }, scales: scaleDefaults }
   });
 
   const maxHourly = Math.max(...F.hourly_distribution.map(x => x.messages || 1));
@@ -1117,7 +1117,7 @@ function renderActivity() {
     data: { labels: F.daily_messages.map(d => d.date),
       datasets: [{ label: D.locale.activity.sessions_label, data: F.daily_messages.map(d => d.sessions), backgroundColor: vcColor(2), borderRadius: 0 }] },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } } }, scales: scaleDefaults }
+      plugins: { legend: { display: false } }, scales: scaleDefaults }
   });
   renderHeatmap();
 }
@@ -2009,7 +2009,7 @@ function renderInsights() {
         labels: errDates,
         datasets: [{ label: 'Error Rate (%)', data: errRates, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill:true, tension:0.3 }]
       },
-      options: { responsive:true, plugins:{legend:{labels:{color:window.__vcFg2||'#4d4a42'}}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a',maxTicksLimit:15}}, y:{ticks:{color:window.__vcFg3||'#918a7a'}, beginAtZero:true} } }
+      options: { responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a',maxTicksLimit:15}}, y:{ticks:{color:window.__vcFg3||'#918a7a'}, beginAtZero:true} } }
     });
   }
 }

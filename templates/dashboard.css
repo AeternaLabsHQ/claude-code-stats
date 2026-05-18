@@ -1100,9 +1100,13 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .lim-bar { position: relative; height: 16px; background: var(--bg3); border-radius: 3px; }
 .lim-cnt { color: var(--text2); text-align: right; font-family: monospace; }
 .lim-bar .evt { position: absolute; top: 2px; width: 8px; height: 12px; border-radius: 2px; transform: translateX(-50%); cursor: pointer; text-decoration: none; }
+/* Explicit = bold red (real data). Heuristic = warm gray-brown (inferred,
+   visually subordinate). The previous --vc-accent for heuristic was almost
+   identical to --red and made the two categories indistinguishable in the
+   legend. */
 .evt-explicit { background: var(--red); }
-.evt-heuristic-high { background: var(--vc-accent, #b04a2f); }
-.evt-heuristic-med { background: var(--vc-accent, #b04a2f); opacity: 0.55; }
+.evt-heuristic-high { background: var(--vc-fg-2, #4d4a42); }
+.evt-heuristic-med { background: var(--vc-fg-2, #4d4a42); opacity: 0.55; }
 .lim-legend { margin-top: 12px; font-size: 12px; color: var(--text2); }
 .lim-legend .evt { position: relative; display: inline-block; width: 10px; height: 10px; vertical-align: middle; transform: none; margin-right: 4px; }
 .lim-tip { margin-top: 6px; font-size: 12px; color: var(--text2); }

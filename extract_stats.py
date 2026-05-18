@@ -1758,8 +1758,12 @@ def extract_session_messages(session_id, project_dir_name):
             timestamp = obj.get("timestamp", "")
 
             # Real user-plan rate-limit events surface as isApiErrorMessage
-            # entries with specific phrasing. Emit a chat marker so the Limits
-            # tab event-link has a visible landing spot.
+            # entries (type: "assistant", message.role: "assistant") with
+            # specific phrasing. Emit a chat marker so the Limits-tab
+            # event-link has a visible landing spot. Skip the normal
+            # assistant-message processing afterwards so the same text does
+            # not appear twice in the chat (which would also push the
+            # marker out of view when the page scrolls to the anchor).
             if obj.get("isApiErrorMessage"):
                 _api_msg = obj.get("message", {})
                 _api_txt = _api_msg.get("content", "") if isinstance(_api_msg, dict) else ""
@@ -1773,6 +1777,7 @@ def extract_session_messages(session_id, project_dir_name):
                         "content": _api_txt[:400],
                         "timestamp": timestamp,
                     })
+                    continue
 
             if msg_type == "user":
                 message = obj.get("message", {})

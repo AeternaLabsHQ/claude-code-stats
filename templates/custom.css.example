@@ -1,0 +1,120 @@
+/* ============================================================
+   claude-stats — custom.css
+   ============================================================
+   This file lets you override the dashboard's color scheme
+   without touching the source CSS. Copy this file to
+   `public/custom.css` and uncomment / change the values
+   you want to customize.
+
+       cp public/custom.css.example public/custom.css
+
+   On each rebuild, `extract_stats.py` creates an empty
+   `public/custom.css` only if one does not already exist,
+   so your edits survive subsequent builds. The deployed
+   dashboard loads `custom.css` AFTER the inlined `<style>`
+   block, so anything here wins the cascade.
+
+   IMPORTANT: target the theme-scoped selectors (html.theme-light
+   .vc / html.theme-dark .vc), not just `.vc` — otherwise the
+   built-in theme rules win on specificity.
+
+   Two CSS variable namespaces exist:
+   - `--vc-*`   : new "Variant-C" design tokens (header, panels,
+                  primary surfaces, KPI tiles, footer)
+   - legacy `--bg`, `--accent`, etc. : used by Chart.js charts
+                  and innerHTML-rendered sections
+   For a complete recolor you usually want to set both.
+   ============================================================ */
+
+
+/* ---------- LIGHT THEME ---------- */
+
+/*
+html.theme-light .vc {
+  --vc-bg:           #faf5ea;
+  --vc-panel:        #fbfaf6;
+  --vc-grid:         #d8d2c4;
+  --vc-grid-2:       #e8e3d6;
+  --vc-fg:           #1c1a17;
+  --vc-fg-2:         #4d4a42;
+  --vc-fg-3:         #918a7a;
+  --vc-accent:       #b04a2f;
+  --vc-accent-soft:  #f1d9cd;
+}
+html.theme-light body.vc-page {
+  --bg:      #faf5ea;
+  --bg2:     #fbfaf6;
+  --bg3:     #ece6d8;
+  --border:  #d8d2c4;
+  --text:    #1c1a17;
+  --text2:   #4d4a42;
+  --accent:  #b04a2f;
+  --accent2: #c46141;
+  --green:   #6b8e23;
+  --orange:  #b04a2f;
+  --red:     #b54a3a;
+  --blue:    #4d4a42;
+  --purple:  #918a7a;
+  --cyan:    #918a7a;
+  --amber:   #b04a2f;
+}
+*/
+
+
+/* ---------- DARK THEME ---------- */
+
+/*
+html.theme-dark .vc {
+  --vc-bg:           #0e0d0b;
+  --vc-panel:        #15140f;
+  --vc-grid:         #2a2620;
+  --vc-grid-2:       #26231d;
+  --vc-fg:           #ece7da;
+  --vc-fg-2:         #b3ad9b;
+  --vc-fg-3:         #76705f;
+  --vc-accent:       #d97757;
+  --vc-accent-soft:  #2c1c14;
+}
+html.theme-dark body.vc-page {
+  --bg:      #0e0d0b;
+  --bg2:     #15140f;
+  --bg3:     #1f1d18;
+  --border:  #2a2620;
+  --text:    #ece7da;
+  --text2:   #b3ad9b;
+  --accent:  #d97757;
+  --accent2: #ec8b6a;
+  --green:   #93b85e;
+  --orange:  #d97757;
+  --red:     #e07d65;
+  --blue:    #b3ad9b;
+  --purple:  #76705f;
+  --cyan:    #76705f;
+  --amber:   #d97757;
+}
+*/
+
+
+/* ---------- SYSTEM PREFERENCE (when no explicit theme is set) ---------- */
+
+/*
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) .vc {
+    --vc-accent:      #d97757;
+    --vc-accent-soft: #2c1c14;
+  }
+  html:not(.theme-light) body.vc-page {
+    --accent: #d97757;
+  }
+}
+*/
+
+
+/* ---------- EXAMPLE: a single accent recolor ---------- */
+
+/*
+html.theme-light .vc        { --vc-accent: #2f6fb0; }
+html.theme-dark  .vc        { --vc-accent: #5ca0ea; }
+html.theme-light body.vc-page { --accent: #2f6fb0; }
+html.theme-dark  body.vc-page { --accent: #5ca0ea; }
+*/

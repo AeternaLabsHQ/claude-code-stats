@@ -2918,6 +2918,27 @@ def build_inline_html(data_json):
     return html
 
 
+def _provision_custom_css(out_dir):
+    """Copy custom.css.example to public/, and create empty custom.css if missing.
+
+    The dashboard HTML links to a sibling `custom.css`. We always refresh
+    the example so users see the latest set of overridable variables, but
+    never overwrite a user-edited custom.css.
+    """
+    base_dir = Path(__file__).parent
+    src_example = base_dir / "templates" / "custom.css.example"
+    if src_example.exists():
+        (out_dir / "custom.css.example").write_text(
+            src_example.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+    target = out_dir / "custom.css"
+    if not target.exists():
+        target.write_text(
+            "/* Your custom CSS overrides. See custom.css.example for available variables. */\n",
+            encoding="utf-8",
+        )
+
+
 def _get_html_template():
     """Return the HTML template string with placeholders for data, styles, scripts."""
     base_dir = Path(__file__).parent
@@ -3342,6 +3363,8 @@ def main():
     print(f"  Tasks: {tasks['total']} ({tasks['completed']} completed)")
 
     OUTPUT_DIR.mkdir(exist_ok=True)
+
+    _provision_custom_css(OUTPUT_DIR)
 
     print("\nAggregating data...")
     data = build_dashboard_data(

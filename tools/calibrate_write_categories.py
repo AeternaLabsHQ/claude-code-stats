@@ -18,6 +18,10 @@ Two backends:
                 not exact for Claude.
   - both        run both, side-by-side.
 
+ANTHROPIC_API_KEY can be exported in the shell or placed in a project-root
+`.env` file (KEY=VALUE per line; see `.env.example`). The .env file is
+git-ignored.
+
 Usage:
   python tools/calibrate_write_categories.py
   python tools/calibrate_write_categories.py --backend both --samples 80
@@ -36,6 +40,33 @@ import statistics
 import sys
 import time
 from pathlib import Path
+
+
+def _load_dotenv():
+    """Load KEY=VALUE pairs from project-root .env into os.environ (no override).
+
+    Tiny built-in loader so the script stays dependency-free. Handles
+    surrounding single/double quotes and `#` comments; ignores blank lines.
+    Existing environment variables win over .env values.
+    """
+    env_path = Path(__file__).parent.parent / ".env"
+    if not env_path.exists():
+        return
+    try:
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            val = val.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = val
+    except OSError:
+        pass
+
+
+_load_dotenv()
 
 CATEGORIES = ("screen_text", "thinking", "file_writes", "bash_commands", "tool_inputs")
 FILE_WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}

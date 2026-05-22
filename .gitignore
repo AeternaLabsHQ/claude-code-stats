@@ -8,6 +8,9 @@ public/
 # Personal config (copy config.example.json to config.json)
 config.json
 
+# Secrets (copy .env.example to .env)
+.env
+
 # Personal deployment scripts
 update_dashboard.sh
 update_dashboard.log

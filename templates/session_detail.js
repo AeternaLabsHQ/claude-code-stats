@@ -347,6 +347,40 @@ if (hasTokenAttribution) {
     '<canvas id="chartSessionTokens" style="max-height:220px"></canvas>' +
     '</div>';
 }
+
+// Output by activity (stacked bar) — char-heuristic attribution of output_tokens
+// across visible text / narration / thinking / file writes / bash / other tools.
+const wc = sess.write_categories || {};
+const WC_DEF = [
+  ['screen_text',           'Final Answers',     '#10b981'],
+  ['screen_text_narration', 'Pre-Tool Narration','#06b6d4'],
+  ['thinking',              'Thinking',          '#94a3b8'],
+  ['file_writes',           'File Writes',       '#6366f1'],
+  ['bash_commands',         'Bash Commands',     '#f59e0b'],
+  ['tool_inputs',           'Other Tool Inputs', '#a855f7'],
+];
+const wcTotal = WC_DEF.reduce((s, [k]) => s + (wc[k] || 0), 0);
+if (wcTotal > 0) {
+  const segs = WC_DEF
+    .filter(([k]) => (wc[k] || 0) > 0)
+    .map(([k, label, color]) => {
+      const v = wc[k];
+      const pct = (v / wcTotal) * 100;
+      return {k, label, color, v, pct};
+    });
+  sideHtml += '<div class="sidebar-card"><h4>Output by Activity</h4>' +
+    '<p style="font-size:11px;opacity:0.6;margin:0 0 8px 0">Heuristic split of output tokens by what the model emitted (text vs tool inputs vs commands).</p>' +
+    '<div style="display:flex;height:14px;border-radius:4px;overflow:hidden;background:var(--bg-subtle, rgba(255,255,255,0.04));margin-bottom:8px">' +
+      segs.map(s => '<div title="'+escHtml(s.label)+': '+fmtTokens(s.v)+' ('+s.pct.toFixed(1)+'%)" style="width:'+s.pct.toFixed(3)+'%;background:'+s.color+'"></div>').join('') +
+    '</div>' +
+    segs.map(s =>
+      '<div class="sidebar-row">' +
+        '<span class="label"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+s.color+';margin-right:6px;vertical-align:middle"></span>'+escHtml(s.label)+'</span>' +
+        '<span class="val">'+fmtTokens(s.v)+' <span style="opacity:0.55;font-size:11px">('+s.pct.toFixed(1)+'%)</span></span>' +
+      '</div>'
+    ).join('') +
+  '</div>';
+}
 if (tools.length>0 || (sess.reasoning_output_tokens||0) > 0) {
   const totalOut = Object.values(toolTokens).reduce((s,v)=>s+(v.output_tokens||0),0)
                     + (sess.reasoning_output_tokens||0);

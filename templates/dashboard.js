@@ -511,6 +511,20 @@ function filterData(days, projectFilter) {
     .sort((a, b) => b.output_tokens - a.output_tokens);
   F.reasoning_summary = {output_tokens: reasoningOut, cost: +reasoningCost.toFixed(4)};
 
+  // Recalculate write_categories_summary from filtered sessions.
+  const WC_KEYS = ['screen_text','screen_text_narration','thinking','file_writes','bash_commands','tool_inputs'];
+  const wcAgg = Object.fromEntries(WC_KEYS.map(k => [k, 0]));
+  F.sessions.forEach(s => {
+    const wc = s.write_categories || {};
+    WC_KEYS.forEach(k => { wcAgg[k] += wc[k] || 0; });
+  });
+  const wcTotal = WC_KEYS.reduce((s,k) => s + wcAgg[k], 0) || 1;
+  F.write_categories_summary = WC_KEYS.map(k => ({
+    category: k,
+    output_tokens: wcAgg[k],
+    share: +(wcAgg[k] / wcTotal).toFixed(4),
+  }));
+
   // Recalculate KPI
   const totalCost = filteredTotalCost;
   const totalSessions = F.sessions.length;
@@ -606,6 +620,7 @@ function applyFilter(days, projectFilter) {
   renderSessions();
   renderToolUsageChart();
   renderToolTokenChart();
+  renderWriteCategoriesChart();
   renderAgentsTab();
 }
 
@@ -623,6 +638,60 @@ function renderToolUsageChart() {
           y: { ...scaleDefaults.y, ticks: { font: { size: 11 } } } } }
     });
   }
+}
+
+const WC_LABELS = {
+  screen_text: 'Final Answers',
+  screen_text_narration: 'Pre-Tool Narration',
+  thinking: 'Thinking',
+  file_writes: 'File Writes',
+  bash_commands: 'Bash Commands',
+  tool_inputs: 'Other Tool Inputs',
+};
+const WC_COLORS = {
+  screen_text: '#10b981',
+  screen_text_narration: '#06b6d4',
+  thinking: '#94a3b8',
+  file_writes: '#6366f1',
+  bash_commands: '#f59e0b',
+  tool_inputs: '#a855f7',
+};
+
+function renderWriteCategoriesChart() {
+  const canvas = document.getElementById('chartWriteCategories');
+  if (!canvas) return;
+  const summary = (F.write_categories_summary || []).filter(e => e.output_tokens > 0);
+  if (summary.length === 0) return;
+
+  if (charts.writeCategories) {
+    try { charts.writeCategories.destroy(); } catch (e) { /* ignore */ }
+  }
+  charts.writeCategories = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: summary.map(e => WC_LABELS[e.category] || e.category),
+      datasets: [{
+        data: summary.map(e => e.output_tokens),
+        backgroundColor: summary.map(e => WC_COLORS[e.category] || '#64748b'),
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      animation: false,
+      plugins: {
+        legend: {position: 'right'},
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = ctx.dataset.data.reduce((s,v)=>s+v,0);
+              const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : '0';
+              return ctx.label + ': ' + ctx.raw.toLocaleString() + ' tokens (' + pct + '%)';
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 function renderToolTokenChart() {
@@ -1849,6 +1918,7 @@ function renderInsights() {
   // Tool usage chart
   renderToolUsageChart();
   renderToolTokenChart();
+  renderWriteCategoriesChart();
 
   // Storage chart
   const storage = ins.storage || {};

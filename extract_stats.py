@@ -502,6 +502,113 @@ def attribute_turn_tokens(output_tokens, cost, tool_names):
     }
 
 
+WRITE_CATEGORIES = (
+    "screen_text",            # text in turns with NO tool_use — final answers / pure explanations
+    "screen_text_narration",  # text in turns WITH tool_use — "let me check…" inter-tool narration
+    "thinking",
+    "file_writes",
+    "bash_commands",
+    "tool_inputs",
+)
+_FILE_WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
+
+
+def _block_weight(block):
+    """Approximate char-count of model-generated payload for one content block.
+
+    Used as a proportional weight to split a message's output_tokens across blocks.
+    Tool-use blocks include the tool name + compact JSON of input parameters,
+    since both are emitted by the model.
+    """
+    if not isinstance(block, dict):
+        return 0
+    btype = block.get("type")
+    if btype == "text":
+        return len(block.get("text") or "")
+    if btype == "thinking":
+        return len(block.get("thinking") or "")
+    if btype == "tool_use":
+        name = block.get("name") or ""
+        inp = block.get("input")
+        try:
+            payload = json.dumps(inp, ensure_ascii=False, separators=(",", ":")) if inp is not None else ""
+        except (TypeError, ValueError):
+            payload = str(inp) if inp is not None else ""
+        return len(name) + len(payload)
+    return 0
+
+
+def _block_category(block, turn_has_tools):
+    """Map a content block to one of WRITE_CATEGORIES, or None if it doesn't generate tokens.
+
+    `turn_has_tools` distinguishes a text block in a tool-using turn (narration
+    between tool calls, visible to user) from a text block in a pure-text turn
+    (final answer / explanation).
+    """
+    if not isinstance(block, dict):
+        return None
+    btype = block.get("type")
+    if btype == "text":
+        return "screen_text_narration" if turn_has_tools else "screen_text"
+    if btype == "thinking":
+        return "thinking"
+    if btype == "tool_use":
+        name = block.get("name") or ""
+        if name in _FILE_WRITE_TOOLS:
+            return "file_writes"
+        if name == "Bash":
+            return "bash_commands"
+        return "tool_inputs"
+    return None
+
+
+def attribute_write_categories(content_blocks, output_tokens):
+    """Split a turn's output_tokens across write categories by char-weight heuristic.
+
+    Heuristic: each content block contributes a weight equal to the char-count
+    of the payload the model had to generate (text body, thinking body, or
+    tool name + JSON of input). The message's output_tokens are distributed
+    proportionally; rounding remainder goes to the last non-zero bucket so
+    totals reconcile exactly.
+    """
+    result = {cat: 0 for cat in WRITE_CATEGORIES}
+    if not output_tokens or not content_blocks:
+        return result
+
+    turn_has_tools = any(
+        isinstance(b, dict) and b.get("type") == "tool_use"
+        for b in content_blocks
+    )
+
+    per_block = []
+    total_weight = 0
+    for block in content_blocks:
+        cat = _block_category(block, turn_has_tools)
+        if cat is None:
+            continue
+        w = _block_weight(block)
+        if w <= 0:
+            continue
+        per_block.append((cat, w))
+        total_weight += w
+
+    if total_weight <= 0:
+        # No measurable payload — dump everything into screen_text as a safe fallback.
+        result["screen_text"] = output_tokens
+        return result
+
+    allocated = 0
+    last_idx = len(per_block) - 1
+    for i, (cat, w) in enumerate(per_block):
+        if i < last_idx:
+            tokens = int(round(output_tokens * w / total_weight))
+        else:
+            tokens = output_tokens - allocated
+        result[cat] += tokens
+        allocated += tokens
+    return result
+
+
 def project_display_name(project_path):
     """Extract a short display name from a project path."""
     if not project_path:
@@ -1417,12 +1524,14 @@ def parse_session_transcripts():
                                     }),
                                     "reasoning_output_tokens": 0,
                                     "reasoning_cost": 0.0,
+                                    "write_categories": {cat: 0 for cat in WRITE_CATEGORIES},
                                     "skills": defaultdict(int),
                                     "hooks": defaultdict(int),
                                     "compactions": 0,
                                     "compaction_events": [],
                                     "cache_flush_count": 0,
                                     "_assistant_turns": [],  # private: {"ts","cache_creation","cache_read","model"} dicts per assistant turn — dropped before serialization
+                                    "_pending_text_tokens": 0,  # private: screen_text from most recent pure-text assistant turn, awaiting narration-vs-final classification — dropped before serialization
                                     "message_count": 0,
                                     "user_message_count": 0,
                                     "assistant_message_count": 0,
@@ -1503,6 +1612,9 @@ def parse_session_transcripts():
 
                             # User messages
                             if msg_type == "user":
+                                # Resolve pending text-only assistant turn: followed by a user
+                                # message → it was a final answer, keep as screen_text.
+                                sess["_pending_text_tokens"] = 0
                                 sess["message_count"] += 1
                                 sess["user_message_count"] += 1
                                 if ts_ms_for_msg is not None:
@@ -1570,6 +1682,15 @@ def parse_session_transcripts():
 
                             # Assistant messages with token usage
                             elif msg_type == "assistant":
+                                # Resolve pending text-only assistant turn: followed by another
+                                # assistant message → it was narration before action, shift its
+                                # screen_text tokens into the narration bucket.
+                                _pending = sess.get("_pending_text_tokens", 0)
+                                if _pending > 0:
+                                    sess["write_categories"]["screen_text"] -= _pending
+                                    sess["write_categories"]["screen_text_narration"] += _pending
+                                sess["_pending_text_tokens"] = 0
+
                                 sess["message_count"] += 1
                                 sess["assistant_message_count"] += 1
 
@@ -1625,6 +1746,22 @@ def parse_session_transcripts():
                                         tt["cost"] += entry["cost"]
                                     sess["reasoning_output_tokens"] += attrib["reasoning_output_tokens"]
                                     sess["reasoning_cost"] += attrib["reasoning_cost"]
+
+                                    wc_attrib = attribute_write_categories(
+                                        message.get("content", []), turn_output
+                                    )
+                                    for cat, tokens in wc_attrib.items():
+                                        sess["write_categories"][cat] += tokens
+
+                                    # If this turn was pure text (no tool_use), keep its
+                                    # screen_text tokens pending: a following assistant message
+                                    # means narration; a following user message means final answer.
+                                    _turn_has_tools = any(
+                                        isinstance(b, dict) and b.get("type") == "tool_use"
+                                        for b in message.get("content", [])
+                                    )
+                                    if not _turn_has_tools:
+                                        sess["_pending_text_tokens"] = wc_attrib.get("screen_text", 0)
 
                                 for block in message.get("content", []):
                                     if isinstance(block, dict) and block.get("type") == "tool_use":
@@ -2502,6 +2639,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             },
             "reasoning_output_tokens": sess["reasoning_output_tokens"],
             "reasoning_cost": round(sess["reasoning_cost"], 4),
+            "write_categories": dict(sess["write_categories"]),
             "skills": dict(sess["skills"]),
             "hooks": dict(sess["hooks"]),
             "compactions": sess["compactions"],
@@ -2690,6 +2828,21 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         key=lambda x: -x["output_tokens"],
     )
 
+    global_write_categories = {cat: 0 for cat in WRITE_CATEGORIES}
+    for s in session_list:
+        wc = s.get("write_categories") or {}
+        for cat in WRITE_CATEGORIES:
+            global_write_categories[cat] += wc.get(cat, 0)
+    _wc_total = sum(global_write_categories.values()) or 1
+    write_categories_summary = [
+        {
+            "category": cat,
+            "output_tokens": global_write_categories[cat],
+            "share": round(global_write_categories[cat] / _wc_total, 4),
+        }
+        for cat in WRITE_CATEGORIES
+    ]
+
     # Global Skills Aggregation
     global_skills = defaultdict(int)
     for s in session_list:
@@ -2760,6 +2913,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             explicit_events.append(ev)
         sess.pop("limit_event_candidates", None)
         sess.pop("user_timestamps", None)
+        sess.pop("_pending_text_tokens", None)
 
     all_limit_events = explicit_events + fingerprint_events
     all_limit_events.sort(key=lambda e: e.get("timestamp", ""))
@@ -2829,6 +2983,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         "sessions": session_list,
         "tool_summary": tool_summary,
         "tool_token_summary": tool_token_summary,
+        "write_categories_summary": write_categories_summary,
         "reasoning_summary": {
             "output_tokens": global_reasoning_output,
             "cost": round(global_reasoning_cost, 4),

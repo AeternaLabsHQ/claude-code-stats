@@ -117,7 +117,14 @@ def block_payload(block):
 
 
 def iter_jsonl_blocks(projects_dir: Path):
-    """Yield (category, payload_text) tuples from all assistant messages."""
+    """Yield (category, payload_text, model) tuples from all assistant messages.
+
+    The model is the value of `message.model` on the assistant message that
+    contained the block — important when tokenising with Anthropic's API,
+    because different model families use different tokenisers (Opus 4.7
+    introduced a new tokenizer that produces noticeably more tokens than
+    earlier model families for the same input string).
+    """
     for path in projects_dir.rglob("*.jsonl"):
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as f:
@@ -128,7 +135,9 @@ def iter_jsonl_blocks(projects_dir: Path):
                         continue
                     if obj.get("type") != "assistant":
                         continue
-                    content = obj.get("message", {}).get("content")
+                    msg = obj.get("message", {})
+                    content = msg.get("content")
+                    model = msg.get("model") or ""
                     if not isinstance(content, list):
                         continue
                     for block in content:
@@ -137,62 +146,100 @@ def iter_jsonl_blocks(projects_dir: Path):
                             continue
                         payload = block_payload(block)
                         if payload and len(payload) >= 8:
-                            yield cat, payload
+                            yield cat, payload, model
         except OSError:
             continue
 
 
 def sample_blocks(projects_dir: Path, samples_per_category: int, seed: int = 42):
-    """Reservoir-sample `samples_per_category` blocks per category."""
+    """Reservoir-sample `samples_per_category` {payload, model} blocks per category."""
     rng = random.Random(seed)
     reservoirs = {cat: [] for cat in CATEGORIES}
     seen = {cat: 0 for cat in CATEGORIES}
 
-    for cat, payload in iter_jsonl_blocks(projects_dir):
+    for cat, payload, model in iter_jsonl_blocks(projects_dir):
         seen[cat] += 1
         res = reservoirs[cat]
+        entry = {"payload": payload, "model": model}
         if len(res) < samples_per_category:
-            res.append(payload)
+            res.append(entry)
         else:
             j = rng.randint(0, seen[cat] - 1)
             if j < samples_per_category:
-                res[j] = payload
+                res[j] = entry
 
     return reservoirs, seen
 
 
-# Tokeniser backends
+# Tokeniser backends. Both counters accept (text, model) so calibrate() can
+# pass the per-block model uniformly; tiktoken ignores it.
 
 
 def make_tiktoken_counter():
     import tiktoken
     enc = tiktoken.get_encoding("cl100k_base")
 
-    def count(text: str) -> int:
+    def count(text: str, model: str = "") -> int:  # model ignored
         return len(enc.encode(text or ""))
 
     return count
 
 
-def make_anthropic_counter(model: str):
+def make_anthropic_counter(default_model: str):
+    """Build a counter that tokenises with each block's own model when present.
+
+    Caches per-model baselines (overhead of an "empty" message) and tracks
+    models that fail (e.g., retired versions), falling back to default_model
+    for those — a single warning is printed per failed model.
+    """
     import anthropic
     client = anthropic.Anthropic()
 
-    baseline = client.messages.count_tokens(
-        model=model, messages=[{"role": "user", "content": "."}]
-    ).input_tokens
+    baselines: dict = {}
+    bad_models: set = set()
 
-    def count(text: str) -> int:
+    def _baseline(model: str) -> int:
+        if model not in baselines:
+            try:
+                baselines[model] = client.messages.count_tokens(
+                    model=model, messages=[{"role": "user", "content": "."}]
+                ).input_tokens
+            except Exception:
+                bad_models.add(model)
+                # Fall back to default model's baseline
+                if default_model not in baselines:
+                    baselines[default_model] = client.messages.count_tokens(
+                        model=default_model, messages=[{"role": "user", "content": "."}]
+                    ).input_tokens
+                baselines[model] = baselines[default_model]
+        return baselines[model]
+
+    def count(text: str, model: str = "") -> int:
         if not text:
             return 0
+        m = model or default_model
+        if m in bad_models:
+            m = default_model
+        base = _baseline(m)
+        # _baseline() may have just discovered m is bad — re-check before counting.
+        if m in bad_models:
+            m = default_model
+            base = _baseline(m)
         for attempt in range(3):
             try:
                 resp = client.messages.count_tokens(
-                    model=model,
+                    model=m,
                     messages=[{"role": "user", "content": text}],
                 )
-                return max(0, resp.input_tokens - baseline)
+                return max(0, resp.input_tokens - base)
             except Exception as e:
+                # Model-not-found / retired: degrade to default and warn once
+                if m != default_model and m not in bad_models:
+                    bad_models.add(m)
+                    print(f"  warn: count_tokens rejected model={m!r} ({e.__class__.__name__}); falling back to {default_model}", file=sys.stderr)
+                    m = default_model
+                    base = _baseline(m)
+                    continue
                 if attempt == 2:
                     raise
                 time.sleep(2 ** attempt)
@@ -202,24 +249,38 @@ def make_anthropic_counter(model: str):
 
 
 def calibrate(samples: dict, counter, label: str):
-    """For each category, compute mean chars-per-token + dispersion."""
+    """For each category, compute mean chars-per-token + dispersion.
+
+    Also produces a per-model summary aggregating across all categories,
+    so families with different tokenisers (e.g., Opus 4.7) show up
+    individually.
+    """
     results = {}
+    per_model_totals: dict = {}  # model -> {"chars": int, "tokens": int, "n": int}
+
     for cat in CATEGORIES:
-        payloads = samples.get(cat, [])
+        entries = samples.get(cat, [])
         per_block = []
-        for p in payloads:
-            chars = len(p)
-            toks = counter(p)
+        for entry in entries:
+            payload = entry["payload"]
+            model = entry.get("model") or ""
+            chars = len(payload)
+            toks = counter(payload, model)
             if toks <= 0:
                 continue
-            per_block.append((chars, toks, chars / toks))
+            per_block.append((chars, toks))
+            agg = per_model_totals.setdefault(model or "(unknown)",
+                                              {"chars": 0, "tokens": 0, "n": 0})
+            agg["chars"] += chars
+            agg["tokens"] += toks
+            agg["n"] += 1
         if not per_block:
             results[cat] = None
             continue
 
-        ratios = [r for _, _, r in per_block]
-        total_chars = sum(c for c, _, _ in per_block)
-        total_toks = sum(t for _, t, _ in per_block)
+        ratios = [c / t for c, t in per_block]
+        total_chars = sum(c for c, _ in per_block)
+        total_toks = sum(t for _, t in per_block)
         results[cat] = {
             "n": len(per_block),
             "chars_per_token_mean": statistics.mean(ratios),
@@ -229,7 +290,20 @@ def calibrate(samples: dict, counter, label: str):
             "total_chars": total_chars,
             "total_tokens": total_toks,
         }
-    return {"backend": label, "categories": results}
+
+    per_model = []
+    for model, v in sorted(per_model_totals.items(), key=lambda kv: -kv[1]["n"]):
+        if v["tokens"] <= 0:
+            continue
+        per_model.append({
+            "model": model,
+            "n": v["n"],
+            "total_chars": v["chars"],
+            "total_tokens": v["tokens"],
+            "chars_per_token_weighted": v["chars"] / v["tokens"],
+        })
+
+    return {"backend": label, "categories": results, "per_model": per_model}
 
 
 def print_table(calib):
@@ -255,6 +329,18 @@ def print_table(calib):
         print(f"  {cat:<16} {ratio:>5.3f}x  "
               f"({'over-weighted' if ratio < 1 else 'under-weighted' if ratio > 1 else 'baseline'} by char-heuristic)")
 
+    per_model = calib.get("per_model") or []
+    if per_model:
+        print(f"\nPer-model chars/token (aggregated across categories):")
+        print(f"  {'model':<36} {'n':>5} {'chars':>10} {'tokens':>10} {'chars/tok':>10}")
+        # Anchor relative comparison to the model with most samples
+        anchor = per_model[0]["chars_per_token_weighted"] if per_model else 1.0
+        for pm in per_model:
+            rel = anchor / pm["chars_per_token_weighted"] if pm["chars_per_token_weighted"] else 0
+            tag = "" if abs(rel - 1) < 0.02 else (f"  ({(rel-1)*100:+.1f}% vs anchor)" if rel != 0 else "")
+            print(f"  {pm['model']:<36} {pm['n']:>5} {pm['total_chars']:>10,} "
+                  f"{pm['total_tokens']:>10,} {pm['chars_per_token_weighted']:>10.2f}{tag}")
+
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -265,7 +351,13 @@ def main():
                     help="Samples per category (default 50). 5 categories = 5*N tokeniser calls.")
     ap.add_argument("--backend", choices=("tiktoken", "anthropic", "both"), default="tiktoken")
     ap.add_argument("--model", default="claude-haiku-4-5",
-                    help="Anthropic model id for count_tokens (default: claude-haiku-4-5).")
+                    help="Anthropic model id used as fallback when the JSONL block "
+                         "carries no model field or its model is retired (default: "
+                         "claude-haiku-4-5). Anthropic backend ALWAYS prefers the "
+                         "per-block model from the JSONL — important because "
+                         "different model families (esp. Opus 4.7) use different "
+                         "tokenisers and report different token counts for the "
+                         "same input.")
     ap.add_argument("--out", type=Path, default=None,
                     help="Optional path to write the full calibration JSON.")
     ap.add_argument("--seed", type=int, default=42)

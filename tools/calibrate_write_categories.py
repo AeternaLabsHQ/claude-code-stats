@@ -116,8 +116,73 @@ def block_payload(block):
     return ""
 
 
-def iter_jsonl_blocks(projects_dir: Path):
-    """Yield (category, payload_text, model) tuples from all assistant messages.
+def resolve_sources(projects_dir_overrides=None):
+    """Return a list of (label, projects_dir Path) tuples to scan.
+
+    Mirrors extract_stats.py's source resolution so the calibration sees the
+    same data the dashboard does:
+    - reads ../config.json if present (primary ~/.claude + migration source +
+      additional_sources)
+    - sudo-only sources are skipped with a warning since this script runs as
+      the invoking user
+    - if projects_dir_overrides is non-empty, it bypasses config entirely
+      and uses only those paths.
+    Sources whose projects_dir does not exist are silently dropped.
+    """
+    sources = []
+
+    if projects_dir_overrides:
+        for p in projects_dir_overrides:
+            sources.append(("override", Path(p).expanduser()))
+        return [(lbl, p) for lbl, p in sources if p.exists()]
+
+    # Primary: ~/.claude/projects (matches extract_stats default)
+    primary = Path("~/.claude/projects").expanduser()
+    if primary.exists():
+        sources.append(("local", primary))
+
+    # config.json (optional — script still runs without it)
+    config_path = Path(__file__).parent.parent / "config.json"
+    if config_path.exists():
+        try:
+            cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            cfg = {}
+
+        # Migration source
+        mig = cfg.get("migration", {})
+        if mig.get("enabled") and mig.get("dir"):
+            mig_root = Path(mig["dir"]).expanduser()
+            mig_pd = mig_root / mig.get("claude_dir_name", ".claude-windows") / "projects"
+            if mig_pd.exists():
+                sources.append((mig.get("label", "migration"), mig_pd))
+
+        # additional_sources
+        for src in cfg.get("additional_sources", []):
+            label = src.get("label") or "additional"
+            if src.get("sudo_user"):
+                print(f"  skipping sudo-only source: {label} (requires sudo as {src['sudo_user']})",
+                      file=sys.stderr)
+                continue
+            claude_dir = src.get("claude_dir")
+            if not claude_dir:
+                continue
+            pd = Path(claude_dir).expanduser() / "projects"
+            if pd.exists():
+                sources.append((label, pd))
+
+    # Last-resort fallback: the in-repo dot-claude fixture (developer setup).
+    if not sources:
+        fixture = Path(__file__).parent.parent / "dot-claude" / "projects"
+        if fixture.exists():
+            sources.append(("fixture", fixture))
+
+    return sources
+
+
+def iter_jsonl_blocks(sources):
+    """Yield (category, payload_text, model, source_label) tuples from all
+    assistant messages across every (label, projects_dir) source.
 
     The model is the value of `message.model` on the assistant message that
     contained the block — important when tokenising with Anthropic's API,
@@ -125,42 +190,43 @@ def iter_jsonl_blocks(projects_dir: Path):
     introduced a new tokenizer that produces noticeably more tokens than
     earlier model families for the same input string).
     """
-    for path in projects_dir.rglob("*.jsonl"):
-        try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
-                for line in f:
-                    try:
-                        obj = json.loads(line)
-                    except (json.JSONDecodeError, ValueError):
-                        continue
-                    if obj.get("type") != "assistant":
-                        continue
-                    msg = obj.get("message", {})
-                    content = msg.get("content")
-                    model = msg.get("model") or ""
-                    if not isinstance(content, list):
-                        continue
-                    for block in content:
-                        cat = categorize(block)
-                        if cat is None:
+    for label, projects_dir in sources:
+        for path in projects_dir.rglob("*.jsonl"):
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        try:
+                            obj = json.loads(line)
+                        except (json.JSONDecodeError, ValueError):
                             continue
-                        payload = block_payload(block)
-                        if payload and len(payload) >= 8:
-                            yield cat, payload, model
-        except OSError:
-            continue
+                        if obj.get("type") != "assistant":
+                            continue
+                        msg = obj.get("message", {})
+                        content = msg.get("content")
+                        model = msg.get("model") or ""
+                        if not isinstance(content, list):
+                            continue
+                        for block in content:
+                            cat = categorize(block)
+                            if cat is None:
+                                continue
+                            payload = block_payload(block)
+                            if payload and len(payload) >= 8:
+                                yield cat, payload, model, label
+            except OSError:
+                continue
 
 
-def sample_blocks(projects_dir: Path, samples_per_category: int, seed: int = 42):
-    """Reservoir-sample `samples_per_category` {payload, model} blocks per category."""
+def sample_blocks(sources, samples_per_category: int, seed: int = 42):
+    """Reservoir-sample `samples_per_category` {payload, model, source} blocks per category."""
     rng = random.Random(seed)
     reservoirs = {cat: [] for cat in CATEGORIES}
     seen = {cat: 0 for cat in CATEGORIES}
 
-    for cat, payload, model in iter_jsonl_blocks(projects_dir):
+    for cat, payload, model, source in iter_jsonl_blocks(sources):
         seen[cat] += 1
         res = reservoirs[cat]
-        entry = {"payload": payload, "model": model}
+        entry = {"payload": payload, "model": model, "source": source}
         if len(res) < samples_per_category:
             res.append(entry)
         else:
@@ -344,9 +410,11 @@ def print_table(calib):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--projects-dir", type=Path,
-                    default=Path(__file__).parent.parent / "dot-claude" / "projects",
-                    help="Path to a directory tree containing Claude Code session JSONLs.")
+    ap.add_argument("--projects-dir", type=Path, action="append", default=None,
+                    help="Path to a directory tree containing Claude Code session "
+                         "JSONLs. May be repeated. If omitted, the script reads "
+                         "config.json (migration + additional_sources, sudo "
+                         "sources skipped) and falls back to ~/.claude/projects.")
     ap.add_argument("--samples", type=int, default=50,
                     help="Samples per category (default 50). 5 categories = 5*N tokeniser calls.")
     ap.add_argument("--backend", choices=("tiktoken", "anthropic", "both"), default="tiktoken")
@@ -363,12 +431,17 @@ def main():
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
-    if not args.projects_dir.exists():
-        print(f"ERROR: projects-dir does not exist: {args.projects_dir}", file=sys.stderr)
+    sources = resolve_sources(args.projects_dir)
+    if not sources:
+        print("ERROR: no JSONL source directories found. Pass --projects-dir explicitly "
+              "or check config.json.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Sampling {args.samples} blocks per category from {args.projects_dir} ...")
-    samples, seen = sample_blocks(args.projects_dir, args.samples, seed=args.seed)
+    print(f"Sampling {args.samples} blocks per category from {len(sources)} source(s):")
+    for label, pd in sources:
+        print(f"  {label:<24} {pd}")
+    samples, seen = sample_blocks(sources, args.samples, seed=args.seed)
+    print()
     for cat in CATEGORIES:
         print(f"  {cat:<22} {len(samples[cat]):>4} sampled  ({seen[cat]:,} seen)")
 

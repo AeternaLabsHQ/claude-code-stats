@@ -1123,3 +1123,5 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .plan-rec-summary > div { margin-bottom: 4px; }
 .plan-rec-cal { color: var(--text2); font-size: 12px; }
 .plan-rec-disclaimer { margin-top: 16px; padding: 8px 12px; border: 1px solid var(--red); border-radius: 3px; color: var(--text); font-size: 13px; background: rgba(181, 74, 58, 0.08); }
+.model-pricing-notice { margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--amber); border-radius: 3px; color: var(--text); font-size: 13px; background: rgba(176, 74, 47, 0.08); }
+.model-pricing-notice strong { font-weight: 600; }

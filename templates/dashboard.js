@@ -958,6 +958,28 @@ function renderCosts() {
       scales: { x: { ...scaleDefaults.x, title: { display: true, text: 'USD', color: '#64748b' } }, y: scaleDefaults.y } }
   });
 
+  // Pricing notice: Claude models seen in the data with no PRICING entry, so
+  // their cost is only estimated. pricing_warnings is global (not filtered).
+  const pricingNotice = document.getElementById('modelPricingNotice');
+  if (pricingNotice) {
+    const warnings = D.pricing_warnings || [];
+    if (warnings.length) {
+      const names = warnings.map(w => w.display).join(', ');
+      const tmpl = (D.locale.costs && D.locale.costs.pricing_notice) || 'Estimated pricing for {models}: not in the price table.';
+      const parts = tmpl.split('{models}');
+      pricingNotice.className = 'model-pricing-notice';
+      pricingNotice.textContent = '';
+      pricingNotice.appendChild(document.createTextNode(parts[0]));
+      const strong = document.createElement('strong');
+      strong.textContent = names;
+      pricingNotice.appendChild(strong);
+      pricingNotice.appendChild(document.createTextNode(parts[1] || ''));
+    } else {
+      pricingNotice.className = '';
+      pricingNotice.textContent = '';
+    }
+  }
+
   // Model table
   const tbody = document.getElementById('modelTableBody');
   F.model_summary.forEach(m => {

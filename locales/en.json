@@ -48,7 +48,8 @@
     "th_cache_read": "Cache Read",
     "th_api_calls": "API Calls",
     "cache_efficiency": "Cache Efficiency",
-    "cache_efficiency_daily": "Cache Efficiency per Day (box plot, sessions ≥ 3 msg)"
+    "cache_efficiency_daily": "Cache Efficiency per Day (box plot, sessions ≥ 3 msg)",
+    "pricing_notice": "Estimated pricing for {models}: not in the price table, so its cost is approximate. Add it to PRICING in extract_stats.py."
   },
   "activity": {
     "daily_messages": "Messages per Day",

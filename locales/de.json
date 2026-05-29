@@ -48,7 +48,8 @@
     "th_cache_read": "Cache Read",
     "th_api_calls": "API Calls",
     "cache_efficiency": "Cache-Effizienz",
-    "cache_efficiency_daily": "Cache-Effizienz pro Tag (Box-Plot, Sessions ≥ 3 Nachrichten)"
+    "cache_efficiency_daily": "Cache-Effizienz pro Tag (Box-Plot, Sessions ≥ 3 Nachrichten)",
+    "pricing_notice": "Geschätzter Preis für {models}: nicht in der Preistabelle, daher sind die Kosten nur Näherungen. In PRICING in extract_stats.py ergänzen."
   },
   "activity": {
     "daily_messages": "Nachrichten pro Tag",

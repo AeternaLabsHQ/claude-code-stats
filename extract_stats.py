@@ -346,6 +346,12 @@ def _estimate_5h_window_cap_usd(windows, limit_event_window_ids,
 
 # ── Pricing (USD per 1M tokens) ───────────────────────────────────────────
 PRICING = {
+    # Claude 4.8
+    "claude-opus-4-8": {
+        "input": 5.00, "output": 25.00,
+        "cache_read": 0.50, "cache_write_5m": 6.25, "cache_write_1h": 10.00,
+        "display": "Opus 4.8"
+    },
     # Claude 4.7
     "claude-opus-4-7": {
         "input": 5.00, "output": 25.00,

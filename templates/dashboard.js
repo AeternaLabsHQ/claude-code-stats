@@ -97,6 +97,7 @@ function vcRgba(rank, alpha) {
 // distinguishable, with three lightness steps per family for versions.
 // Unknown / unmatched models fall back to a neutral warm gray.
 const _VC_MODEL_LIGHT = {
+  'Opus 4.8':   '#c95a3a',
   'Opus 4.7':   '#b04a2f',
   'Opus 4.6':   '#8e3b25',
   'Opus 4.5':   '#6e2d1c',
@@ -108,6 +109,7 @@ const _VC_MODEL_LIGHT = {
   'Unknown':    '#7a766b',
 };
 const _VC_MODEL_DARK = {
+  'Opus 4.8':   '#e88a66',
   'Opus 4.7':   '#d97757',
   'Opus 4.6':   '#bb5e3f',
   'Opus 4.5':   '#9d4a30',
@@ -136,7 +138,7 @@ function vcModelColor(modelName) {
 const MODEL_COLORS = {
   get _proxy() { return true; },
 };
-['Opus 4.7', 'Opus 4.6', 'Opus 4.5', 'Sonnet 4.6', 'Sonnet 4.5', 'Sonnet 4.0', 'Haiku 4.5', 'Haiku 3.5', 'Unknown'].forEach(m => {
+['Opus 4.8', 'Opus 4.7', 'Opus 4.6', 'Opus 4.5', 'Sonnet 4.6', 'Sonnet 4.5', 'Sonnet 4.0', 'Haiku 4.5', 'Haiku 3.5', 'Unknown'].forEach(m => {
   Object.defineProperty(MODEL_COLORS, m, { get() { return vcModelColor(m); }, enumerable: true });
 });
 

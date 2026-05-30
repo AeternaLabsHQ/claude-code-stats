@@ -6,6 +6,11 @@ const msgs = S.messages;
 const fmt = n => n.toLocaleString();
 const fmtUSD = n => '$' + n.toFixed(4);
 const fmtTokens = n => { if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return n.toString(); };
+// Standard context window caps the prompt near 200k; a turn over this ran with
+// the 1M-context window enabled. Keep in sync with CONTEXT_1M_THRESHOLD (extract_stats.py).
+const CONTEXT_1M_THRESHOLD = 200000;
+const turnContext = t => (t ? (t.input||0) + (t.cache_read||0) + (t.cache_write||0) : 0);
+const ctx1mBadge = title => '<span class="ctx-1m-badge" title="'+escHtml(title)+'">1M</span>';
 function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function fmtTime(ts) { if(!ts) return ''; const d=new Date(typeof ts==='number'?ts:ts); return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 function modelClass(m) { const l=(m||'').toLowerCase(); if(l.includes('opus')) return 'opus'; if(l.includes('sonnet')) return 'sonnet'; if(l.includes('haiku')) return 'haiku'; return ''; }
@@ -78,7 +83,8 @@ document.getElementById('sessionTitle').textContent = sess.project;
 document.getElementById('sessionMeta').innerHTML =
   '<span>Session: <code>'+sess.session_id.slice(0,8)+'</code></span>' +
   '<span>'+new Date(sess.start).toLocaleDateString()+' '+new Date(sess.start).toLocaleTimeString()+'</span>' +
-  '<span class="model-badge '+modelClass(sess.primary_model)+'">'+escHtml(sess.primary_model)+'</span>';
+  '<span class="model-badge '+modelClass(sess.primary_model)+'">'+escHtml(sess.primary_model)+'</span>' +
+  (sess.used_1m_context ? ctx1mBadge('1M context window used — peak '+fmtTokens(sess.peak_context_tokens||0)+(sess.first_1m_at?', since '+fmtTime(sess.first_1m_at):'')) : '');
 
 const toolCount = Object.values(sess.tools||{}).reduce((s,v)=>s+v,0);
 const sessEff = cacheEff(sess);
@@ -91,7 +97,8 @@ document.getElementById('statsBar').innerHTML =
   '<div class="stat-card"><div class="label">Cache Eff.</div><div class="value" style="color:'+sessEffSt.color+'">'+sessEffSt.emoji+' '+sessEffSt.label+'</div></div>' +
   '<div class="stat-card"><div class="label">Cache Flushes</div><div class="value" title="Turns where cache likely went cold (post-buildup + gap > TTL + creation > 2× session median)" style="color:'+((sess.cache_flush_count||0)>0?'var(--red)':'var(--text2)')+'">'+((sess.cache_flush_count||0))+'</div></div>' +
   '<div class="stat-card"><div class="label">Est. Cost</div><div class="value" style="color:var(--orange)">'+fmtUSD(sess.cost)+'</div></div>' +
-  '<div class="stat-card"><div class="label">Compactions</div><div class="value" style="color:'+((sess.compactions||0)>0?'var(--amber)':'var(--text2)')+'">'+((sess.compactions||0))+'</div></div>';
+  '<div class="stat-card"><div class="label">Compactions</div><div class="value" style="color:'+((sess.compactions||0)>0?'var(--amber)':'var(--text2)')+'">'+((sess.compactions||0))+'</div></div>' +
+  '<div class="stat-card"><div class="label">Peak Context</div><div class="value" title="'+(sess.used_1m_context?('1M context window used'+(sess.first_1m_at?' since '+fmtTime(sess.first_1m_at):'')):'Highest prompt context reached (standard 200k window)')+'" style="color:'+(sess.used_1m_context?'var(--accent2, #a855f7)':'var(--text2)')+'">'+fmtTokens(sess.peak_context_tokens||0)+(sess.used_1m_context?' <span class="ctx-1m-badge">1M</span>':'')+'</div></div>';
 
 // Idle-gap panel (Task 2): only renders if session has mid or long gaps
 const idleGapEl = document.getElementById('idleGapPanel');
@@ -143,6 +150,7 @@ msgs.forEach((m,i) => {
         '<span class="msg-time">'+fmtTime(m.timestamp)+'</span>' +
         (m.model ? '<span class="msg-model"><span class="model-badge '+modelClass(m.model)+'">'+escHtml(m.model)+'</span></span>' : '') +
         (m.tokens ? '<span class="msg-tokens">'+fmtTokens(m.tokens.input)+'in / '+fmtTokens(m.tokens.output)+'out</span>' : '') +
+        (m.tokens && turnContext(m.tokens) > CONTEXT_1M_THRESHOLD ? ctx1mBadge('Prompt context '+fmtTokens(turnContext(m.tokens))+' — exceeds the 200k standard window (1M enabled)') : '') +
       '</div>' +
       '<div class="msg-content" id="mc'+i+'">'+renderMd(display)+'</div>' +
       (isLong ? '<div class="msg-expand" data-idx="'+i+'">Show full message ('+(m.content.length/1000).toFixed(1)+'K chars)</div>' : '') +

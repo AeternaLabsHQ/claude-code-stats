@@ -287,6 +287,7 @@ body.flow-hidden .left-column { max-height: calc(100vh - 180px); }
 .msg-time { color:var(--text2); }
 .msg-model { margin-left:auto; }
 .msg-tokens { color:var(--text2); font-size:11px; font-family:monospace; }
+.ctx-1m-badge { display:inline-block; padding:1px 5px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:0.3px; background:rgba(168,85,247,0.16); color:var(--purple); border:1px solid rgba(168,85,247,0.4); margin-left:6px; vertical-align:middle; }
 .msg-content { font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
 .msg-content code { background:var(--bg); padding:1px 4px; border-radius:3px; font-size:12px; }
 .msg-content pre { background:var(--bg); border-radius:6px; padding:12px; margin:8px 0; overflow-x:auto; }

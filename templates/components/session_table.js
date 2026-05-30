@@ -145,7 +145,13 @@
       render: (s) => {
         const m = s.primary_model || '—';
         const cls = modelClass(m);
-        return '<span class="model-badge ' + cls + '">' + escHtml(m) + '</span>';
+        let html = '<span class="model-badge ' + cls + '">' + escHtml(m) + '</span>';
+        if (s.used_1m_context) {
+          html += ' <span title="1M context window used · peak ' + fmtTokens(s.peak_context_tokens || 0) +
+            '" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.3px;' +
+            'background:rgba(168,85,247,0.16);color:#a855f7;border:1px solid rgba(168,85,247,0.4);vertical-align:middle">1M</span>';
+        }
+        return html;
       }
     },
 

@@ -1348,6 +1348,41 @@ def _categorize_error(msg: str, tool_name: str) -> str:
     return "other"
 
 
+# The standard context window caps the prompt at ~200k tokens. Any assistant
+# turn whose prompt context exceeds this provably ran with the 1M-context window
+# enabled, so we use it as the detection boundary (strictly greater).
+CONTEXT_1M_THRESHOLD = 200_000
+
+
+def summarize_context_window(turns: list[dict], threshold: int = CONTEXT_1M_THRESHOLD) -> dict:
+    """Detect whether (and when) a session used the 1M-context window.
+
+    Per-turn prompt context = input + cache_read + cache_creation. The standard
+    window caps that at ~200k tokens, so a turn over the threshold can only have
+    run with 1M enabled. This measures the *actual* context reached, not the
+    setting: a session that enabled 1M but stayed under 200k is not flagged.
+
+    Returns {"peak_context_tokens", "used_1m_context", "first_1m_at"} where
+    first_1m_at is the timestamp of the chronologically earliest over-threshold
+    turn (or None if the window was never exceeded).
+    """
+    peak = 0
+    first_1m_at = None
+    for t in turns:
+        ctx = (t.get("input", 0) or 0) + (t.get("cache_read", 0) or 0) + (t.get("cache_creation", 0) or 0)
+        if ctx > peak:
+            peak = ctx
+        if ctx > threshold:
+            ts = t.get("timestamp")
+            if ts is not None and (first_1m_at is None or ts < first_1m_at):
+                first_1m_at = ts
+    return {
+        "peak_context_tokens": peak,
+        "used_1m_context": peak > threshold,
+        "first_1m_at": first_1m_at,
+    }
+
+
 def _detect_cache_flushes(turns: list[dict], has_1h_cache: bool) -> int:
     """Gap-based flush detection.
 
@@ -1862,6 +1897,8 @@ def parse_session_transcripts():
                                     if turn_ts_ms is not None:
                                         sess["_assistant_turns"].append({
                                             "ts": turn_ts_ms,
+                                            "timestamp": timestamp,
+                                            "input": usage.get("input_tokens", 0),
                                             "cache_creation": usage.get("cache_creation_input_tokens", 0),
                                             "cache_read": usage.get("cache_read_input_tokens", 0),
                                             "model": model,
@@ -2032,6 +2069,10 @@ def parse_session_transcripts():
         )
         sess["cache_flush_count"] = _detect_cache_flushes(turns, has_1h)
         sess["idle_gap_summary"] = _compute_idle_gap_summary(turns)
+        ctx_window = summarize_context_window(turns)
+        sess["peak_context_tokens"] = ctx_window["peak_context_tokens"]
+        sess["used_1m_context"] = ctx_window["used_1m_context"]
+        sess["first_1m_at"] = ctx_window["first_1m_at"]
 
     migration_count = sum(1 for s in sessions.values() if s.get("source") == MIGRATION_LABEL)
     current_count = sum(1 for s in sessions.values() if s.get("source") == SOURCE_LABEL)
@@ -2761,6 +2802,9 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "output_tokens": session_output,
             "cache_read_tokens": session_cache_read,
             "cache_write_tokens": session_cache_write,
+            "peak_context_tokens": sess.get("peak_context_tokens", 0),
+            "used_1m_context": sess.get("used_1m_context", False),
+            "first_1m_at": sess.get("first_1m_at"),
             "api_calls": session_calls,
             "primary_model": primary_model,
             "model_breakdown": model_breakdown,

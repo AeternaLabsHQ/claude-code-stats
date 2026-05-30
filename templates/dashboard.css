@@ -230,6 +230,14 @@ body.anon-mode .anon-blur {
   max-width: 1400px;
   margin: 0 auto;
 }
+/* KPI strip used as the in-section readout band of tab-costs: subtle bottom
+   hairline so it reads as the section's readout band, not a free widget. */
+.vc-kpis-band {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--vc-grid);
+}
+.vc-kpis-band .vc-kpis-inner { padding: 0; }
 .vc-kpis-inner {
   padding: 24px 20px 0;
 }
@@ -281,6 +289,10 @@ body.anon-mode .anon-blur {
   .vc-kpis { grid-template-columns: 1fr; }
   .vc-kpi { border-right: none !important; border-bottom: 1px solid var(--vc-grid); }
   .vc-kpi:last-child { border-bottom: none; }
+  /* Shrink big monospace dollar figures so they stop overflowing the 1-col cell.
+     Override on .vc, not :root — the token is defined on .vc (a closer source
+     that would shadow :root), so a :root override would never take effect. */
+  .vc { --vc-fs-2xl: 22px; }
 }
 
 /* Variant-C heatmap polish */
@@ -353,6 +365,17 @@ body.anon-mode .anon-blur {
   margin-bottom: 14px;
 }
 .vc .chart-box.tall canvas { max-height: 420px; }
+/* Uniform, compact size for all doughnut/pie charts. They render with
+   maintainAspectRatio:false, so the canvas fills this fixed box height
+   regardless of which chart-box (normal or .tall) wraps them. */
+.vc #chartWriteCategories,
+.vc #chartToolTokens,
+.vc #chartStorage,
+.vc #agentTypesChart,
+.vc #errorByCategoryChart {
+  height: 260px !important;
+  max-height: 260px !important;
+}
 .vc .chart-grid {
   display: grid;
   gap: 0;
@@ -906,6 +929,13 @@ body.vc-page > div[style*="text-align:center"] a {
   .vc-nav-inner { flex-direction: column; padding: 0; align-items: stretch; }
   .vc-nav-tabs { overflow-x: auto; padding: 0 12px; }
   .vc-nav-right { padding: 12px; border-top: 1px solid var(--vc-grid); flex-wrap: wrap; justify-content: flex-start; }
+  /* Slimmer tabs so 5 of them usually fit one row; .vc-nav-tabs keeps overflow-x:auto fallback */
+  .vc-tab { padding: 9px 12px; letter-spacing: 0.06em; }
+  .vc-f2-hint { display: none; }
+  .vc-utc { display: none; }
+  /* Let the quick-filter fill the wrapped nav-right row instead of a fixed 180px */
+  .vc-filter { flex: 1; }
+  .vc-filter-input { width: 100%; min-width: 0; }
 }
 
 /* ================================================================
@@ -1119,6 +1149,18 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .plan-rec-table td.under { color: var(--text2); }
 .plan-rec-table tr.plan-rec-totals td { border-top: 1px solid var(--border); padding-top: 6px; font-weight: 600; }
 .plan-rec-table tr.plan-rec-totals td.cyc-lbl { color: var(--text); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
+
+/* ── Mobile overflow safety for dense components ────────────────────────
+   On narrow screens these tend to overflow the viewport. Allow horizontal
+   scroll instead of clipping / pushing the layout wider than the screen. */
+@media (max-width: 600px) {
+  .vc .vc-table,
+  .plan-rec-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .lim-rows { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .lim-row { min-width: 360px; }
+  .vc-distbar-row { min-width: 280px; }
+  .vc-distbar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
 .plan-rec-summary { margin-top: 16px; font-size: 14px; }
 .plan-rec-summary > div { margin-bottom: 4px; }
 .plan-rec-cal { color: var(--text2); font-size: 12px; }

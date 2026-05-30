@@ -26,12 +26,12 @@
   },
   "tabs": {
     "costs": "Token & API-Wert",
-    "activity": "Aktivit\u00e4t",
+    "activity": "Aktivit\u00e4t & Projekte",
     "projects": "Projekte",
     "sessions": "Sessions",
     "plan": "Plan & Abrechnung",
     "limits": "Limits",
-    "insights": "Insights",
+    "insights": "Insights & System",
     "agents": "Agenten"
   },
   "costs": {
@@ -52,7 +52,7 @@
     "pricing_notice": "Geschätzter Preis für {models}: nicht in der Preistabelle, daher sind die Kosten nur Näherungen. In PRICING in extract_stats.py ergänzen."
   },
   "activity": {
-    "daily_messages": "Nachrichten pro Tag",
+    "daily_messages": "Nachrichten & Sessions pro Tag",
     "messages_label": "Nachrichten",
     "hourly": "Tageszeit-Verteilung (Nachrichten)",
     "weekday": "Wochentags-Verteilung",

@@ -679,6 +679,7 @@ function renderWriteCategoriesChart() {
       }],
     },
     options: {
+      responsive: true, maintainAspectRatio: false,
       animation: false,
       plugins: {
         legend: {position: 'right'},
@@ -723,6 +724,7 @@ function renderToolTokenChart() {
       }],
     },
     options: {
+      responsive: true, maintainAspectRatio: false,
       animation: false,
       plugins: {
         legend: {position: 'right'},
@@ -796,13 +798,10 @@ function renderKPI() {
 // ── Tabs ───────────────────────────────────────────────────────────────
 const TAB_NAMES = [
   {id:'costs', label:D.locale.tabs.costs},
-  {id:'activity', label:D.locale.tabs.activity},
-  {id:'projects', label:D.locale.tabs.projects},
-  {id:'sessions', label:D.locale.tabs.sessions},
   {id:'plan', label:D.locale.tabs.plan},
-  {id:'limits', label:(D.locale.tabs && D.locale.tabs.limits) || 'Limits'},
+  {id:'activity', label:D.locale.tabs.activity},
+  {id:'sessions', label:D.locale.tabs.sessions},
   {id:'insights', label:D.locale.tabs.insights},
-  {id:'agents', label:D.locale.tabs.agents},
 ];
 
 function initTabs() {
@@ -931,18 +930,6 @@ function renderCosts() {
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: 'USD', color: '#64748b' } } } }
-  });
-
-  charts.modelDist = new Chart(document.getElementById('chartModelDist'), {
-    type: 'doughnut',
-    data: {
-      labels: F.model_summary.map(m => m.model),
-      datasets: [{ data: F.model_summary.map(m => m.cost),
-        backgroundColor: F.model_summary.map(m => vcModelColor(m.model)), borderWidth: 0 }]
-    },
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom', labels: { color: window.__vcFg2 || '#4d4a42', padding: 16 } },
-        tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmtUSD(ctx.raw) + ' (' + (F.kpi.total_cost > 0 ? (ctx.raw / F.kpi.total_cost * 100).toFixed(1) : '0.0') + '%)' } } } }
   });
 
   const cbt = F.cost_by_token_type;
@@ -1208,12 +1195,24 @@ function renderHeatmap() {
 
 // ── Tab 2: Activity ────────────────────────────────────────────────────
 function renderActivity() {
+  // Dual-axis: daily messages (bars, left axis) + daily sessions (line, right axis).
+  // Messages and sessions differ in magnitude, so each gets its own y-scale.
   charts.dailyMsgs = new Chart(document.getElementById('chartDailyMsgs'), {
     type: 'bar',
     data: { labels: F.daily_messages.map(d => d.date),
-      datasets: [{ label: D.locale.activity.messages_label, data: F.daily_messages.map(d => d.messages), backgroundColor: vcColor(0), borderRadius: 0 }] },
+      datasets: [
+        { label: D.locale.activity.messages_label, data: F.daily_messages.map(d => d.messages),
+          backgroundColor: vcColor(0), borderRadius: 0, yAxisID: 'y', order: 2 },
+        { type: 'line', label: D.locale.activity.sessions_label, data: F.daily_messages.map(d => d.sessions),
+          borderColor: vcColor(2), backgroundColor: vcColor(2), pointRadius: 0, tension: 0.3, borderWidth: 1.5, yAxisID: 'y1', order: 1 },
+      ] },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } }, scales: scaleDefaults }
+      plugins: { legend: { display: true, labels: { color: window.__vcFg2 || '#4d4a42' } } },
+      scales: {
+        x: scaleDefaults.x,
+        y: { ...scaleDefaults.y, position: 'left', title: { display: true, text: D.locale.activity.messages_label, color: '#64748b' } },
+        y1: { ...scaleDefaults.y, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: D.locale.activity.sessions_label, color: '#64748b' } },
+      } }
   });
 
   const maxHourly = Math.max(...F.hourly_distribution.map(x => x.messages || 1));
@@ -1237,28 +1236,11 @@ function renderActivity() {
       plugins: { legend: { display: false } }, scales: scaleDefaults }
   });
 
-  charts.dailySessions = new Chart(document.getElementById('chartDailySessions'), {
-    type: 'bar',
-    data: { labels: F.daily_messages.map(d => d.date),
-      datasets: [{ label: D.locale.activity.sessions_label, data: F.daily_messages.map(d => d.sessions), backgroundColor: vcColor(2), borderRadius: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } }, scales: scaleDefaults }
-  });
   renderHeatmap();
 }
 
 // ── Tab 3: Projects ────────────────────────────────────────────────────
 function renderProjects() {
-  const top = F.projects.slice(0, 15);
-  charts.projectCost = new Chart(document.getElementById('chartProjectCost'), {
-    type: 'bar',
-    data: { labels: top.map(p => anonMode ? anonName(p.name) : p.name.split('/').pop()),
-      datasets: [{ label: D.locale.projects.top15_label, data: top.map(p => p.cost), backgroundColor: vcColor(0), borderRadius: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
-      plugins: { legend: { display: false } },
-      scales: { x: { ...scaleDefaults.x, title: { display: true, text: 'USD', color: '#64748b' } },
-        y: { ...scaleDefaults.y, ticks: { font: { size: 11 } } } } }
-  });
   renderProjectTable('cost', 'desc');
 }
 
@@ -1633,54 +1615,6 @@ function renderPlan() {
   });
   bp.appendChild(stats);
 
-  // Comparison bars
-  const comp = document.getElementById('planComparison');
-  // Clear only previously-rendered bar rows; preserve heading and note
-  comp.querySelectorAll('.bar-row').forEach(el => el.remove());
-  const apiVals = plan.periods.map(p => planMoneyValue(p, 'api_cost') || 0);
-  const planVals = plan.periods.map(p => planMoneyValue(p, 'plan_cost') || 0);
-  const maxApi = Math.max(...apiVals, 1);
-
-  plan.periods.forEach((p, i) => {
-    const row = document.createElement('div'); row.className = 'bar-row';
-    const label = document.createElement('div'); label.className = 'bar-label';
-    label.textContent = p.plan + ' (' + p.start.slice(5) + ' - ' + p.end.slice(5) + ')';
-
-    const track = document.createElement('div'); track.className = 'bar-track';
-    const apiBar = document.createElement('div'); apiBar.className = 'bar-fill';
-    apiBar.style.width = (apiVals[i] / maxApi * 100) + '%';
-    apiBar.style.background = 'var(--cyan)';
-    apiBar.style.opacity = '0.75';
-    apiBar.textContent = D.locale.plan.api_label;
-    track.appendChild(apiBar);
-
-    const val = document.createElement('div'); val.className = 'bar-val';
-    val.textContent = fmtPlanMoney(apiVals[i]);
-    val.style.color = 'var(--text2)';
-
-    row.appendChild(label); row.appendChild(track); row.appendChild(val);
-    comp.appendChild(row);
-
-    const row2 = document.createElement('div'); row2.className = 'bar-row';
-    const label2 = document.createElement('div'); label2.className = 'bar-label';
-    label2.style.color = 'var(--text2)';
-    label2.textContent = '';
-
-    const track2 = document.createElement('div'); track2.className = 'bar-track';
-    const planBar = document.createElement('div'); planBar.className = 'bar-fill';
-    planBar.style.width = (planVals[i] / maxApi * 100) + '%';
-    planBar.style.background = 'var(--accent)';
-    planBar.textContent = D.locale.plan.plan_label;
-    track2.appendChild(planBar);
-
-    const val2 = document.createElement('div'); val2.className = 'bar-val';
-    val2.textContent = fmtPlanMoney(planVals[i]);
-    val2.style.color = 'var(--accent2)';
-
-    row2.appendChild(label2); row2.appendChild(track2); row2.appendChild(val2);
-    comp.appendChild(row2);
-  });
-
   // Charts
   const periodLabels = plan.periods.map(p => p.plan + ' (' + p.start.slice(5) + ')');
   const unitLabel = planMoneyUnitLabel();
@@ -1993,21 +1927,15 @@ function renderInsights() {
   });
 
   // Config info
+  // Storage rows intentionally omitted here — the chartStorage doughnut above is
+  // the single source for the storage breakdown, so we don't duplicate it.
   const configDiv = document.getElementById('configInfo');
   const settings = plugins.settings || {};
-  const itemMB = (name) => {
-    const it = (storage.items || []).find(s => s.name === name);
-    return it && typeof it.size_mb === 'number' ? it.size_mb + ' MB' : '-';
-  };
   const configItems = [
     {label: D.locale.insights.permission_mode, value: settings.permission_mode || '-'},
     {label: D.locale.insights.auto_updates, value: settings.auto_updates || '-'},
     {label: D.locale.insights.plugins_installed, value: String(installed.length)},
     {label: D.locale.insights.plugins_active, value: String(Object.values(enabled).filter(v => v).length)},
-    {label: D.locale.insights.total_storage, value: (storage.total_mb || 0) + ' MB'},
-    {label: D.locale.insights.transcripts, value: itemMB('projects/')},
-    {label: D.locale.insights.debug_logs, value: itemMB('debug/')},
-    {label: D.locale.insights.file_history_label, value: itemMB('file-history/')},
   ];
   const grid = document.createElement('div'); grid.className = 'config-grid';
   configItems.forEach(c => {
@@ -2156,7 +2084,7 @@ function renderAgentsTab() {
         labels: atd.map(d => d.type),
         datasets: [{ data: atd.map(d => d.count), backgroundColor: chartColors }]
       },
-      options: { responsive:true, plugins:{ legend:{ position:'right', labels:{color:window.__vcFg2||'#4d4a42',font:{size:11}} } } }
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:window.__vcFg2||'#4d4a42',font:{size:11}} } } }
     });
   }
 
@@ -2237,7 +2165,7 @@ function renderAgentsTab() {
         labels: ebc.map(e => catLabels[e.category] || e.category),
         datasets: [{ data: ebc.map(e => e.count), backgroundColor: errColors }]
       },
-      options: { responsive:true, plugins:{ legend:{ position:'right', labels:{color:window.__vcFg2||'#4d4a42',font:{size:11}} } } }
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:window.__vcFg2||'#4d4a42',font:{size:11}} } } }
     });
   }
 

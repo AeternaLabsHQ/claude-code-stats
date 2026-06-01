@@ -1462,6 +1462,20 @@ def _classify_tool_error(msg: str, tool_name: str) -> tuple:
     return ("tool", cat)
 
 
+_ANSI_CSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
+def _clean_error_text(s) -> str:
+    """Make a raw tool-error payload readable: strip ANSI escape sequences
+    (color/cursor codes that Bash output carries) and carriage returns, and
+    trim trailing whitespace. Newlines are preserved."""
+    if not s:
+        return ""
+    s = _ANSI_CSI_RE.sub("", str(s))
+    s = s.replace("\r\n", "\n").replace("\r", "\n")
+    return s.rstrip()
+
+
 def _route_tool_error(source: str, category: str):
     """Decide how a classified tool error is accounted. Returns the source
     label to count it under, or None if it is NOT a real error.
@@ -2489,7 +2503,8 @@ def extract_session_messages(session_id, project_dir_name):
                                 continue
                             messages.append({
                                 "role": "error", "source": esrc, "category": ecat,
-                                "tool": tname, "content": etxt[:300], "timestamp": timestamp,
+                                "tool": tname, "content": _clean_error_text(etxt)[:2000],
+                                "timestamp": timestamp,
                             })
                         continue
                     content = "\n".join(texts)

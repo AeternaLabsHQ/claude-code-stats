@@ -132,8 +132,9 @@ msgs.forEach((m,i) => {
   } else if (m.role==='error') {
     const elabel = (m.source==='backend'?'Backend':(m.tool||'Tool')) + ' &middot; ' + escHtml(m.category||'error');
     chatHtml += '<div class="marker error error-group" id="marker-'+i+'"><span>&#9888;</span> Error: <strong>'+elabel+'</strong>'+
-      (m.content?' <span class="marker-detail">'+escHtml(m.content.slice(0,140))+'</span>':'')+
-      '<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+      '<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span>'+
+      (m.content?'<div class="marker-detail">'+escHtml(m.content)+'</div>':'')+
+      '</div>';
   } else if (m.role==='rejected') {
     chatHtml += '<div class="marker rejected event-group" id="marker-'+i+'"><span>&#9995;</span> Rejected: <strong>'+escHtml(m.tool||'tool')+'</strong> <span style="opacity:.7">(you declined)</span><span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='command') {

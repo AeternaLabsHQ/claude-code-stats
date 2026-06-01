@@ -2,7 +2,7 @@
 /* ── Variant-C tokens — Modern SaaS (light + dark) ──────────────── */
 .vc {
   --vc-bg: #f5f6f8; --vc-panel: #ffffff;
-  --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #99a1af;
+  --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #6b7280;
   --vc-grid: #e7e9ee; --vc-grid-2: #e7e9ee;
   --vc-accent: #c2562f; --vc-accent-soft: rgba(194,86,47,.10);
   --vc-pos: #1f9d63; --vc-pos-soft: rgba(31,157,99,.12);
@@ -45,7 +45,7 @@ html.theme-dark .vc {
 }
 html.theme-light .vc {
   --vc-bg: #f5f6f8; --vc-panel: #ffffff; --vc-grid: #e7e9ee; --vc-grid-2: #e7e9ee;
-  --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #99a1af;
+  --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #6b7280;
   --vc-accent: #c2562f; --vc-accent-soft: rgba(194,86,47,.10);
   --vc-pos: #1f9d63; --vc-pos-soft: rgba(31,157,99,.12);
   --vc-neg: #d24b3e; --vc-neg-soft: rgba(210,75,62,.12);

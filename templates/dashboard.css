@@ -598,6 +598,26 @@ body.anon-mode .anon-blur {
 /* Estimated-pricing marker (mock .est) recolored to accent. */
 .vc .data-table .est { color: var(--vc-accent); font-size: 10px; }
 
+/* Horizontally-scrollable, resizable table (project table on Activity).
+   Wrapper scrolls when columns exceed its width; fixed layout lets each
+   column carry an explicit width and clip its content (Excel-style). */
+.vc .vc-table-scroll { width: 100%; overflow-x: auto; }
+.vc table.vc-resizable { table-layout: fixed; }
+.vc table.vc-resizable th { position: relative; overflow: hidden; text-overflow: ellipsis; }
+.vc table.vc-resizable td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc table.vc-resizable td a { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.vc .col-resizer {
+  position: absolute; top: 0; right: 0; width: 8px; height: 100%;
+  cursor: col-resize; user-select: none; z-index: 2;
+}
+.vc .col-resizer:hover { background: var(--vc-accent-soft); }
+/* On mobile the table collapses to stacked cards (table.responsive); undo the
+   fixed layout + inline pixel width so it doesn't overflow the viewport. */
+@media (max-width: 760px) {
+  .vc table.vc-resizable { width: 100% !important; table-layout: auto !important; }
+  .vc table.vc-resizable td { overflow: visible; text-overflow: clip; white-space: normal; }
+}
+
 /* Plan highlight grid */
 .vc .plan-highlight {
   display: grid;

@@ -2258,6 +2258,73 @@ document.querySelectorAll('.sortable th[data-sort]').forEach(th => {
   });
 });
 
+// ── Resizable / auto-fit columns for the project table ────────────────
+// Columns carry explicit widths (fixed layout) so a long project name
+// clips with an ellipsis instead of blowing out the page; the wrapper
+// scrolls horizontally when the columns are wider than it. Drag a column's
+// right edge to resize; double-click that edge to auto-fit to content.
+// Header clicks still sort — the grip stops propagation so it doesn't.
+function enhanceProjectTable() {
+  const table = document.getElementById('projectTable');
+  if (!table || !table.tHead || table.classList.contains('vc-resizable')) return;
+  table.classList.add('vc-resizable');
+  const ths = Array.from(table.tHead.rows[0].cells);
+  const defaults = [460, 150, 100, 120, 120, 130, 120]; // name, source, sessions, messages, api, output, file size
+  function syncTableWidth() {
+    const sum = ths.reduce((s, th) => s + parseFloat(th.style.width || th.getBoundingClientRect().width || 0), 0);
+    table.style.width = sum + 'px';
+  }
+  function autoFit(idx, th) {
+    const sample = (table.tBodies[0] && table.tBodies[0].rows[0] && table.tBodies[0].rows[0].cells[idx]) || th;
+    const cs = getComputedStyle(sample);
+    const meas = document.createElement('span');
+    meas.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0;';
+    meas.style.font = cs.fontWeight + ' ' + cs.fontSize + '/' + cs.lineHeight + ' ' + cs.fontFamily;
+    meas.style.letterSpacing = cs.letterSpacing;
+    document.body.appendChild(meas);
+    let max = 0;
+    const thCs = getComputedStyle(th);
+    meas.style.font = thCs.fontWeight + ' ' + thCs.fontSize + '/' + thCs.lineHeight + ' ' + thCs.fontFamily;
+    meas.style.letterSpacing = thCs.letterSpacing;
+    meas.textContent = th.textContent;
+    max = meas.offsetWidth;
+    meas.style.font = cs.fontWeight + ' ' + cs.fontSize + '/' + cs.lineHeight + ' ' + cs.fontFamily;
+    meas.style.letterSpacing = cs.letterSpacing;
+    if (table.tBodies[0]) Array.from(table.tBodies[0].rows).forEach(r => {
+      const cell = r.cells[idx];
+      if (cell) { meas.textContent = cell.textContent; if (meas.offsetWidth > max) max = meas.offsetWidth; }
+    });
+    meas.remove();
+    th.style.width = Math.ceil(max + 30) + 'px'; // + cell padding allowance
+    syncTableWidth();
+  }
+  ths.forEach((th, idx) => {
+    if (!th.style.width) th.style.width = (defaults[idx] || 120) + 'px';
+    const grip = document.createElement('span');
+    grip.className = 'col-resizer';
+    grip.title = 'Drag to resize · double-click to auto-fit';
+    let startX = 0, startW = 0;
+    grip.addEventListener('mousedown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      startX = e.clientX; startW = th.getBoundingClientRect().width;
+      const onMove = (ev) => { th.style.width = Math.max(48, startW + (ev.clientX - startX)) + 'px'; syncTableWidth(); };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.body.style.cursor = '';
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      document.body.style.cursor = 'col-resize';
+    });
+    grip.addEventListener('click', (e) => e.stopPropagation());      // never trigger sort
+    grip.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); autoFit(idx, th); });
+    th.appendChild(grip);
+  });
+  syncTableWidth();
+}
+enhanceProjectTable();
+
 // ── Filter events ──────────────────────────────────────────────────────
 function _applySessionFilter() {
   const filtered = getFilteredSessions();

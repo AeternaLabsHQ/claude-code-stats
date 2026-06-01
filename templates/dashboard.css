@@ -463,35 +463,87 @@ body.anon-mode .anon-blur {
    tab-content edge equals the visible KPI grid edge (both = max-1400 - 20). */
 
 /* Data tables */
-.vc .data-table {
+/* ── SaaS data tables ───────────────────────────────────────────────
+   Clean sans, tabular numerals, uppercase muted headers with a hairline,
+   comfortable row padding, accent-soft row hover. Numeric columns (.num)
+   right-aligned, first column left. */
+.vc .data-table,
+.vc table.data-table {
   border-collapse: collapse;
   width: 100%;
-  font-family: var(--vc-font-mono);
+  font-family: var(--vc-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
 }
+.vc .data-table th,
+.vc .data-table td { text-align: left; }
 .vc .data-table th {
-  font-size: var(--vc-fs-2xs);
+  font-family: var(--vc-font-sans);
+  font-size: 10px;
   text-transform: uppercase;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.1em;
-  color: var(--vc-fg-3);
-  padding: 8px 14px;
+  color: var(--vc-fg-2);
+  padding: 9px 14px;
   border-bottom: 1px solid var(--vc-grid);
-  background: var(--vc-bg);
-  text-align: left;
+  background: var(--vc-panel);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
 }
-.vc .data-table th.num { text-align: right; }
-.vc .data-table th.sort-asc::after { content:" \25B2"; font-size: var(--vc-fs-2xs); color: var(--vc-accent); }
-.vc .data-table th.sort-desc::after { content:" \25BC"; font-size: var(--vc-fs-2xs); color: var(--vc-accent); }
-.vc .data-table td {
-  font-size: var(--vc-fs-xs);
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--vc-grid-2);
-  color: var(--vc-fg);
-  font-feature-settings: 'tnum' 1;
-}
+.vc .data-table th.num,
 .vc .data-table td.num { text-align: right; }
+.vc .data-table th.sortable { cursor: pointer; }
+.vc .data-table th.sortable:hover { color: var(--vc-fg); }
+.vc .data-table th .arr { opacity: .6; font-size: 9px; }
+.vc .data-table th.sort-asc::after { content:" \25B2"; font-size: 9px; color: var(--vc-accent); }
+.vc .data-table th.sort-desc::after { content:" \25BC"; font-size: 9px; color: var(--vc-accent); }
+.vc .data-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vc-grid);
+  color: var(--vc-fg);
+  white-space: nowrap;
+}
 .vc .data-table tr:last-child td { border-bottom: none; }
-.vc .data-table tr:hover td { background: var(--vc-accent-soft); }
+.vc .data-table tbody tr:hover td { background: var(--vc-accent-soft); }
+
+/* ── Table badges / cell affordances (ported from saas.css) ──────────
+   Real JS-emitted class in these tables is .source-badge (recolored to
+   the muted tag look below); .badge-model/.tag-source/.badge-ctx/.cell-*
+   /.chat-btn added for parity with the design handoff + any future use. */
+.vc .badge-model {
+  font-family: var(--vc-font-mono);
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 6px;
+  background: var(--vc-accent-soft); color: var(--vc-accent);
+  white-space: nowrap;
+}
+.vc .tag-source {
+  font-family: var(--vc-font-mono);
+  font-size: 10px; color: var(--vc-fg-3);
+  background: color-mix(in srgb, var(--vc-fg-2) 10%, transparent);
+  padding: 2px 7px; border-radius: 5px; white-space: nowrap;
+}
+.vc .badge-ctx {
+  font-family: var(--vc-font-mono);
+  font-size: 10px; font-weight: 700;
+  padding: 1px 5px; border-radius: 5px;
+  background: color-mix(in srgb, #7c5cff 16%, transparent);
+  color: #8a6dff; margin-left: 5px;
+}
+.vc .cell-cost { color: var(--vc-fg); font-weight: 600; }
+.vc .cell-err { color: var(--vc-neg); font-weight: 600; }
+.vc .cell-link { color: var(--vc-accent); cursor: pointer; }
+.vc .cell-link:hover { text-decoration: underline; }
+.vc .chat-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 22px;
+  border: 1px solid var(--vc-grid); border-radius: 6px;
+  color: var(--vc-accent); cursor: pointer; font-size: 11px;
+}
+.vc .chat-btn:hover { background: var(--vc-accent-soft); }
+/* Estimated-pricing marker (mock .est) recolored to accent. */
+.vc .data-table .est { color: var(--vc-accent); font-size: 10px; }
 
 /* Plan highlight grid */
 .vc .plan-highlight {
@@ -1045,14 +1097,15 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .chart-box canvas { max-height:350px; }
 .chart-box.tall canvas { max-height:500px; }
 
-/* Tables */
+/* Tables (legacy base; the SaaS look lives in the .vc-scoped block above
+   and the dashboard always renders inside .vc, so this is just a sane
+   fallback for any non-.vc context). */
 .data-table { width:100%; border-collapse:collapse; }
-.data-table th { text-align:left; padding:10px 12px; font-size:12px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; }
-.data-table th:hover { color:var(--accent2); }
-.data-table th.sort-asc::after { content:" \25B2"; font-size:10px; }
-.data-table th.sort-desc::after { content:" \25BC"; font-size:10px; }
-.data-table td { padding:10px 12px; border-bottom:1px solid var(--border); font-size:13px; }
-.data-table tr:hover td { background:var(--bg3); }
+.data-table th { text-align:left; padding:10px 14px; font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.1em; font-weight:600; border-bottom:1px solid var(--border); white-space:nowrap; }
+.data-table th.sortable { cursor:pointer; user-select:none; }
+.data-table th.sort-asc::after { content:" \25B2"; font-size:9px; }
+.data-table th.sort-desc::after { content:" \25BC"; font-size:9px; }
+.data-table td { padding:10px 14px; border-bottom:1px solid var(--border); font-size:12.5px; }
 .data-table .num { text-align:right; font-variant-numeric:tabular-nums; }
 
 /* Session cards */

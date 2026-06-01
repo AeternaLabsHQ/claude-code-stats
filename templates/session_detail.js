@@ -119,6 +119,18 @@ const chatEl = document.getElementById('chatPanel');
 // Slug helper: timestamp -> URL-fragment-safe id, must match the form used
 // by the Limits-tab event-link in dashboard.js.
 function evtId(ts) { return 'evt-' + String(ts || '').replace(/[^a-zA-Z0-9]/g, '-'); }
+// A slash command (e.g. /close) carries no usage of its own; the tokens it
+// "used" are the output of the assistant turn(s) it triggered, up to the next
+// user/command boundary. Sum those so the command marker can show the cost.
+function commandOutputTokens(idx) {
+  let out = 0;
+  for (let j = idx + 1; j < msgs.length; j++) {
+    const r = msgs[j].role;
+    if (r === 'user' || r === 'command') break;
+    if (r === 'assistant' && msgs[j].tokens) out += msgs[j].tokens.output || 0;
+  }
+  return out;
+}
 let chatHtml = '';
 msgs.forEach((m,i) => {
   if (m.role==='hook') {
@@ -138,7 +150,10 @@ msgs.forEach((m,i) => {
   } else if (m.role==='rejected') {
     chatHtml += '<div class="marker rejected event-group" id="marker-'+i+'"><span>&#9995;</span> Rejected: <strong>'+escHtml(m.tool||'tool')+'</strong> <span style="opacity:.7">(you declined)</span><span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='command') {
-    chatHtml += '<div class="marker command event-group" id="marker-'+i+'"><span>&#8984;</span> Command: <strong>'+escHtml(m.content)+'</strong><span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    const cmdOut = commandOutputTokens(i);
+    chatHtml += '<div class="marker command event-group" id="marker-'+i+'"><span>&#8984;</span> Command: <strong>'+escHtml(m.content)+'</strong>'+
+      (cmdOut > 0 ? '<span class="msg-tokens" style="margin-left:12px">'+fmtTokens(cmdOut)+' out</span>' : '')+
+      '<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='interrupt') {
     chatHtml += '<div class="marker interrupt event-group" id="marker-'+i+'"><span>&#9099;</span> Interrupted by user<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='attachment') {

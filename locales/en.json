@@ -90,6 +90,7 @@
     "slug_label": " | Slug: "
   },
   "plan": {
+    "active": "Active",
     "current_plan": "Current Plan",
     "monthly_suffix": " / month",
     "total_api_cost": "API Cost (Total)",

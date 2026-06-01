@@ -5,7 +5,7 @@
 
 function buildSavingsByPeriod(ctx) {
   const accent = cvar('--accent', '#c2562f');
-  const muted = cvar('--muted', '#888');
+  const pos = cvar('--pos', '#1f9d63');
   const font = fam();
   return new Chart(ctx, {
     type: 'bar',
@@ -13,7 +13,7 @@ function buildSavingsByPeriod(ctx) {
       labels: SAVINGS_PERIODS.labels,
       datasets: [
         { label: 'API Equivalent', data: SAVINGS_PERIODS.apiEquivalent,
-          backgroundColor: withAlpha2(muted, 0.5), borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.7 },
+          backgroundColor: withAlpha2(pos, 0.85), borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.7 },
         { label: 'Plan Cost', data: SAVINGS_PERIODS.planCost,
           backgroundColor: accent, borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.7 },
       ],
@@ -31,7 +31,15 @@ function buildAvgPerDay(ctx) {
   return new Chart(ctx, {
     type: 'bar',
     data: { labels: SAVINGS_PERIODS.labels, datasets: [{
-      data: SAVINGS_PERIODS.avgPerDay, backgroundColor: withAlpha2(accent, 0.85),
+      data: SAVINGS_PERIODS.avgPerDay,
+      backgroundColor: (c) => {
+        const { ctx: cx, chartArea } = c.chart;
+        if (!chartArea) return accent;
+        const g = cx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+        g.addColorStop(0, withAlpha2(accent, 0.45));
+        g.addColorStop(1, accent);
+        return g;
+      },
       borderRadius: 4, barPercentage: 0.7,
     }] },
     options: {

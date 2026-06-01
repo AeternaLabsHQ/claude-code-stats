@@ -1621,20 +1621,26 @@ function renderPlan() {
   } else if (planCurrencyMode === 'usd' && cb.plan_cost_local != null) {
     planSubAlt = ' (' + cb.plan_cost_local.toFixed(2) + ' ' + planCurrencySymbol() + ')';
   }
+  const totalSav = planTotal('savings'), totalApiCost = planTotal('api_cost');
+  const savePct = totalApiCost > 0 ? Math.round(totalSav / totalApiCost * 1000) / 10 : 0;
   const kpis = [
-    {cls:'plan-type', label:D.locale.plan.current_plan, value:cb.plan, sub: planSubMain + planSubAlt},
+    {cls:'plan-type', label:D.locale.plan.current_plan, value:cb.plan, sub: planSubMain + planSubAlt, badge:(D.locale.plan.active || 'Active')},
     {cls:'paid', label:D.locale.plan.paid_so_far, value:fmtPlanMoney(planTotal('plan_cost')), sub:D.locale.plan.paid_so_far_sub},
-    {cls:'api-cost', label:D.locale.plan.total_api_cost, value:fmtPlanMoney(planTotal('api_cost')), sub:D.locale.plan.total_api_sub},
-    {cls:'savings', label:D.locale.plan.total_savings, value:fmtPlanMoney(planTotal('savings')), sub:D.locale.plan.total_savings_sub},
-    {cls:'roi', label:D.locale.plan.roi_factor, value:plan.overall_roi + 'x', sub:D.locale.plan.roi_sub},
+    {cls:'api-cost', label:D.locale.plan.total_api_cost, value:fmtPlanMoney(totalApiCost), sub:D.locale.plan.total_api_sub},
+    {cls:'savings', label:D.locale.plan.total_savings, value:fmtPlanMoney(totalSav), sub:D.locale.plan.total_savings_sub, chip:{text:'▲ '+savePct+'%', cls:'pos'}},
+    {cls:'roi', label:D.locale.plan.roi_factor, value:plan.overall_roi + 'x', sub:D.locale.plan.roi_sub, chip:{text:plan.overall_roi+'×', cls:'accent'}},
   ];
   kpis.forEach(c => {
     const div = document.createElement('div');
     div.className = 'plan-card ' + c.cls;
+    const top = document.createElement('div'); top.className = 'plan-card-top';
     const lbl = document.createElement('div'); lbl.className = 'label'; lbl.textContent = c.label;
+    top.appendChild(lbl);
+    if (c.badge) { const bd = document.createElement('span'); bd.className = 'badge-live'; bd.textContent = c.badge; top.appendChild(bd); }
+    else if (c.chip) { const ch = document.createElement('span'); ch.className = 'plan-delta ' + c.chip.cls; ch.textContent = c.chip.text; top.appendChild(ch); }
     const val = document.createElement('div'); val.className = 'value'; val.textContent = c.value;
     const sub = document.createElement('div'); sub.className = 'sub'; sub.textContent = c.sub;
-    div.appendChild(lbl); div.appendChild(val); div.appendChild(sub);
+    div.appendChild(top); div.appendChild(val); div.appendChild(sub);
     grid.appendChild(div);
   });
 
@@ -1661,14 +1667,14 @@ function renderPlan() {
     {label:D.locale.plan.day, val:cb.days_elapsed + ' / ' + cb.days_total},
     {label:D.locale.plan.api_cost_so_far, val:fmtPlanMoney(planMoneyValue(cb, 'api_cost'))},
     {label:D.locale.plan.projected, val:fmtPlanMoney(planMoneyValue(cb, 'projected_cost'))},
-    {label:D.locale.plan.savings_so_far, val:fmtPlanMoney(planMoneyValue(cb, 'savings'))},
-    {label:D.locale.plan.roi, val:cb.roi_factor + 'x'},
+    {label:D.locale.plan.savings_so_far, val:fmtPlanMoney(planMoneyValue(cb, 'savings')), cls:'good'},
+    {label:D.locale.plan.roi, val:cb.roi_factor + 'x', cls:'accent'},
     {label:D.locale.plan.sessions, val:String(cb.sessions)},
     {label:D.locale.plan.messages, val:fmt(cb.messages)},
     {label:D.locale.plan.avg_per_day, val:fmtPlanMoney(planMoneyValue(cb, 'cost_per_day'))},
   ];
   statItems.forEach(s => {
-    const item = document.createElement('div'); item.className = 'stat-item';
+    const item = document.createElement('div'); item.className = 'stat-item' + (s.cls ? ' ' + s.cls : '');
     const lbl = document.createElement('span'); lbl.textContent = s.label;
     const val = document.createElement('span'); val.className = 'stat-val'; val.textContent = s.val;
     item.appendChild(lbl); item.appendChild(val);
@@ -1689,8 +1695,8 @@ function renderPlan() {
     data: {
       labels: periodLabels,
       datasets: [
-        {label: D.locale.plan.api_cost_label, data: plan.periods.map(p => planMoneyValue(p, 'api_cost') || 0), backgroundColor: vcRgba(1, 0.7), borderRadius: 0},
-        {label: D.locale.plan.plan_cost_label, data: plan.periods.map(p => planMoneyValue(p, 'plan_cost') || 0), backgroundColor: vcRgba(0, 0.7), borderRadius: 0},
+        {label: D.locale.plan.api_cost_label, data: plan.periods.map(p => planMoneyValue(p, 'api_cost') || 0), backgroundColor: _vcHexRgba(_vcLiveVar('--vc-pos', '#1f9d63'), 0.82), borderRadius: 4},
+        {label: D.locale.plan.plan_cost_label, data: plan.periods.map(p => planMoneyValue(p, 'plan_cost') || 0), backgroundColor: vcRgba(0, 0.82), borderRadius: 4},
       ]
     },
     options: { responsive: true, maintainAspectRatio: false,
@@ -1726,19 +1732,19 @@ function renderPlan() {
       {val: p.start + ' \u2013 ' + p.end, cls:'primary', highlight:false, label:'Period'},
       {val: p.plan, cls:'', highlight:false, label:'Plan'},
       {val: p.total_days + ' (' + p.days_active + D.locale.plan.active_suffix + ')', cls:'num', highlight:false, label:'Days'},
-      {val: fmtPlanMoney(apiVal), cls:'num', highlight: apiVal > 100, label:'API Cost'},
-      {val: fmtPlanMoney(planVal), cls:'num', highlight:false, label:'Plan Cost'},
-      {val: fmtPlanMoney(savingsVal), cls:'num', highlight: savingsVal > 100, label:'Savings'},
-      {val: p.roi_factor + 'x', cls:'num', highlight:false, label:'ROI'},
-      {val: String(p.sessions), cls:'num', highlight:false, label:'Sessions'},
-      {val: fmt(p.messages), cls:'num', highlight:false, label:'Messages'},
+      {val: fmtPlanMoney(apiVal), cls:'num', label:'API Cost'},
+      {val: fmtPlanMoney(planVal), cls:'num', label:'Plan Cost'},
+      {val: fmtPlanMoney(savingsVal), cls:'num', color:'var(--vc-pos)', label:'Savings'},
+      {val: p.roi_factor + 'x', cls:'num', color:'var(--vc-accent)', label:'ROI'},
+      {val: String(p.sessions), cls:'num', label:'Sessions'},
+      {val: fmt(p.messages), cls:'num', label:'Messages'},
     ];
     cells.forEach(c => {
       const td = document.createElement('td');
       if (c.cls) td.className = c.cls;
       td.setAttribute('data-label', c.label);
       td.textContent = c.val;
-      if (c.highlight) td.style.color = 'var(--green)';
+      if (c.color) { td.style.color = c.color; td.style.fontWeight = '600'; }
       tr.appendChild(td);
     });
     tbody.appendChild(tr);

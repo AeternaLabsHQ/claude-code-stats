@@ -101,6 +101,35 @@
 /* ---------- KPI delta: support negative ---------- */
 .kpi .delta.neg, .stat .delta.neg { background: var(--neg-soft); color: var(--neg); }
 
+/* ---------- Cheerful KPI accents (Plan & Billing) ---------- */
+.kpi.kpi-pos {
+  background: linear-gradient(160deg, var(--pos-soft), transparent 70%), var(--panel);
+  border-color: color-mix(in srgb, var(--pos) 28%, var(--line));
+}
+.kpi.kpi-pos .value { color: var(--pos); }
+.kpi.kpi-accent {
+  background: linear-gradient(160deg, var(--accent-soft), transparent 70%), var(--panel);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+}
+.kpi.kpi-accent .value { color: var(--accent); }
+.kpi .delta.accent { background: var(--accent-soft); color: var(--accent); }
+.kpi .delta.flat { background: color-mix(in srgb, var(--muted) 12%, transparent); color: var(--muted); }
+.kpi.hero .badge-live {
+  display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-label);
+  font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
+  color: var(--pos); background: var(--pos-soft); padding: 3px 8px 3px 7px; border-radius: 999px;
+}
+.kpi.hero .badge-live::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--pos);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--pos) 60%, transparent); animation: livepulse 2.4s ease-out infinite; }
+@keyframes livepulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--pos) 55%, transparent); }
+  70% { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* table accent cell (ROI etc.) */
+table.data td.accent-cell { color: var(--accent); font-weight: 700; }
+
 /* ---------- Progress bar (billing period) ---------- */
 .progress-wrap { margin: 6px 0 18px; }
 .progress {
@@ -109,10 +138,14 @@
 }
 .progress .fill {
   position: absolute; inset: 0 auto 0 0; border-radius: 999px;
-  background: var(--accent); display: flex; align-items: center; justify-content: flex-end;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 78%, #e8a06d), var(--accent));
+  display: flex; align-items: center; justify-content: flex-end;
   padding-right: 10px; color: #fff; font-family: var(--font-num); font-size: 11px; font-weight: 700;
-  min-width: 38px;
+  min-width: 38px; box-shadow: 0 0 14px -2px var(--accent);
 }
+/* period mini-stats: give the good ones a pop of color */
+.period-stats .ps.good .v { color: var(--pos); }
+.period-stats .ps.accent .v { color: var(--accent); }
 .period-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 14px 20px; }
 .period-stats .ps { display: flex; flex-direction: column; gap: 3px; }
 .period-stats .ps .k { font-family: var(--font-label); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }

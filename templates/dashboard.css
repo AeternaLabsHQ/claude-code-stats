@@ -628,19 +628,26 @@ body.anon-mode .anon-blur {
 }
 
 /* Plan highlight grid */
+/* Plan KPIs as individual cards (matching the rest of the page) with cheerful
+   tints: savings = green, ROI/plan = accent. */
 .vc .plan-highlight {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border: 1px solid var(--vc-grid);
-  background: var(--vc-panel);
+  grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr;
+  gap: 14px;
+  border: 0;
+  background: transparent;
   margin-bottom: 24px;
 }
 .vc .plan-highlight > div {
   padding: 16px 18px;
-  border-right: 1px solid var(--vc-grid);
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius);
+  box-shadow: var(--vc-shadow);
   font-family: var(--vc-font-mono);
+  min-width: 0;
 }
-.vc .plan-highlight > div:last-child { border-right: none; }
+.vc .plan-highlight .plan-card-top { display: flex; align-items: center; gap: 8px; justify-content: space-between; min-height: 18px; }
 .vc .plan-highlight .label,
 .vc .plan-highlight > div > div:first-child {
   font-size: var(--vc-fs-2xs);
@@ -651,15 +658,46 @@ body.anon-mode .anon-blur {
 .vc .plan-highlight .value,
 .vc .plan-highlight > div > div:nth-child(2) {
   font-size: var(--vc-fs-xl);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--vc-fg);
   margin: 6px 0 4px;
   font-feature-settings: 'tnum' 1;
 }
-.vc .plan-highlight .sub {
-  font-size: var(--vc-fs-xs);
-  color: var(--vc-fg-3);
+.vc .plan-highlight .sub { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); }
+/* Tinted cards + colored values */
+.vc .plan-highlight .savings {
+  background: linear-gradient(160deg, var(--vc-pos-soft), transparent 70%), var(--vc-panel);
+  border-color: color-mix(in srgb, var(--vc-pos) 28%, var(--vc-grid));
 }
+.vc .plan-highlight .savings .value { color: var(--vc-pos); }
+.vc .plan-highlight .roi {
+  background: linear-gradient(160deg, var(--vc-accent-soft), transparent 70%), var(--vc-panel);
+  border-color: color-mix(in srgb, var(--vc-accent) 28%, var(--vc-grid));
+}
+.vc .plan-highlight .roi .value { color: var(--vc-accent); }
+.vc .plan-highlight .plan-type .value { color: var(--vc-accent); }
+/* Live "active" badge on the current-plan card */
+.vc .plan-highlight .badge-live {
+  display: inline-flex; align-items: center; gap: 5px; font-family: var(--vc-font-sans);
+  font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
+  color: var(--vc-pos); background: var(--vc-pos-soft); padding: 3px 8px 3px 7px; border-radius: var(--vc-radius-pill);
+}
+.vc .plan-highlight .badge-live::before {
+  content: ""; width: 6px; height: 6px; border-radius: var(--vc-radius-pill); background: var(--vc-pos);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--vc-pos) 60%, transparent); animation: vc-livepulse 2.4s ease-out infinite;
+}
+@keyframes vc-livepulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--vc-pos) 55%, transparent); }
+  70% { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+/* Small colored delta chips (savings %, ROI factor) */
+.vc .plan-highlight .plan-delta {
+  font-family: var(--vc-font-mono); font-size: 11px; font-weight: 600;
+  padding: 2px 7px; border-radius: var(--vc-radius-pill); white-space: nowrap;
+}
+.vc .plan-highlight .plan-delta.pos { background: var(--vc-pos-soft); color: var(--vc-pos); }
+.vc .plan-highlight .plan-delta.accent { background: var(--vc-accent-soft); color: var(--vc-accent); }
 
 /* Progress / cycle bar */
 .vc .progress-bar,
@@ -1294,11 +1332,13 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .billing-progress { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:24px; }
 .billing-progress h3 { font-size:15px; font-weight:600; margin-bottom:16px; }
 .progress-bar-outer { position:relative; height:26px; border-radius:var(--vc-radius-pill); overflow:hidden; margin:6px 0 18px; background:color-mix(in srgb, var(--vc-fg-2) 12%, transparent); }
-.progress-bar-inner { position:absolute; inset:0 auto 0 0; height:100%; border-radius:var(--vc-radius-pill); background:var(--vc-accent); transition:width .5s; display:flex; align-items:center; justify-content:flex-end; padding-right:10px; min-width:38px; color:#fff; font-family:var(--vc-font-mono); font-size:11px; font-weight:700; }
+.progress-bar-inner { position:absolute; inset:0 auto 0 0; height:100%; border-radius:var(--vc-radius-pill); background:var(--vc-accent); box-shadow:0 0 14px -2px var(--vc-accent); transition:width .5s; display:flex; align-items:center; justify-content:flex-end; padding-right:10px; min-width:38px; color:#fff; font-family:var(--vc-font-mono); font-size:11px; font-weight:700; }
 .progress-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:14px 20px; color:var(--vc-fg-2); font-size:var(--vc-fs-xs); }
 .progress-stats .stat-item { display:flex; flex-direction:column; gap:3px; }
 .progress-stats .stat-item > span:first-child { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--vc-fg-3); }
 .progress-stats .stat-val { color:var(--vc-fg); font-weight:700; font-size:16px; font-variant-numeric:tabular-nums; }
+.progress-stats .stat-item.good .stat-val { color:var(--vc-pos); }
+.progress-stats .stat-item.accent .stat-val { color:var(--vc-accent); }
 
 .plan-comparison { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
 .plan-comparison h3 { font-size:15px; font-weight:600; margin-bottom:4px; }

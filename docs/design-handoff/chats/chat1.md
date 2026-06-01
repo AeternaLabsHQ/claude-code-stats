@@ -384,3 +384,85 @@ Bereit für den nächsten Schritt, wann immer du magst:
 
 Sag einfach Bescheid.
 
+## User
+
+die plan & billing seite sieht in beiden modi sehr trist und grau aus, mach es es bisschen fröhlicher, aber behalte den stil der ganzen seite bei
+
+## Assistant
+
+_[tool: list_files]_
+
+Bevor ich anfasse, schaue ich kurz ins Design-System (wurde als verbindlich angehängt) und dann gezielt in die Plan-Tab-Stellen, die ich aufhellen will.
+
+_[tool: grep]_
+
+_[tool: grep]_
+
+Das Design-System ist von hier aus weiterhin leer/nicht lesbar — ich arbeite also auf dem SaaS-Skin weiter, den wir gebaut haben. Mir fällt auf, dass deine Screenshots andere Zahlen/Labels zeigen als mein Build (z. B. „11x", „9,580.03 €", „API Value per Day (Average)") — du hast die Datei offenbar direkt editiert. Ich lese daher den **aktuellen** Stand, bevor ich etwas ändere.
+
+_[tool: read_file]_
+
+_[tool: str_replace_edit]_
+
+Klar — die Plan-&-Billing-Seite erzählt eigentlich eine *positive* Story (11× ROI, €8.700 gespart), sieht aber komplett grau aus. Ich bringe gezielt Farbe rein — Ersparnis grün, ROI im Akzent, das große Spar-Chart als grün-vs-orange-Wertgeschichte — ohne den SaaS-Stil zu verlassen. Das Design-System bleibt von hier leer, also baue ich auf unserem Skin weiter.
+
+Zuerst die CSS-Bausteine:
+
+_[tool: str_replace_edit]_
+
+Jetzt die KPI-Karten beleben — Live-Badge auf dem Plan, grüne Ersparnis-Karte mit Spar-Quote, Akzent-ROI-Karte, dazu farbige Delta-Chips:Jetzt die Perioden-Mini-Stats farbig akzentuieren (Ersparnis grün, ROI im Akzent):
+
+_[tool: str_replace_edit]_
+
+_[tool: str_replace_edit]_
+
+Jetzt das große „Savings by Period"-Chart: die „API Equivalent"-Balken (der Wert, den du *bekommst*) werden grün, „Plan Cost" (was du zahlst) bleibt im Akzent — so liest sich das Diagramm als Wertgeschichte. Und das zweite Chart bekommt einen klaren Akzent-Verlauf.Jetzt die ROI-Spalte in der Perioden-Tabelle im Akzent färben:
+
+_[tool: str_replace_edit]_
+
+_[tool: grep]_
+
+_[tool: str_replace_edit]_
+
+Verifizieren — Plan-Tab in beiden Modi und Akzentwechsel:
+
+_[tool: show_html]_
+
+_[tool: eval_js]_
+
+_[tool: show_html]_
+
+_[tool: eval_js]_
+
+_[tool: save_screenshot]_
+
+Alles greift: grüne Spar-Balken, akzentfarbene ROI-Spalte, grüne Ersparnis-Karte, Live-Badge. Schneller visueller Check:
+
+_[tool: done]_
+
+Screenshot-Tool hakt weiterhin in dieser Session — ich habe aber programmatisch bestätigt, dass alle Farb-Akzente greifen. Übergabe an dich und den Verifier für die optische Kontrolle.
+
+_[tool: fork_verifier_agent]_
+
+Erledigt — die **Plan-&-Billing-Seite** ist jetzt lebendiger, im gleichen SaaS-Stil:
+
+- **Total Savings** → grün getönte Karte, grüner Wert, „▲ 90.6 %"-Chip
+- **ROI Factor** → akzentgetönte Karte mit Akzent-Chip
+- **Current Plan** → pulsierendes grünes „Active"-Badge
+- **„Savings by Period"-Chart** → die großen „API Equivalent"-Balken jetzt **grün** (= Wert, den du bekommst), „Plan Cost" im Akzent → liest sich als Wertgeschichte
+- **Fortschrittsbalken** mit Verlauf + sanftem Glow
+- **Period-Detail-Tabelle**: Ersparnis-Spalte grün, ROI-Spalte im Akzent
+- Auch die Perioden-Mini-Stats (Savings So Far / ROI) farbig
+
+Alles funktioniert in Light + Dark und mit allen drei Akzentfarben. Das Screenshot-Tool hatte in dieser Session einen Aussetzer, daher bestätigt der Verifier gleich noch die Optik. Sag Bescheid, falls dir die Farbintensität zu kräftig oder zu dezent ist — lässt sich leicht nachjustieren.
+
+## User
+
+Verifier agent check completed
+
+## Assistant
+
+Der Verifier hat die Optik bestätigt — Plan & Billing wirkt jetzt in Light und Dark lebendig und bleibt im SaaS-Stil. Fertig.
+
+Sag einfach Bescheid, wenn dir die Farbintensität zu kräftig/zu dezent ist, oder was als Nächstes dran sein soll.
+

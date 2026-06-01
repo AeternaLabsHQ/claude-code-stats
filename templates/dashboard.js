@@ -393,6 +393,23 @@ function filterData(days, projectFilter) {
   F.sessions = filteredSessions;
   recomputeIdleGapAggregate(F.sessions);
 
+  // Task counts respecting the date range. Tasks have no timestamp of their
+  // own, so we date them by their owning session (via session_id). Tasks whose
+  // session isn't in the dataset have no date and only count in the all-time
+  // view (no cutoff), so the all-time total is preserved.
+  const sessDate = {};
+  D.sessions.forEach(s => { if (s.session_id) sessDate[s.session_id] = s.date; });
+  const tcounts = { completed: 0, pending: 0, in_progress: 0, total: 0 };
+  ((D.insights && D.insights.tasks && D.insights.tasks.tasks) || []).forEach(t => {
+    const dt = sessDate[t.session_id];
+    if (cutoff && !(dt && dt >= cutoff)) return;   // outside the selected range
+    tcounts.total++;
+    if (t.status === 'completed') tcounts.completed++;
+    else if (t.status === 'in_progress') tcounts.in_progress++;
+    else if (t.status === 'pending') tcounts.pending++;
+  });
+  F.insights = Object.assign({}, D.insights, { tasks: Object.assign({}, D.insights && D.insights.tasks, tcounts) });
+
   // Rebuild daily aggregates from filtered sessions
   const dailyCostMap = {};
   const dailyMsgMap = {};
@@ -1264,7 +1281,7 @@ function renderActivity() {
     data: { labels: F.hourly_distribution.map(h => h.hour + ':00'),
       datasets: [{ data: F.hourly_distribution.map(h => h.messages),
         backgroundColor: F.hourly_distribution.map(h => vcRgba(0, 0.3 + 0.7 * (h.messages / maxHourly))),
-        borderWidth: 1, borderColor: '#2d3348' }] },
+        borderWidth: 0 }] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: { r: { ticks: { color: window.__vcFg3 || '#918a7a', backdropColor: 'transparent' }, grid: { color: window.__vcGrid2 || '#e8e3d6' }, angleLines: { color: window.__vcGrid2 || '#e8e3d6' } } } }
@@ -1924,9 +1941,19 @@ function renderInsights() {
   renderToolTokenChart();
   renderWriteCategoriesChart();
 
-  // Storage chart
+  // Storage chart — show the top entries by size and fold the long tail into
+  // "Other" so the slice count stays within the palette (no repeated colors /
+  // indistinguishable slices in the legend).
   const storage = ins.storage || {};
-  const storageItems = (storage.items || []).filter(s => s.size_mb >= 0.1);
+  const allStorage = (storage.items || []).filter(s => s.size_mb >= 0.1)
+    .slice().sort((a, b) => b.size_mb - a.size_mb);
+  const TOP_STORAGE = 8;
+  let storageItems = allStorage;
+  if (allStorage.length > TOP_STORAGE + 1) {
+    const otherSum = allStorage.slice(TOP_STORAGE).reduce((s, x) => s + x.size_mb, 0);
+    storageItems = allStorage.slice(0, TOP_STORAGE)
+      .concat([{ name: 'Other (' + (allStorage.length - TOP_STORAGE) + ')', size_mb: +otherSum.toFixed(1) }]);
+  }
   if (storageItems.length > 0) {
     new Chart(document.getElementById('chartStorage'), {
       type: 'doughnut',
@@ -1992,7 +2019,7 @@ function renderInsights() {
     item.appendChild(lbl); item.appendChild(val);
     grid.appendChild(item);
   });
-  configDiv.appendChild(grid);
+  if (configDiv) configDiv.appendChild(grid);   // Environment section was removed; guard the (now absent) target
 
   // Plans table
   const plans = ins.plans || [];
@@ -2166,9 +2193,9 @@ function renderAgentsTab() {
     kpiEl.appendChild(div);
   });
 
-  // Task overview
+  // Task overview (range-filtered via F.insights, falls back to all-time)
   const taskEl = document.getElementById('taskOverview');
-  const tasks = D.insights?.tasks || {};
+  const tasks = F.insights?.tasks || D.insights?.tasks || {};
   if (tasks.total > 0) {
     const pct = Math.round((tasks.completed / tasks.total) * 100);
     taskEl.innerHTML =

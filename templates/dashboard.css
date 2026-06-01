@@ -431,6 +431,10 @@ body.anon-mode .anon-blur {
 }
 .vc .chart-grid:last-child { margin-bottom: 24px; }
 .vc .chart-grid.full { grid-template-columns: 1fr; }
+/* Standalone chart-boxes that are direct children of a subsection (e.g. Error
+   Overview, Task Overview) get their own bottom spacing — unlike grid/masonry
+   children, no gap applies to them. */
+.vc .vc-subsection > .chart-box { margin-bottom: 18px; }
 @media (max-width: 960px) {
   .vc .chart-grid { grid-template-columns: 1fr; }
 }
@@ -1028,6 +1032,16 @@ body.vc-page > div[style*="text-align:center"] a {
   letter-spacing: 0.04em;
 }
 .vc-tag.acc { color: var(--vc-accent); border-color: transparent; background: var(--vc-accent-soft); border-radius: var(--vc-radius-pill); padding: 2px 7px; letter-spacing: 0.08em; }
+
+/* Skills / Hooks lists (Workflows section): rows are inline flex space-between
+   built in JS. Let the name shrink and ellipsize so a long skill/hook name
+   can't push the card past the viewport on narrow screens; the count badge
+   keeps its size. */
+.vc #skillsList > div, .vc #hooksList > div { gap: 10px; min-width: 0; }
+.vc #skillsList > div > .anon-blur,
+.vc #hooksList > div > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc #hooksList > div > div .anon-blur { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc #skillsList .vc-tag, .vc #hooksList .vc-tag, .vc #hooksList .tool-tag { flex-shrink: 0; }
 
 /* Misc grid (Insights tab) */
 .vc-misc-grid {

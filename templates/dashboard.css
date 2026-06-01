@@ -255,75 +255,85 @@ body.anon-mode .anon-blur {
   .vc-top-center, .vc-top-right { justify-self: stretch; flex-wrap: wrap; }
 }
 
-/* ── Variant-C KPI strip ───────────────────────────────────────── */
+/* ── Variant-C KPI strip → SaaS KPI cards ──────────────────────── */
 .vc-kpis-wrap {
-  background: var(--vc-bg);
+  background: transparent;
   max-width: 1400px;
   margin: 0 auto;
 }
-/* KPI strip used as the in-section readout band of tab-costs: subtle bottom
-   hairline so it reads as the section's readout band, not a free widget. */
+/* Old "band" treatment removed: each KPI is now its own card, so the wrap
+   and inner just provide bottom spacing — no border, no shared-edge framing. */
 .vc-kpis-band {
   margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--vc-grid);
 }
 .vc-kpis-band .vc-kpis-inner { padding: 0; }
 .vc-kpis-inner {
-  padding: 24px 20px 0;
+  padding: 24px 0 0;
 }
 .vc-kpis {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
-  border: 1px solid var(--vc-grid);
-  background: var(--vc-panel);
-  font-family: var(--vc-font-mono);
+  grid-template-columns: 1.25fr 1fr 1fr 1fr 1fr;
+  gap: 14px;
 }
 .vc-kpi {
-  padding: 14px 18px;
-  border-right: 1px solid var(--vc-grid);
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius);
+  box-shadow: var(--vc-shadow);
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
 }
-.vc-kpi:last-child { border-right: none; }
 .vc-kpi-label {
-  font-size: var(--vc-fs-2xs);
+  font-family: var(--vc-font-sans);
+  font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--vc-fg-3);
+  letter-spacing: 0.12em;
+  color: var(--vc-fg-2);
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
-.vc-kpi-delta { color: var(--vc-accent); font-weight: 500; }
+.vc-kpi-delta {
+  background: var(--vc-pos-soft);
+  color: var(--vc-pos);
+  border-radius: var(--vc-radius-pill);
+  padding: 2px 7px;
+  font-weight: 600;
+  font-size: 11px;
+}
 .vc-kpi-value {
-  font-size: var(--vc-fs-2xl);
-  font-weight: 500;
+  font-family: var(--vc-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 30px;
+  font-weight: 700;
   letter-spacing: -0.02em;
-  margin: 6px 0 4px;
-  font-feature-settings: 'tnum' 1, 'zero' 1;
   color: var(--vc-fg);
-  line-height: 1.1;
+  line-height: 1;
 }
 .vc-kpi-pct { font-size: var(--vc-fs-lg); color: var(--vc-fg-3); margin-left: 2px; }
-.vc-kpi-primary .vc-kpi-value { color: var(--vc-accent); }
+.vc-kpi-primary .vc-kpi-value {
+  font-size: 36px;
+  color: var(--vc-accent);
+}
 .vc-kpi-sub {
-  font-size: var(--vc-fs-xs);
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
   color: var(--vc-fg-3);
 }
-.vc-kpi-sub b { font-weight: 500; color: var(--vc-fg-2); }
+.vc-kpi-sub b { font-weight: 600; color: var(--vc-fg-2); }
 @media (max-width: 960px) {
   .vc-kpis { grid-template-columns: 1fr 1fr; }
-  .vc-kpi:nth-child(odd) { border-right: 1px solid var(--vc-grid); }
-  .vc-kpi:nth-child(2n) { border-right: none; }
-  .vc-kpi { border-bottom: 1px solid var(--vc-grid); }
 }
 @media (max-width: 600px) {
   .vc-kpis { grid-template-columns: 1fr; }
-  .vc-kpi { border-right: none !important; border-bottom: 1px solid var(--vc-grid); }
-  .vc-kpi:last-child { border-bottom: none; }
-  /* Shrink big monospace dollar figures so they stop overflowing the 1-col cell.
-     Override on .vc, not :root — the token is defined on .vc (a closer source
-     that would shadow :root), so a :root override would never take effect. */
-  .vc { --vc-fs-2xl: 22px; }
+  /* Shrink the big dollar figures so they stop overflowing the 1-col cell. */
+  .vc-kpi-value { font-size: 24px; }
+  .vc-kpi-primary .vc-kpi-value { font-size: 28px; }
 }
 
 /* Variant-C heatmap polish */

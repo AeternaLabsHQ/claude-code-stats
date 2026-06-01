@@ -2245,31 +2245,72 @@ function renderAgentsTab() {
   }
 }
 
-// ── Sortable Tables ────────────────────────────────────────────────────
-document.querySelectorAll('.sortable th[data-sort]').forEach(th => {
-  th.addEventListener('click', () => {
-    const key = th.dataset.sort;
-    const table = th.closest('table');
-    const current = th.classList.contains('sort-asc') ? 'asc' : th.classList.contains('sort-desc') ? 'desc' : null;
-    table.querySelectorAll('th').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
-    const dir = current === 'desc' ? 'asc' : 'desc';
-    th.classList.add('sort-' + dir);
-    renderProjectTable(key, dir);
+// ── Sortable tables (universal) ────────────────────────────────────────
+// Every .data-table is sortable by clicking a header. Sorting reorders the
+// existing rows in the DOM, so it works for any table regardless of how it
+// was rendered or whether its tab is currently visible. Values are parsed
+// so formatted numbers ($8,725.39 · 35.7M · 61.2%), dates and plain text
+// all sort correctly; a cell may also carry an explicit data-sort-value.
+function cellSortKey(td) {
+  if (!td) return { num: false, v: '' };
+  if (td.dataset && td.dataset.sortValue !== undefined) {
+    const v = parseFloat(td.dataset.sortValue);
+    if (!isNaN(v)) return { num: true, v };
+  }
+  const txt = (td.textContent || '').trim();
+  const cleaned = txt.replace(/[,$€%\s]/g, '');
+  const m = cleaned.match(/^(-?\d*\.?\d+)([kmbgt]?)$/i);
+  if (m) {
+    let n = parseFloat(m[1]);
+    const s = (m[2] || '').toLowerCase();
+    n *= s === 'k' ? 1e3 : s === 'm' ? 1e6 : (s === 'b' || s === 'g') ? 1e9 : s === 't' ? 1e12 : 1;
+    return { num: true, v: n };
+  }
+  if (/\d/.test(txt) && /[\/\-]/.test(txt)) {        // date-like (12/31/2026, 2026-01-02)
+    const d = Date.parse(txt);
+    if (!isNaN(d)) return { num: true, v: d };
+  }
+  return { num: false, v: txt.toLowerCase() };
+}
+function sortTableByColumn(table, idx, dir) {
+  const tbody = table.tBodies[0];
+  if (!tbody) return;
+  const keyed = Array.from(tbody.rows).map(r => ({ r, k: cellSortKey(r.cells[idx]) }));
+  keyed.sort((a, b) => {
+    const cmp = (a.k.num && b.k.num)
+      ? a.k.v - b.k.v
+      : String(a.k.v).localeCompare(String(b.k.v), undefined, { numeric: true });
+    return dir === 'asc' ? cmp : -cmp;
   });
-});
+  keyed.forEach(x => tbody.appendChild(x.r));
+}
+function attachTableSorting(table) {
+  if (!table.tHead || table._sortWired) return;
+  table._sortWired = true;
+  const ths = Array.from(table.tHead.rows[0].cells);
+  ths.forEach((th, idx) => {
+    th.addEventListener('click', (e) => {
+      if (e.target.closest('.col-resizer')) return;   // resize grip, not a sort
+      const cur = th.classList.contains('sort-asc') ? 'asc' : th.classList.contains('sort-desc') ? 'desc' : null;
+      const dir = cur === 'desc' ? 'asc' : 'desc';    // first click = desc (largest first)
+      ths.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+      th.classList.add('sort-' + dir);
+      sortTableByColumn(table, idx, dir);
+    });
+  });
+}
+document.querySelectorAll('table.data-table').forEach(attachTableSorting);
 
-// ── Resizable / auto-fit columns for the project table ────────────────
-// Columns carry explicit widths (fixed layout) so a long project name
-// clips with an ellipsis instead of blowing out the page; the wrapper
-// scrolls horizontally when the columns are wider than it. Drag a column's
-// right edge to resize; double-click that edge to auto-fit to content.
-// Header clicks still sort — the grip stops propagation so it doesn't.
-function enhanceProjectTable() {
-  const table = document.getElementById('projectTable');
+// ── Resizable / auto-fit columns ──────────────────────────────────────
+// Columns carry explicit widths (fixed layout) so a long value (e.g. a
+// project name or plan title) clips with an ellipsis instead of blowing out
+// the page; the wrapper scrolls horizontally when the columns are wider than
+// it. Drag a column's right edge to resize; double-click that edge to
+// auto-fit to content. Header clicks still sort — the grip stops propagation.
+function enhanceResizableTable(table, defaults) {
   if (!table || !table.tHead || table.classList.contains('vc-resizable')) return;
   table.classList.add('vc-resizable');
   const ths = Array.from(table.tHead.rows[0].cells);
-  const defaults = [460, 150, 100, 120, 120, 130, 120]; // name, source, sessions, messages, api, output, file size
   function syncTableWidth() {
     const sum = ths.reduce((s, th) => s + parseFloat(th.style.width || th.getBoundingClientRect().width || 0), 0);
     table.style.width = sum + 'px';
@@ -2323,7 +2364,8 @@ function enhanceProjectTable() {
   });
   syncTableWidth();
 }
-enhanceProjectTable();
+enhanceResizableTable(document.getElementById('projectTable'), [460, 150, 100, 120, 120, 130, 120]); // name, source, sessions, messages, api, output, file size
+enhanceResizableTable(document.getElementById('plansTable'), [300, 130, 90, 90]);                   // title, created, lines, kb
 
 // ── Filter events ──────────────────────────────────────────────────────
 function _applySessionFilter() {

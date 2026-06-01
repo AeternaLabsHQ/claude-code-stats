@@ -497,8 +497,9 @@ body.anon-mode .anon-blur {
 }
 .vc .data-table th.num,
 .vc .data-table td.num { text-align: right; }
-.vc .data-table.sortable th[data-sort] { cursor: pointer; }
-.vc .data-table.sortable th[data-sort]:hover { color: var(--vc-fg); }
+/* All data-table headers are sortable (universal). */
+.vc .data-table thead th { cursor: pointer; user-select: none; }
+.vc .data-table thead th:hover { color: var(--vc-fg); }
 .vc .data-table th.sort-asc::after { content:" \25B2"; font-size: 9px; color: var(--vc-accent); }
 .vc .data-table th.sort-desc::after { content:" \25BC"; font-size: 9px; color: var(--vc-accent); }
 .vc .data-table td {
@@ -612,10 +613,14 @@ body.anon-mode .anon-blur {
 }
 .vc .col-resizer:hover { background: var(--vc-accent-soft); }
 /* On mobile the table collapses to stacked cards (table.responsive); undo the
-   fixed layout + inline pixel width so it doesn't overflow the viewport. */
+   fixed layout + inline pixel width and hard-cap everything to the viewport so
+   a wide column can't push the page sideways. */
 @media (max-width: 760px) {
-  .vc table.vc-resizable { width: 100% !important; table-layout: auto !important; }
-  .vc table.vc-resizable td { overflow: visible; text-overflow: clip; white-space: normal; }
+  .vc .vc-table-scroll { overflow-x: hidden; }
+  .vc table.vc-resizable { width: 100% !important; max-width: 100% !important; table-layout: auto !important; }
+  .vc table.vc-resizable th, .vc table.vc-resizable td { max-width: 100% !important; width: auto !important; }
+  .vc table.vc-resizable td { overflow: hidden; text-overflow: clip; white-space: normal; word-break: break-word; }
+  .vc table.vc-resizable td a { white-space: normal !important; max-width: 100% !important; display: inline; }
 }
 
 /* Plan highlight grid */

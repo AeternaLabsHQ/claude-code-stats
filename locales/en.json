@@ -187,7 +187,9 @@
     "sect_environment": "Environment",
     "sect_environment_meta": "configuration · system info",
     "sect_errors": "Errors",
-    "sect_errors_meta": "error rate over time"
+    "sect_errors_meta": "error rate over time",
+    "subnav_agents": "Agents",
+    "subnav_errors": "Errors & Reliability"
   },
   "agents": {
     "subagent_types": "Subagent Types",

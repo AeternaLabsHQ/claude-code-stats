@@ -267,6 +267,16 @@
   </div>
 
   <div class="tab-content" id="tab-insights">
+    <nav class="vc-subnav" id="insightsSubnav">
+      <button data-sub="cache" class="on"><span class="ic">01</span>__L_insights_sect_cache_tokens__</button>
+      <button data-sub="tools"><span class="ic">02</span>__L_insights_sect_tools_plugins__</button>
+      <button data-sub="workflows"><span class="ic">03</span>__L_insights_sect_workflows__</button>
+      <button data-sub="storage"><span class="ic">04</span>__L_insights_sect_storage_files__</button>
+      <button data-sub="environment"><span class="ic">05</span>__L_insights_sect_environment__</button>
+      <button data-sub="agents"><span class="ic">06</span>__L_insights_subnav_agents__</button>
+      <button data-sub="errors"><span class="ic">07</span>__L_insights_subnav_errors__</button>
+    </nav>
+    <div class="vc-subsection" data-sub="cache">
     <div class="vc-sect-h">
       <div class="vc-sect-h-title">__L_insights_sect_cache_tokens__</div>
       <div class="vc-sect-h-rule"></div>
@@ -291,7 +301,9 @@
     <div class="chart-grid full">
       <div class="chart-box"><h3>__L_costs_cache_efficiency_daily__</h3><canvas id="chartCacheEffDaily"></canvas></div>
     </div>
+    </div>
 
+    <div class="vc-subsection" data-sub="tools" hidden>
     <div class="vc-sect-h">
       <div class="vc-sect-h-title">__L_insights_sect_tools_plugins__</div>
       <div class="vc-sect-h-rule"></div>
@@ -310,7 +322,9 @@
         </table>
       </div>
     </div>
+    </div>
 
+    <div class="vc-subsection" data-sub="workflows" hidden>
     <div class="vc-sect-h">
       <div class="vc-sect-h-title">__L_insights_sect_workflows__</div>
       <div class="vc-sect-h-rule"></div>
@@ -336,7 +350,9 @@
       </div>
       <div class="chart-box"><h3>__L_insights_git_ops__</h3><div id="gitOpsInfo"></div></div>
     </div>
+    </div>
 
+    <div class="vc-subsection" data-sub="storage" hidden>
     <div class="vc-sect-h">
       <div class="vc-sect-h-title">__L_insights_sect_storage_files__</div>
       <div class="vc-sect-h-rule"></div>
@@ -349,7 +365,9 @@
         <div id="miscStats"></div>
       </div>
     </div>
+    </div>
 
+    <div class="vc-subsection" data-sub="environment" hidden>
     <div class="vc-sect-h">
       <div class="vc-sect-h-title">__L_insights_sect_environment__</div>
       <div class="vc-sect-h-rule"></div>
@@ -362,9 +380,11 @@
       </div>
       <div class="chart-box"><h3>__L_insights_system_info__</h3><div id="systemInfo"></div></div>
     </div>
+    </div>
 
+    <div class="vc-subsection" data-sub="agents" hidden>
     <div class="vc-sect-h">
-      <div class="vc-sect-h-title">Agents</div>
+      <div class="vc-sect-h-title">__L_insights_subnav_agents__</div>
       <div class="vc-sect-h-rule"></div>
       <div class="vc-sect-h-meta">subagent activity</div>
     </div>
@@ -376,9 +396,11 @@
     <div class="chart-box">
       <h3>__L_agents_task_overview__</h3><div id="taskOverview"></div>
     </div>
+    </div>
 
+    <div class="vc-subsection" data-sub="errors" hidden>
     <div class="vc-sect-h">
-      <div class="vc-sect-h-title">Errors &amp; Reliability</div>
+      <div class="vc-sect-h-title">__L_insights_subnav_errors__</div>
       <div class="vc-sect-h-rule"></div>
       <div class="vc-sect-h-meta">__L_insights_sect_errors_meta__</div>
     </div>
@@ -391,6 +413,7 @@
     <div class="chart-grid">
       <div class="chart-box"><h3>__L_agents_errors_by_category__</h3><canvas id="errorByCategoryChart"></canvas></div>
       <div class="chart-box"><h3>__L_agents_errors_by_tool__</h3><canvas id="errorByToolChart" height="250"></canvas></div>
+    </div>
     </div>
   </div>
 </div>

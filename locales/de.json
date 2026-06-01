@@ -187,7 +187,9 @@
     "sect_environment": "Umgebung",
     "sect_environment_meta": "Konfiguration · System-Info",
     "sect_errors": "Fehler",
-    "sect_errors_meta": "Fehlerrate im Zeitverlauf"
+    "sect_errors_meta": "Fehlerrate im Zeitverlauf",
+    "subnav_agents": "Agenten",
+    "subnav_errors": "Fehler & Zuverlässigkeit"
   },
   "agents": {
     "subagent_types": "Subagent-Typen",

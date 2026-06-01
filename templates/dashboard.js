@@ -2276,6 +2276,20 @@ renderLimits();
 renderInsights();
 renderAgentsTab();
 
+function initInsightsSubnav() {
+  const nav = document.getElementById('insightsSubnav');
+  if (!nav) return;
+  const sections = Array.from(document.querySelectorAll('#tab-insights .vc-subsection'));
+  nav.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-sub]');
+    if (!btn) return;
+    const key = btn.dataset.sub;
+    nav.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === btn));
+    sections.forEach(s => { s.hidden = s.dataset.sub !== key; });
+    if (window.Chart) Object.values(Chart.instances || {}).forEach(c => { try { c.resize(); } catch (_) {} });
+  });
+}
+
 // F2 Anonymization mode
 const anonMap = {};
 let anonCounter = 0;
@@ -2433,6 +2447,9 @@ document.addEventListener('keydown', function(e) {
       applyFilter(undefined, qf.value);
     }, 300);
   });
+
+  // Insights sub-nav (one section visible at a time)
+  initInsightsSubnav();
 })();
 
 // ── Variant-C KPI strip rendering ─────────────────────────────────

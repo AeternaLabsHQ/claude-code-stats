@@ -19,78 +19,83 @@
    built-in theme rules win on specificity.
 
    Two CSS variable namespaces exist:
-   - `--vc-*`   : new "Variant-C" design tokens (header, panels,
-                  primary surfaces, KPI tiles, footer)
+   - `--vc-*`   : design tokens (header, panels, primary surfaces,
+                  KPI tiles, footer, controls)
    - legacy `--bg`, `--accent`, etc. : used by Chart.js charts
                   and innerHTML-rendered sections
    For a complete recolor you usually want to set both.
+
+   ACCENT NOTE: charts and the activity heatmap read the LIVE
+   `--vc-accent` value, so overriding just `--vc-accent` (+ the
+   legacy `--accent`) recolors the accent-driven charts too — no
+   rebuild needed. See the accent presets at the bottom.
    ============================================================ */
 
 
-/* ---------- LIGHT THEME ---------- */
+/* ---------- LIGHT THEME (current defaults, for reference) ---------- */
 
 /*
 html.theme-light .vc {
-  --vc-bg:           #faf5ea;
-  --vc-panel:        #fbfaf6;
-  --vc-grid:         #d8d2c4;
-  --vc-grid-2:       #e8e3d6;
-  --vc-fg:           #1c1a17;
-  --vc-fg-2:         #4d4a42;
-  --vc-fg-3:         #918a7a;
-  --vc-accent:       #b04a2f;
-  --vc-accent-soft:  #f1d9cd;
+  --vc-bg:           #f5f6f8;
+  --vc-panel:        #ffffff;
+  --vc-grid:         #e7e9ee;
+  --vc-grid-2:       #e7e9ee;
+  --vc-fg:           #14161c;
+  --vc-fg-2:         #5b6473;
+  --vc-fg-3:         #99a1af;
+  --vc-accent:       #c2562f;
+  --vc-accent-soft:  rgba(194,86,47,.10);
 }
 html.theme-light body.vc-page {
-  --bg:      #faf5ea;
-  --bg2:     #fbfaf6;
-  --bg3:     #ece6d8;
-  --border:  #d8d2c4;
-  --text:    #1c1a17;
-  --text2:   #4d4a42;
-  --accent:  #b04a2f;
-  --accent2: #c46141;
-  --green:   #6b8e23;
-  --orange:  #b04a2f;
-  --red:     #b54a3a;
-  --blue:    #4d4a42;
-  --purple:  #918a7a;
-  --cyan:    #918a7a;
-  --amber:   #b04a2f;
+  --bg:      #f5f6f8;
+  --bg2:     #ffffff;
+  --bg3:     #eef0f3;
+  --border:  #e7e9ee;
+  --text:    #14161c;
+  --text2:   #5b6473;
+  --accent:  #c2562f;
+  --accent2: #cf6b45;
+  --green:   #1f9d63;
+  --orange:  #c2562f;
+  --red:     #d24b3e;
+  --blue:    #5b6473;
+  --purple:  #5b6473;
+  --cyan:    #5b6473;
+  --amber:   #c2562f;
 }
 */
 
 
-/* ---------- DARK THEME ---------- */
+/* ---------- DARK THEME (current defaults, for reference) ---------- */
 
 /*
 html.theme-dark .vc {
-  --vc-bg:           #0e0d0b;
-  --vc-panel:        #15140f;
-  --vc-grid:         #2a2620;
-  --vc-grid-2:       #26231d;
-  --vc-fg:           #ece7da;
-  --vc-fg-2:         #b3ad9b;
-  --vc-fg-3:         #76705f;
-  --vc-accent:       #d97757;
-  --vc-accent-soft:  #2c1c14;
+  --vc-bg:           #0e1014;
+  --vc-panel:        #181b21;
+  --vc-grid:         #262b33;
+  --vc-grid-2:       #262b33;
+  --vc-fg:           #eef0f4;
+  --vc-fg-2:         #a8afbb;
+  --vc-fg-3:         #6b7380;
+  --vc-accent:       #e27a51;
+  --vc-accent-soft:  rgba(226,122,81,.16);
 }
 html.theme-dark body.vc-page {
-  --bg:      #0e0d0b;
-  --bg2:     #15140f;
-  --bg3:     #1f1d18;
-  --border:  #2a2620;
-  --text:    #ece7da;
-  --text2:   #b3ad9b;
-  --accent:  #d97757;
+  --bg:      #0e1014;
+  --bg2:     #181b21;
+  --bg3:     #1f242c;
+  --border:  #262b33;
+  --text:    #eef0f4;
+  --text2:   #a8afbb;
+  --accent:  #e27a51;
   --accent2: #ec8b6a;
-  --green:   #93b85e;
-  --orange:  #d97757;
-  --red:     #e07d65;
-  --blue:    #b3ad9b;
-  --purple:  #76705f;
-  --cyan:    #76705f;
-  --amber:   #d97757;
+  --green:   #34c77f;
+  --orange:  #e27a51;
+  --red:     #f0786b;
+  --blue:    #a8afbb;
+  --purple:  #a8afbb;
+  --cyan:    #a8afbb;
+  --amber:   #e27a51;
 }
 */
 
@@ -100,21 +105,33 @@ html.theme-dark body.vc-page {
 /*
 @media (prefers-color-scheme: dark) {
   html:not(.theme-light) .vc {
-    --vc-accent:      #d97757;
-    --vc-accent-soft: #2c1c14;
+    --vc-accent:      #e27a51;
+    --vc-accent-soft: rgba(226,122,81,.16);
   }
   html:not(.theme-light) body.vc-page {
-    --accent: #d97757;
+    --accent: #e27a51;
   }
 }
 */
 
 
-/* ---------- EXAMPLE: a single accent recolor ---------- */
+/* ============================================================
+   ACCENT PRESETS
+   The default accent is terracotta. To switch the whole UI
+   (nav, KPIs, links, charts, heatmap) to a different accent,
+   uncomment ONE of the blocks below. Each recolors light +
+   dark in one go and sets both the --vc-accent token and the
+   legacy --accent so charts follow along.
+   ============================================================ */
 
+/* === Accent: Indigo === */
 /*
-html.theme-light .vc        { --vc-accent: #2f6fb0; }
-html.theme-dark  .vc        { --vc-accent: #5ca0ea; }
-html.theme-light body.vc-page { --accent: #2f6fb0; }
-html.theme-dark  body.vc-page { --accent: #5ca0ea; }
+html.theme-light .vc, html.theme-light body.vc-page { --vc-accent:#4f46e5; --vc-accent-soft:rgba(79,70,229,.10); --accent:#4f46e5; }
+html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#818cf8; --vc-accent-soft:rgba(129,140,248,.18); --accent:#818cf8; }
+*/
+
+/* === Accent: Emerald === */
+/*
+html.theme-light .vc, html.theme-light body.vc-page { --vc-accent:#0e9f6e; --vc-accent-soft:rgba(14,159,110,.10); --accent:#0e9f6e; }
+html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#34d399; --vc-accent-soft:rgba(52,211,153,.18); --accent:#34d399; }
 */

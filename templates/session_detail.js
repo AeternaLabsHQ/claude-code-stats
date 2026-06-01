@@ -498,7 +498,7 @@ if (models.length>0) {
     '</div>';
 }
 sideHtml += '<div class="sidebar-card"><h4>Metadata</h4>' +
-  '<div class="sidebar-row"><span class="label">Session ID</span><span class="val" style="font-size:11px;font-family:monospace">'+sess.session_id.slice(0,12)+'...</span></div>' +
+  '<div class="sidebar-row"><span class="label">Session ID</span><span class="val" style="font-size:11px;font-family:var(--vc-font-mono);word-break:break-all;text-align:right">'+sess.session_id+'</span></div>' +
   '<div class="sidebar-row"><span class="label">File Size</span><span class="val">'+sess.file_size_mb+' MB</span></div>' +
   '</div>';
 sideEl.innerHTML = sideHtml;

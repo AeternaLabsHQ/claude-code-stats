@@ -328,6 +328,9 @@ body.anon-mode .anon-blur {
 .vc-kpi-sub b { font-weight: 600; color: var(--vc-fg-2); }
 @media (max-width: 960px) {
   .vc-kpis { grid-template-columns: 1fr 1fr; }
+  /* When the KPI grid drops to 2 columns the primary KPI should span the
+     full width so it stays the dominant figure. */
+  .vc-kpi-primary { grid-column: 1 / -1; }
 }
 @media (max-width: 600px) {
   .vc-kpis { grid-template-columns: 1fr; }
@@ -506,6 +509,56 @@ body.anon-mode .anon-blur {
 }
 .vc .data-table tr:last-child td { border-bottom: none; }
 .vc .data-table tbody tr:hover td { background: var(--vc-accent-soft); }
+
+/* ── Mobile: dense tables → stacked labelled cards (ported saas.css) ──
+   Tables marked .responsive collapse to one card per row. The header row
+   is hidden; each cell shows its column name via data-label on the left
+   and the value on the right. The identifying cell (.primary) is the card
+   title. thead is display:none here, so the sticky .data-table th above is
+   moot in this layout. */
+@media (max-width: 760px) {
+  .vc table.responsive thead { display: none; }
+  .vc table.responsive,
+  .vc table.responsive tbody,
+  .vc table.responsive tr,
+  .vc table.responsive td { display: block; width: 100%; }
+  .vc table.responsive tr {
+    border: 1px solid var(--vc-grid);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    background: var(--vc-panel);
+    box-shadow: var(--vc-shadow);
+    overflow: hidden;
+  }
+  .vc table.responsive td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    text-align: right;
+    border: 0;
+    border-bottom: 1px solid var(--vc-grid);
+    padding: 9px 14px;
+    white-space: normal;
+  }
+  .vc table.responsive tr td:last-child { border-bottom: 0; }
+  .vc table.responsive td::before {
+    content: attr(data-label);
+    font-family: var(--vc-font-sans);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--vc-fg-2);
+    text-align: left;
+    flex-shrink: 0;
+  }
+  .vc table.responsive td.primary {
+    background: color-mix(in srgb, var(--vc-accent) 5%, transparent);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .vc table.responsive td.primary::before { content: ""; }
+}
 
 /* ── Table badges / cell affordances (ported from saas.css) ──────────
    Real JS-emitted class in these tables is .source-badge (recolored to
@@ -1074,8 +1127,9 @@ body.vc-page > div[style*="text-align:center"] a {
   .vc-nav-inner { flex-direction: column; padding: 0; align-items: stretch; }
   .vc-nav-tabs { overflow-x: auto; padding: 0 12px; }
   .vc-nav-right { padding: 12px; border-top: 1px solid var(--vc-grid); flex-wrap: wrap; justify-content: flex-start; }
-  /* Slimmer tabs so 5 of them usually fit one row; .vc-nav-tabs keeps overflow-x:auto fallback */
-  .vc-tab { padding: 9px 12px; letter-spacing: 0.06em; }
+  /* Slimmer tabs so 5 of them usually fit one row; .vc-nav-tabs keeps overflow-x:auto fallback.
+     flex:1 lets the 5 tabs share the row width evenly instead of bunching left. */
+  .vc-tab { padding: 9px 12px; letter-spacing: 0.06em; flex: 1; }
   .vc-f2-hint { display: none; }
   .vc-utc { display: none; }
   /* Let the quick-filter fill the wrapped nav-right row instead of a fixed 180px */

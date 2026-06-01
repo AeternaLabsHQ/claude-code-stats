@@ -1011,9 +1011,12 @@ function renderCosts() {
   F.model_summary.forEach(m => {
     const tr = document.createElement('tr');
     const cells = [m.model, fmtUSD(m.cost), fmtTokens(m.output_tokens), fmtTokens(m.input_tokens), fmtTokens(m.cache_read_tokens), fmt(m.calls)];
+    const labels = ['Model', 'API Value', 'Output', 'Input', 'Cache Read', 'API Calls'];
     cells.forEach((val, i) => {
       const td = document.createElement('td');
       if (i > 0) td.className = 'num';
+      else td.className = 'primary';
+      td.setAttribute('data-label', labels[i]);
       td.textContent = val;
       tr.appendChild(td);
     });
@@ -1303,17 +1306,18 @@ function renderProjectTable(sortKey, sortDir) {
       return '<span class="source-badge" style="background:'+c.bg+';color:'+c.fg+'">'+escHtml(lbl)+'</span>';
     }).join(' ');
     const cells = [
-      {html: nameCell, cls: ''},
-      {html: sourceCell, cls: ''},
-      {val: p.sessions, cls: 'num'},
-      {val: fmt(p.messages), cls: 'num'},
-      {val: fmtUSD(p.cost), cls: 'num'},
-      {val: fmtTokens(p.output_tokens), cls: 'num'},
-      {val: String(p.file_size_mb), cls: 'num'},
+      {html: nameCell, cls: 'primary', label: 'Project'},
+      {html: sourceCell, cls: '', label: 'Source'},
+      {val: p.sessions, cls: 'num', label: 'Sessions'},
+      {val: fmt(p.messages), cls: 'num', label: 'Messages'},
+      {val: fmtUSD(p.cost), cls: 'num', label: 'API Value'},
+      {val: fmtTokens(p.output_tokens), cls: 'num', label: 'Output'},
+      {val: String(p.file_size_mb), cls: 'num', label: 'File Size'},
     ];
     cells.forEach(c => {
       const td = document.createElement('td');
       if (c.cls) td.className = c.cls;
+      td.setAttribute('data-label', c.label);
       if (c.html) { td.innerHTML = c.html; } else { td.textContent = c.val; }
       tr.appendChild(td);
     });
@@ -1702,19 +1706,20 @@ function renderPlan() {
     const planVal = planMoneyValue(p, 'plan_cost') || 0;
     const savingsVal = planMoneyValue(p, 'savings') || 0;
     const cells = [
-      {val: p.start + ' \u2013 ' + p.end, cls:'', highlight:false},
-      {val: p.plan, cls:'', highlight:false},
-      {val: p.total_days + ' (' + p.days_active + D.locale.plan.active_suffix + ')', cls:'num', highlight:false},
-      {val: fmtPlanMoney(apiVal), cls:'num', highlight: apiVal > 100},
-      {val: fmtPlanMoney(planVal), cls:'num', highlight:false},
-      {val: fmtPlanMoney(savingsVal), cls:'num', highlight: savingsVal > 100},
-      {val: p.roi_factor + 'x', cls:'num', highlight:false},
-      {val: String(p.sessions), cls:'num', highlight:false},
-      {val: fmt(p.messages), cls:'num', highlight:false},
+      {val: p.start + ' \u2013 ' + p.end, cls:'primary', highlight:false, label:'Period'},
+      {val: p.plan, cls:'', highlight:false, label:'Plan'},
+      {val: p.total_days + ' (' + p.days_active + D.locale.plan.active_suffix + ')', cls:'num', highlight:false, label:'Days'},
+      {val: fmtPlanMoney(apiVal), cls:'num', highlight: apiVal > 100, label:'API Cost'},
+      {val: fmtPlanMoney(planVal), cls:'num', highlight:false, label:'Plan Cost'},
+      {val: fmtPlanMoney(savingsVal), cls:'num', highlight: savingsVal > 100, label:'Savings'},
+      {val: p.roi_factor + 'x', cls:'num', highlight:false, label:'ROI'},
+      {val: String(p.sessions), cls:'num', highlight:false, label:'Sessions'},
+      {val: fmt(p.messages), cls:'num', highlight:false, label:'Messages'},
     ];
     cells.forEach(c => {
       const td = document.createElement('td');
       if (c.cls) td.className = c.cls;
+      td.setAttribute('data-label', c.label);
       td.textContent = c.val;
       if (c.highlight) td.style.color = 'var(--green)';
       tr.appendChild(td);
@@ -1727,19 +1732,20 @@ function renderPlan() {
   trTotal.style.fontWeight = '700';
   trTotal.style.borderTop = '2px solid var(--border)';
   const totalCells = [
-    {val: D.locale.plan.total, cls:''},
-    {val: '', cls:''},
-    {val: '', cls:'num'},
-    {val: fmtPlanMoney(planTotal('api_cost')), cls:'num'},
-    {val: fmtPlanMoney(planTotal('plan_cost')), cls:'num'},
-    {val: fmtPlanMoney(planTotal('savings')), cls:'num'},
-    {val: plan.overall_roi + 'x', cls:'num'},
-    {val: '', cls:'num'},
-    {val: '', cls:'num'},
+    {val: D.locale.plan.total, cls:'primary', label:'Period'},
+    {val: '', cls:'', label:'Plan'},
+    {val: '', cls:'num', label:'Days'},
+    {val: fmtPlanMoney(planTotal('api_cost')), cls:'num', label:'API Cost'},
+    {val: fmtPlanMoney(planTotal('plan_cost')), cls:'num', label:'Plan Cost'},
+    {val: fmtPlanMoney(planTotal('savings')), cls:'num', label:'Savings'},
+    {val: plan.overall_roi + 'x', cls:'num', label:'ROI'},
+    {val: '', cls:'num', label:'Sessions'},
+    {val: '', cls:'num', label:'Messages'},
   ];
   totalCells.forEach(c => {
     const td = document.createElement('td');
     if (c.cls) td.className = c.cls;
+    td.setAttribute('data-label', c.label);
     td.textContent = c.val;
     trTotal.appendChild(td);
   });
@@ -1944,15 +1950,16 @@ function renderInsights() {
     const isEnabled = enabled[p.name] !== false;
     const globalInstalls = mktStats[p.name] || 0;
     const cells = [
-      {val: p.short_name, cls: ''},
-      {val: isEnabled ? D.locale.insights.active : D.locale.insights.inactive, cls: '', badge: isEnabled ? 'active' : 'inactive'},
-      {val: p.version, cls: ''},
-      {val: globalInstalls > 0 ? fmt(globalInstalls) : '-', cls: 'num'},
-      {val: p.installed_at ? new Date(p.installed_at).toLocaleDateString(D.locale.locale_code) : '-', cls: ''},
+      {val: p.short_name, cls: 'primary', label: 'Plugin'},
+      {val: isEnabled ? D.locale.insights.active : D.locale.insights.inactive, cls: '', badge: isEnabled ? 'active' : 'inactive', label: 'Status'},
+      {val: p.version, cls: '', label: 'Version'},
+      {val: globalInstalls > 0 ? fmt(globalInstalls) : '-', cls: 'num', label: 'Global Installs'},
+      {val: p.installed_at ? new Date(p.installed_at).toLocaleDateString(D.locale.locale_code) : '-', cls: '', label: 'Installed At'},
     ];
     cells.forEach(c => {
       const td = document.createElement('td');
       if (c.cls) td.className = c.cls;
+      td.setAttribute('data-label', c.label);
       if (c.badge) {
         const span = document.createElement('span');
         span.className = 'plugin-status ' + c.badge;
@@ -1993,14 +2000,15 @@ function renderInsights() {
   plans.forEach(p => {
     const tr = document.createElement('tr');
     const cells = [
-      {val: p.title, cls: '', anon: true},
-      {val: new Date(p.created).toLocaleDateString(D.locale.locale_code), cls: ''},
-      {val: String(p.lines), cls: 'num'},
-      {val: String(p.size_kb), cls: 'num'},
+      {val: p.title, cls: 'primary', anon: true, label: 'Title'},
+      {val: new Date(p.created).toLocaleDateString(D.locale.locale_code), cls: '', label: 'Created'},
+      {val: String(p.lines), cls: 'num', label: 'Lines'},
+      {val: String(p.size_kb), cls: 'num', label: 'KB'},
     ];
     cells.forEach(c => {
       const td = document.createElement('td');
       if (c.cls) td.className = c.cls;
+      td.setAttribute('data-label', c.label);
       if (c.anon) {
         const span = document.createElement('span');
         span.className = 'anon-blur';

@@ -1109,22 +1109,46 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .data-table .num { text-align:right; font-variant-numeric:tabular-nums; }
 
 /* Session cards */
-.session-filters { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
-.session-filters select, .session-filters input { background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-size:13px; }
-.session-filters select { min-width:200px; }
-.bulk-download-btn { padding: 6px 14px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--bg2); color: var(--text2); cursor: pointer; border-radius: 6px; transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.bulk-download-btn:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
-.bulk-download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.model-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
-.model-badge.opus { background:rgba(168,85,247,0.2); color:var(--purple); }
-.model-badge.sonnet { background:rgba(59,130,246,0.2); color:var(--blue); }
-.model-badge.haiku { background:rgba(34,197,94,0.2); color:var(--green); }
-.source-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:500; letter-spacing:0.3px; margin-left:6px; vertical-align:middle; }
+.session-filters { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.session-filters select, .session-filters input {
+  height:38px; padding:0 12px; background:var(--vc-panel); border:1px solid var(--vc-grid); color:var(--vc-fg);
+  border-radius:var(--vc-radius-ctl); font-family:var(--vc-font-sans); font-size:12.5px;
+  transition:border-color .12s, background-color .12s;
+}
+.session-filters select { min-width:200px; cursor:pointer; }
+.session-filters select:hover, .session-filters input:hover { border-color:var(--vc-accent); }
+.session-filters input::placeholder { color:var(--vc-fg-3); }
+.session-filters input:focus, .session-filters select:focus { outline:none; border-color:var(--vc-accent); }
+.bulk-download-btn {
+  height:38px; padding:0 14px; font-family:var(--vc-font-sans); font-size:12px; font-weight:600;
+  border:1px solid var(--vc-grid); background:var(--vc-panel); color:var(--vc-fg); cursor:pointer;
+  border-radius:var(--vc-radius-ctl); transition:background-color .12s, border-color .12s, color .12s;
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.bulk-download-btn:hover:not(:disabled) { background:var(--vc-accent-soft); border-color:var(--vc-accent); color:var(--vc-accent); }
+.bulk-download-btn:disabled { opacity:0.5; cursor:not-allowed; }
+/* The primary "Download all" action gets the accent treatment */
+#bulkDownloadBtn { background:var(--vc-accent); color:#fff; border-color:transparent; }
+#bulkDownloadBtn:hover:not(:disabled) { background:var(--vc-accent); color:#fff; border-color:transparent; filter:brightness(1.06); }
+.model-badge {
+  display:inline-block; padding:2px 8px; border-radius:var(--vc-radius-sm); font-family:var(--vc-font-mono);
+  font-size:11px; font-weight:600; background:var(--vc-accent-soft); color:var(--vc-accent); white-space:nowrap;
+}
+.model-badge.opus, .model-badge.sonnet, .model-badge.haiku { background:var(--vc-accent-soft); color:var(--vc-accent); }
+.source-badge {
+  display:inline-block; padding:2px 8px; border-radius:var(--vc-radius-sm); font-family:var(--vc-font-mono);
+  font-size:10px; font-weight:500; letter-spacing:0.3px; margin-left:6px; vertical-align:middle;
+}
 
-.pagination { display:flex; gap:8px; justify-content:center; margin-top:16px; align-items:center; }
-.pagination button { background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; cursor:pointer; }
-.pagination button:hover { background:var(--accent); }
-.pagination .info { color:var(--text2); padding:6px 0; font-size:13px; }
+.pagination { display:flex; gap:6px; justify-content:center; margin-top:16px; align-items:center; }
+.pagination button {
+  background:var(--vc-panel); border:1px solid var(--vc-grid); color:var(--vc-fg-2); padding:6px 12px;
+  border-radius:var(--vc-radius-ctl); font-family:var(--vc-font-sans); font-size:12px; cursor:pointer;
+  transition:background-color .12s, border-color .12s, color .12s;
+}
+.pagination button:hover { background:var(--vc-accent-soft); border-color:var(--vc-accent); color:var(--vc-accent); }
+.pagination button.on, .pagination button.active { background:var(--vc-accent); color:#fff; border-color:transparent; }
+.pagination .info { color:var(--vc-fg-3); padding:6px 0; font-size:12px; }
 
 /* Plan Tab */
 .plan-highlight { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:24px; }

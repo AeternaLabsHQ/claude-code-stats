@@ -319,7 +319,7 @@
       render: (s) => {
         const v = s.error_count || 0;
         if (v === 0) return '<span class="st-muted">—</span>';
-        return '<span style="color:var(--red);font-weight:600">' + v + '</span>';
+        return '<span style="color:var(--vc-neg);font-weight:600">' + v + '</span>';
       }
     },
 

@@ -1281,7 +1281,7 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
    here we shape the group: collapse the gap and round + clip the container so
    the two buttons read as one bordered segmented control. */
 #vcPlanMeta > span { gap: 0 !important; border-radius: var(--vc-radius-ctl); overflow: hidden; }
-#vcPlanMeta button { font-family: var(--vc-font-label, var(--vc-font-sans)); font-size: 11px; letter-spacing: 0.04em; }
+#vcPlanMeta button { font-family: var(--vc-font-sans); font-size: 11px; letter-spacing: 0.04em; }
 #vcPlanMeta button + button { margin-left: -1px; }
 .plan-rec-cal { color: var(--vc-fg-3); font-size: 12px; }
 .plan-rec-disclaimer { margin-top: 16px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--vc-fg-2) 30%, transparent); border-radius: var(--vc-radius-sm); color: var(--vc-fg-2); font-size: 12px; background: color-mix(in srgb, var(--vc-fg-2) 6%, transparent); line-height: 1.6; }

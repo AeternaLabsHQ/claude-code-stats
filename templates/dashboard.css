@@ -376,15 +376,18 @@ body.anon-mode .anon-blur {
 .vc .chart-box {
   background: var(--vc-panel);
   border: 1px solid var(--vc-grid);
-  padding: 18px;
+  border-radius: var(--vc-radius);
+  box-shadow: var(--vc-shadow);
+  padding: 20px 22px 22px;
   margin-bottom: 0;
   font-family: var(--vc-font-mono);
 }
 .vc .chart-box h3 {
-  font-size: var(--vc-fs-xs);
-  font-weight: 600;
+  font-family: var(--vc-font-sans);
+  font-size: 12px !important;
+  font-weight: 600 !important;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.06em !important;
   color: var(--vc-fg);
   margin-bottom: 14px;
 }
@@ -402,27 +405,14 @@ body.anon-mode .anon-blur {
 }
 .vc .chart-grid {
   display: grid;
-  gap: 0;
+  gap: 18px;
   grid-template-columns: 1fr 1fr;
-  border-left: 1px solid var(--vc-grid);
-  border-right: 1px solid var(--vc-grid);
-  border-top: 1px solid var(--vc-grid);
-  margin-bottom: 0;
+  margin-bottom: 18px;
 }
-.vc .chart-grid:last-child { border-bottom: 1px solid var(--vc-grid); margin-bottom: 24px; }
-.vc .chart-grid + .chart-grid { border-top: none; }
+.vc .chart-grid:last-child { margin-bottom: 24px; }
 .vc .chart-grid.full { grid-template-columns: 1fr; }
-.vc .chart-grid > .chart-box {
-  border: none;
-  border-right: 1px solid var(--vc-grid);
-  border-bottom: 1px solid var(--vc-grid);
-}
-.vc .chart-grid > .chart-box:last-child { border-right: none; }
-.vc .chart-grid:last-child > .chart-box { border-bottom: none; }
-.vc .chart-box + .chart-grid { border-top: none; }
 @media (max-width: 960px) {
   .vc .chart-grid { grid-template-columns: 1fr; }
-  .vc .chart-grid > .chart-box { border-right: none; }
 }
 
 /* Masonry section: round-robin distributes children across N independent flex
@@ -430,27 +420,16 @@ body.anon-mode .anon-blur {
    ones. JS in dashboard.js wraps the children in .masonry-col on load + resize. */
 .vc .masonry-section {
   display: grid;
-  gap: 0;
+  gap: 18px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-left: 1px solid var(--vc-grid);
-  border-right: 1px solid var(--vc-grid);
-  border-top: 1px solid var(--vc-grid);
-  border-bottom: 1px solid var(--vc-grid);
   margin-bottom: 24px;
 }
 .vc .masonry-section + .chart-grid,
 .vc .chart-grid + .masonry-section,
 .vc .masonry-section + .masonry-section { margin-top: 0; }
-.vc .masonry-col { display: flex; flex-direction: column; min-width: 0; }
-.vc .masonry-col + .masonry-col { border-left: 1px solid var(--vc-grid); }
-.vc .masonry-col > .chart-box {
-  border: none;
-  border-bottom: 1px solid var(--vc-grid);
-}
-.vc .masonry-col > .chart-box:last-child { border-bottom: none; }
+.vc .masonry-col { display: flex; flex-direction: column; min-width: 0; gap: 18px; }
 @media (max-width: 960px) {
   .vc .masonry-section { grid-template-columns: 1fr; }
-  .vc .masonry-col + .masonry-col { border-left: none; border-top: 1px solid var(--vc-grid); }
 }
 
 /* Plan & Billing progress-stats: align typography with vc body */
@@ -580,8 +559,9 @@ body.anon-mode .anon-blur {
 .vc .config-card {
   background: var(--vc-panel);
   border: 1px solid var(--vc-grid);
-  border-radius: 0;
-  padding: 14px 18px;
+  border-radius: var(--vc-radius);
+  box-shadow: var(--vc-shadow);
+  padding: 20px 22px 22px;
   font-family: var(--vc-font-mono);
 }
 .vc .stat-card .value,
@@ -678,14 +658,22 @@ body.vc-page > div[style*="text-align:center"] a {
   font-family: var(--vc-font-mono);
 }
 .vc-tab-h-title {
-  font-size: var(--vc-fs-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: var(--vc-fg-3);
+  font-family: var(--vc-font-sans);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--vc-fg);
   white-space: nowrap;
 }
 .vc-tab-h-rule { display: none; }
-.vc-tab-h-meta { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); white-space: nowrap; }
+.vc-tab-h-meta {
+  font-family: var(--vc-font-sans);
+  font-size: var(--vc-fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vc-fg-3);
+  white-space: nowrap;
+}
 
 /* Sub-section header inside a tab — slimmer than vc-tab-h, with a thin rule */
 .vc-sect-h {
@@ -697,39 +685,49 @@ body.vc-page > div[style*="text-align:center"] a {
   font-family: var(--vc-font-mono);
 }
 .vc-sect-h-title {
-  font-size: var(--vc-fs-xs);
+  font-family: var(--vc-font-sans);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--vc-fg);
+  white-space: nowrap;
+}
+.vc-sect-h-rule { height: 0; border-top: 1px solid var(--vc-grid); }
+.vc-sect-h-meta {
+  font-family: var(--vc-font-sans);
+  font-size: var(--vc-fs-2xs);
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.1em;
   color: var(--vc-fg-3);
   white-space: nowrap;
 }
-.vc-sect-h-rule { height: 1px; background: var(--vc-grid); }
-.vc-sect-h-meta { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); white-space: nowrap; }
 .vc .vc-sect-h + .masonry-section,
 .vc .vc-sect-h + .chart-grid { margin-top: 0; }
 
 /* Pane grid */
 .vc-pane-grid {
   margin: 0 20px 24px;
-  border: 1px solid var(--vc-grid);
   display: grid;
-  background: var(--vc-panel);
+  gap: 18px;
 }
 .vc-pane-grid.cols-2 { grid-template-columns: 1.6fr 1fr; }
 .vc-pane-grid.cols-2-eq { grid-template-columns: 1fr 1fr; }
 .vc-pane-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
 .vc-pane-grid.full { grid-template-columns: 1fr; }
 .vc-pane {
-  padding: 16px 18px;
-  border-right: 1px solid var(--vc-grid);
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius);
+  box-shadow: var(--vc-shadow);
+  padding: 20px 22px 22px;
   min-width: 0;
 }
-.vc-pane:last-child { border-right: none; }
 .vc-pane h3 {
-  font-size: var(--vc-fs-xs);
-  font-weight: 600;
+  font-family: var(--vc-font-sans);
+  font-size: 12px !important;
+  font-weight: 600 !important;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.06em !important;
   margin: 0 0 14px;
   display: flex;
   justify-content: space-between;
@@ -871,8 +869,6 @@ body.vc-page > div[style*="text-align:center"] a {
   .vc-pane-grid.cols-2,
   .vc-pane-grid.cols-2-eq,
   .vc-pane-grid.cols-3 { grid-template-columns: 1fr; }
-  .vc-pane { border-right: none; border-bottom: 1px solid var(--vc-grid); }
-  .vc-pane:last-child { border-bottom: none; }
   .vc-misc-grid { grid-template-columns: repeat(2, 1fr); }
   .vc-misc:nth-child(4n) { border-right: 1px solid var(--vc-grid); }
   .vc-misc:nth-child(2n) { border-right: none; }

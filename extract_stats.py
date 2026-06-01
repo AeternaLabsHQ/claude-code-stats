@@ -1462,6 +1462,21 @@ def _classify_tool_error(msg: str, tool_name: str) -> tuple:
     return ("tool", cat)
 
 
+def _route_tool_error(source: str, category: str):
+    """Decide how a classified tool error is accounted. Returns the source
+    label to count it under, or None if it is NOT a real error.
+
+    A cancelled parallel-call sibling is not a failure (-> None, tracked as
+    cancelled_count). A user rejection DOES count as an error under its own
+    "rejected" source. Genuine tool / hook / backend failures keep their
+    source."""
+    if source == "user":
+        if category == "cancelled":
+            return None
+        return "rejected"
+    return source
+
+
 def _extract_command_label(text: str) -> str:
     """Pull a readable slash-command label out of a `<command-name>` wrapper.
     Returns "" for command *output* (`<local-command-stdout>`) or plain text,
@@ -2037,21 +2052,23 @@ def parse_session_transcripts():
                                             tid = block.get("tool_use_id", "")
                                             tool_name = sess.get("_tool_id_map", {}).get(tid, "unknown")
                                             source, category = _classify_tool_error(error_msg, tool_name)
-                                            if source == "user":
-                                                # Not a failure: the person declined the call,
-                                                # or a parallel sibling was cancelled. Tracked
-                                                # separately, kept out of error_count.
-                                                if category == "rejected":
-                                                    sess["rejected_count"] += 1
-                                                else:
-                                                    sess["cancelled_count"] += 1
+                                            eff_source = _route_tool_error(source, category)
+                                            if eff_source is None:
+                                                # Cancelled parallel-call sibling: not a failure,
+                                                # tracked separately, kept out of error_count.
+                                                sess["cancelled_count"] += 1
                                             else:
+                                                # tool / hook / backend failures AND user
+                                                # rejections all count as errors (rejection
+                                                # under its own "rejected" source).
+                                                if eff_source == "rejected":
+                                                    sess["rejected_count"] += 1
                                                 sess["error_count"] += 1
-                                                sess["errors_by_source"][source] += 1
+                                                sess["errors_by_source"][eff_source] += 1
                                                 sess["errors"].append({
                                                     "message": error_msg[:200],
                                                     "tool": tool_name,
-                                                    "source": source,
+                                                    "source": eff_source,
                                                     "category": category,
                                                     "tool_use_id": tid,
                                                     "timestamp": timestamp or "",

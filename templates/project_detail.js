@@ -21,7 +21,7 @@ if (Object.keys(P.skills).length>0) {
   document.getElementById('skillsSection').innerHTML =
     '<div class="tools-section"><h3>Skills</h3><div class="tool-pills">' +
     Object.entries(P.skills).map(([n,c]) =>
-      '<div class="tool-pill" style="border:1px solid rgba(168,85,247,0.3)"><span style="color:var(--purple)">'+escHtml(n)+'</span><span class="count" style="color:var(--purple)">'+c+'x</span></div>'
+      '<div class="tool-pill"><span>'+escHtml(n)+'</span><span class="count">'+c+'x</span></div>'
     ).join('') + '</div></div>';
 }
 
@@ -46,7 +46,7 @@ let infoHtml = '';
 const agentTypes = Object.entries(P.agent_types || {});
 if (agentTypes.length > 0) {
   infoHtml += '<div class="info-card"><h4>Subagents</h4>' +
-    agentTypes.map(([t,c]) => '<span class="tag" style="background:rgba(99,102,241,0.15);color:var(--accent2)">'+escHtml(t)+' '+c+'x</span>').join('') +
+    agentTypes.map(([t,c]) => '<span class="tag" style="background:var(--vc-accent-soft);color:var(--vc-accent)">'+escHtml(t)+' '+c+'x</span>').join('') +
     '</div>';
 }
 const go = P.git_ops || {};
@@ -178,7 +178,7 @@ document.addEventListener('keydown', function(e) {
       note = document.createElement('div');
       note.id = 'anonNote';
       note.className = 'vc';
-      note.style.cssText = 'position:fixed;top:14px;right:14px;padding:8px 14px;border:1px solid var(--vc-accent,#b04a2f);background:var(--vc-panel,#fbfaf6);font-family:Geist Mono,JetBrains Mono,ui-monospace,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;z-index:9999;transition:opacity 0.3s;color:var(--vc-accent,#b04a2f);';
+      note.style.cssText = 'position:fixed;top:14px;right:14px;padding:8px 14px;border-radius:var(--vc-radius-pill,999px);border:1px solid var(--vc-accent,#c2562f);background:var(--vc-accent-soft,rgba(194,86,47,.10));font-family:Manrope,system-ui,sans-serif;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;z-index:9999;transition:opacity 0.3s;color:var(--vc-accent,#c2562f);box-shadow:var(--vc-shadow,0 8px 20px -12px rgba(20,22,28,.14));';
       document.body.appendChild(note);
     }
     note.textContent = document.body.classList.contains('anon-mode') ? '> ANONYMIZATION ON' : '> ANONYMIZATION OFF';

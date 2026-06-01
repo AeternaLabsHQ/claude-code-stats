@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>claude.stats — Modern SaaS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/base.css" />
+<link rel="stylesheet" href="css/saas.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<div class="appwrap" data-theme="light" data-accent="terracotta" data-density="comfortable">
+<div class="app">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <span class="tb-brand"><span class="dot"></span>claude.stats <span class="ver">v0.8.2</span></span>
+    <span class="kv"><span class="k">User</span><span class="v">AeternaLabs</span></span>
+    <span class="kv"><span class="k">Plan</span><span class="v">Max 20x</span></span>
+    <span class="kv"><span class="k">Range</span><span class="v">90d</span></span>
+    <span class="tb-right">
+      <span class="chk"><span class="box">✓</span> Hide empty sessions</span>
+      <span class="kv"><span class="k">F2</span><span class="v">Anon</span></span>
+      <button class="theme-toggle" id="themeToggle"><span class="ic" id="themeIcon">◐</span> <span id="themeLabel">Light</span></button>
+      <span class="kv"><span class="k">Generated</span><span class="v">6/1/2026, 11:40</span></span>
+    </span>
+  </header>
+
+  <!-- Main nav -->
+  <nav class="mainnav">
+    <div class="tabs">
+      <div class="tab active" data-screen="hero">Token &amp; API<br />Value</div>
+      <div class="tab" data-screen="plan">Plan &amp;<br />Billing</div>
+      <div class="tab" data-screen="activity">Activity &amp;<br />Projects</div>
+      <div class="tab" data-screen="sessions">Sessions</div>
+      <div class="tab" data-screen="insights">Insights &amp;<br />System</div>
+    </div>
+    <div class="tools">
+      <span class="filterbox"><span class="chev">›</span> filter projects…</span>
+      <div class="rangesel">
+        <button class="on">All</button><button>7D</button><button>30D</button><button>90D</button><button>1Y</button>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+  <!-- ===================== TOKEN & API VALUE ===================== -->
+  <section class="screen" data-screen="hero" data-screen-label="Token & API Value">
+    <div class="screen-head"><span class="big">Token &amp; API Value</span><span class="sub">all · daily · USD</span></div>
+
+    <div class="kpis">
+      <div class="kpi hero">
+        <div class="kpi-top"><span class="label">API Equivalent</span><span class="delta">▲ 90.4%</span></div>
+        <div class="value">$8,725.39</div>
+        <div class="meta">paid <b>$839.33</b> · save <b>90.4%</b></div>
+      </div>
+      <div class="kpi"><div class="kpi-top"><span class="label">Sessions</span></div><div class="value">840</div><div class="meta">avg <b>837m</b></div></div>
+      <div class="kpi"><div class="kpi-top"><span class="label">Messages</span></div><div class="value">62,708</div><div class="meta"><b>75</b>/session</div></div>
+      <div class="kpi"><div class="kpi-top"><span class="label">Output Tokens</span></div><div class="value">35.74M</div><div class="meta">in <b>1.87M</b></div></div>
+      <div class="kpi"><div class="kpi-top"><span class="label">Cache Hit</span></div><div class="value">96.6%</div><div class="meta">read <b>11.59B</b></div></div>
+    </div>
+
+    <div class="banner"><span class="tag">Idle-gap overhead</span><span>full range ≈ <b>123.9M</b> tokens · ≈ <b>$464.72</b> · <b>336</b> sessions</span></div>
+
+    <div class="grid"><div class="panel"><div class="panel-head"><span class="panel-title">API Value per Day by Model</span><span class="panel-meta">stacked · USD</span></div><div class="chart-wrap h-tall"><canvas id="c-apiByDay"></canvas></div></div></div>
+    <div class="grid"><div class="panel"><div class="panel-head"><span class="panel-title">Cumulative API Value</span><span class="panel-meta">running total</span></div><div class="chart-wrap h-tall"><canvas id="c-cumulative"></canvas></div></div></div>
+
+    <div class="grid cols-2-wide">
+      <div class="panel"><div class="panel-head"><span class="panel-title">API Value by Token Type</span><span class="panel-meta">USD</span></div><div class="chart-wrap h-mid"><canvas id="c-tokenType"></canvas></div></div>
+      <div class="panel"><div class="panel-head"><span class="panel-title">Model Detail</span><span class="panel-meta">7 models</span></div>
+        <div class="table-scroll"><table class="data responsive">
+          <thead><tr><th>Model</th><th>API Value</th><th>Output</th><th>Input</th><th>Cache Read</th><th>API Calls</th></tr></thead>
+          <tbody id="tb-model"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PLAN & BILLING ===================== -->
+  <section class="screen" data-screen="plan" data-screen-label="Plan & Billing" hidden>
+    <div class="screen-head"><span class="big">Plan &amp; Billing</span>
+      <span class="cur-toggle"><button class="on">USD</button><button>EUR</button></span>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi hero"><div class="kpi-top"><span class="label">Current Plan</span></div><div class="value" style="font-size:32px">Max 20x</div><div class="meta">214.20 € / mo <b>($200.00)</b></div></div>
+      <div class="kpi"><div class="kpi-top"><span class="label">Paid So Far</span></div><div class="value">873.48 €</div><div class="meta">tracked period</div></div>
+      <div class="kpi"><div class="kpi-top"><span class="label">API Cost (total)</span></div><div class="value">9,344.14 €</div><div class="meta">as if via API</div></div>
+      <div class="kpi"><div class="kpi-top"><span class="label">Total Savings</span></div><div class="value" style="color:var(--pos)">8,470.66 €</div><div class="meta">API − plan cost</div></div>
+      <div class="kpi"><div class="kpi-top"><span class="label">ROI Factor</span></div><div class="value">10.7x</div><div class="meta">value vs. pay</div></div>
+    </div>
+
+    <div class="grid"><div class="panel">
+      <div class="panel-head"><span class="panel-title">Current Billing Period</span><span class="panel-meta">2026-05-27 – 2026-06-27</span></div>
+      <div class="progress-wrap"><div class="progress"><div class="fill" id="periodFill" style="width:19%">19%</div></div></div>
+      <div class="period-stats">
+        <div class="ps"><span class="k">Day</span><span class="v">6 / 31</span></div>
+        <div class="ps"><span class="k">API Cost So Far</span><span class="v">543.74 €</span></div>
+        <div class="ps"><span class="k">Projected</span><span class="v">2,809.32 €</span></div>
+        <div class="ps"><span class="k">Savings So Far</span><span class="v" style="color:var(--pos)">329.54 €</span></div>
+        <div class="ps"><span class="k">ROI</span><span class="v">2.5x</span></div>
+        <div class="ps"><span class="k">Sessions</span><span class="v">21</span></div>
+        <div class="ps"><span class="k">Messages</span><span class="v">2,234</span></div>
+        <div class="ps"><span class="k">Avg / Day</span><span class="v">90.62 €</span></div>
+      </div>
+    </div></div>
+
+    <div class="grid cols-2">
+      <div class="panel"><div class="panel-head"><span class="panel-title">Savings by Period</span><span class="panel-meta">API vs. plan</span></div><div class="chart-wrap h-mid"><canvas id="c-savingsByPeriod"></canvas></div></div>
+      <div class="panel"><div class="panel-head"><span class="panel-title">Avg Cost per Day</span><span class="panel-meta">€ / active day</span></div><div class="chart-wrap h-mid"><canvas id="c-avgPerDay"></canvas></div></div>
+    </div>
+
+    <div class="grid"><div class="panel"><div class="panel-head"><span class="panel-title">Period Detail</span></div>
+      <div class="table-scroll"><table class="data responsive">
+        <thead><tr><th>Period</th><th>Plan</th><th>Days</th><th>API Equiv.</th><th>Plan Cost</th><th>Savings</th><th>ROI</th><th>Sessions</th><th>Msgs.</th></tr></thead>
+        <tbody id="tb-period"></tbody>
+      </table></div>
+    </div></div>
+
+    <div class="screen-head" style="margin-top:8px"><span class="big" style="font-size:15px;color:var(--muted)">Limits &amp; Recommendation</span></div>
+    <div class="grid"><div class="panel">
+      <div class="panel-head"><span class="panel-title">Limit Events</span><span class="panel-meta">click event → open session</span></div>
+      <div class="limit-events" id="limit-events"></div>
+      <div class="le-legend"><span><i class="explicit"></i> Explicit rate-limit error</span><span><i class="fp"></i> 5h-fingerprint (heuristic)</span></div>
+    </div></div>
+    <div class="grid"><div class="panel">
+      <div class="panel-head"><span class="panel-title">Plan Recommendation <span class="beta-tag">Beta</span></span></div>
+      <div class="grid cols-2" style="margin-bottom:0">
+        <div>
+          <div class="list-meta">5h-limit hits</div>
+          <table class="data"><thead><tr><th>Cycle</th><th>Pro</th><th>Max 5x</th><th>Max 20x</th></tr></thead><tbody id="tb-rec5h"></tbody></table>
+        </div>
+        <div>
+          <div class="list-meta">Weekly-limit hits</div>
+          <table class="data"><thead><tr><th>Cycle</th><th>Pro</th><th>Max 5x</th><th>Max 20x</th></tr></thead><tbody id="tb-recweek"></tbody></table>
+        </div>
+      </div>
+      <div class="rec-note">Current tier: <b>Max 20x</b> · Recommendation: <b>None — no tier holds without hits.</b><br />Estimate based on Anthropic's 1:5:20 factor. Anthropic does not publish exact token limits, so actual limits may differ.</div>
+    </div></div>
+  </section>
+
+  <!-- ===================== ACTIVITY & PROJECTS ===================== -->
+  <section class="screen" data-screen="activity" data-screen-label="Activity & Projects" hidden>
+    <div class="screen-head"><span class="big">Activity &amp; Projects</span><span class="sub">all · 90d</span></div>
+
+    <div class="grid"><div class="panel">
+      <div class="panel-head"><span class="panel-title">Activity</span><span class="panel-meta">contributions</span></div>
+      <div class="heatmap">
+        <div class="heatmap-scroll"><div id="heatmap"></div></div>
+        <div class="hm-legend">Less <span class="hm-cell l1"></span><span class="hm-cell l2"></span><span class="hm-cell l3"></span><span class="hm-cell l4"></span> More</div>
+      </div>
+    </div></div>
+
+    <div class="grid"><div class="panel"><div class="panel-head"><span class="panel-title">Messages &amp; Sessions per Day</span><span class="panel-meta">dual axis</span></div><div class="chart-wrap h-tall"><canvas id="c-dailyActivity"></canvas></div></div></div>
+
+    <div class="grid cols-2">
+      <div class="panel"><div class="panel-head"><span class="panel-title">Time of Day</span><span class="panel-meta">messages</span></div><div class="chart-wrap h-mid"><canvas id="c-hourly"></canvas></div></div>
+      <div class="panel"><div class="panel-head"><span class="panel-title">Weekday Distribution</span><span class="panel-meta">messages</span></div><div class="chart-wrap h-mid"><canvas id="c-weekday"></canvas></div></div>
+    </div>
+
+    <div class="grid"><div class="panel">
+      <div class="panel-head"><span class="panel-title">Projects</span><span class="panel-meta">89 projects · top 20</span></div>
+      <div class="table-scroll"><table class="data responsive">
+        <thead><tr><th>Project</th><th>Source</th><th>Sessions</th><th>Messages</th><th>API Value</th><th>Output</th><th>File Size</th></tr></thead>
+        <tbody id="tb-projects"></tbody>
+      </table></div>
+    </div></div>
+  </section>
+
+  <!-- ===================== SESSIONS ===================== -->
+  <section class="screen" data-screen="sessions" data-screen-label="Sessions" hidden>
+    <div class="screen-head"><span class="big">Sessions</span><span class="sub">840 sessions · all</span></div>
+
+    <div class="toolbar">
+      <span class="select">All Projects ▾</span>
+      <span class="select">All Sources ▾</span>
+      <span class="searchbox grow">🔍 <input placeholder="Search prompts…" /></span>
+      <span class="btn">↓ XLSX</span>
+      <span class="btn">↓ CSV</span>
+      <span class="btn primary">↓ Download all (439)</span>
+    </div>
+    <div class="filter-chips">
+      <span class="fchip">Real sessions only <span class="x">✕</span></span>
+      <span class="fchip">Costly sessions only <span class="x">✕</span></span>
+      <span class="fchip">User Msgs ≥ 2 <span class="x">✕</span></span>
+      <span class="btn" style="height:30px;padding:0 12px">Clear all</span>
+    </div>
+    <div class="list-meta">439 sessions</div>
+
+    <div class="table-scroll"><table class="data responsive">
+      <thead><tr>
+        <th class="sortable">Date <span class="arr">▾</span></th><th>Project</th><th>Chat</th><th>Model</th>
+        <th class="sortable">Duration</th><th class="sortable">Messages</th><th>User</th><th>API Calls</th>
+        <th class="sortable">Tokens</th><th class="sortable">Cost</th><th>Agents</th><th>Errors</th>
+      </tr></thead>
+      <tbody id="tb-sessions"></tbody>
+    </table></div>
+
+    <div class="pager">
+      <div class="rows">Rows: <button class="on">25</button><button>50</button><button>100</button></div>
+      <div class="nav"><button>«</button><button>‹</button><span>1 / 18</span><button>›</button><button>»</button></div>
+    </div>
+  </section>
+
+  <!-- ===================== INSIGHTS & SYSTEM ===================== -->
+  <section class="screen" data-screen="insights" data-screen-label="Insights & System" hidden>
+    <div class="screen-head"><span class="big">Insights &amp; System</span><span class="sub">7 sections · pick one to focus</span></div>
+    <nav class="subnav">
+      <button data-sub="cache" class="on"><span class="ic">01</span>Cache &amp; Tokens</button>
+      <button data-sub="tools"><span class="ic">02</span>Tools &amp; Plugins</button>
+      <button data-sub="workflows"><span class="ic">03</span>Workflows</button>
+      <button data-sub="storage"><span class="ic">04</span>Storage &amp; Files</button>
+      <button data-sub="environment"><span class="ic">05</span>Environment</button>
+      <button data-sub="agents"><span class="ic">06</span>Agents</button>
+      <button data-sub="errors"><span class="ic">07</span>Errors</button>
+    </nav>
+
+    <div class="subsection" data-sub="cache">
+      <h3 class="subsection-title">Cache &amp; Tokens</h3>
+      <p class="subsection-desc">How effectively prompt caching is reducing real token spend.</p>
+      <div class="statgrid" style="margin-bottom:var(--panel-gap)">
+        <div class="stat"><div class="label">Cache Hit Ratio</div><div class="value accent">11.68</div><div class="sub">read ÷ write</div></div>
+        <div class="stat"><div class="label">Cache Write Tokens</div><div class="value">406.0M</div><div class="sub">written this range</div></div>
+        <div class="stat"><div class="label">Est. Cache Savings</div><div class="value pos">$49,932.41</div><div class="sub">vs. uncached</div></div>
+      </div>
+      <div class="grid cols-2">
+        <div class="panel"><div class="panel-head"><span class="panel-title">Output Tokens by Tool</span></div><div class="chart-wrap h-mid"><canvas id="c-outputByTool"></canvas></div></div>
+        <div class="panel"><div class="panel-head"><span class="panel-title">Output Tokens by Activity</span></div><div class="chart-wrap h-mid"><canvas id="c-outputByActivity"></canvas></div></div>
+      </div>
+      <div class="grid"><div class="panel"><div class="panel-head"><span class="panel-title">Daily Cache Efficiency</span><span class="panel-meta">sessions ≥ 2 min</span></div><div class="chart-wrap h-mid"><canvas id="c-cacheEff"></canvas></div></div></div>
+    </div>
+
+    <div class="subsection" data-sub="tools" hidden>
+      <h3 class="subsection-title">Tools &amp; Plugins</h3>
+      <p class="subsection-desc">What tooling does the work, and which plugins are installed.</p>
+      <div class="grid cols-2-wide">
+        <div class="panel"><div class="panel-head"><span class="panel-title">Tool Usage</span><span class="panel-meta">top 15 by calls</span></div><div class="chart-wrap h-tall"><canvas id="c-toolUsage"></canvas></div></div>
+        <div class="panel"><div class="panel-head"><span class="panel-title">Installed Plugins</span><span class="panel-meta">10</span></div>
+          <div class="table-scroll"><table class="data responsive">
+            <thead><tr><th>Plugin</th><th>Status</th><th>Version</th><th>Tokens</th><th>Installed</th></tr></thead>
+            <tbody id="tb-plugins"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection" data-sub="workflows" hidden>
+      <h3 class="subsection-title">Workflows</h3>
+      <p class="subsection-desc">Plan-mode plans, skills exercised, and git activity.</p>
+      <div class="grid cols-2-wide">
+        <div class="panel"><div class="panel-head"><span class="panel-title">Plan-mode Plans</span><span class="panel-meta">recent</span></div>
+          <div class="table-scroll"><table class="data responsive">
+            <thead><tr><th>Title</th><th>Created</th><th>Count</th></tr></thead><tbody id="tb-plans"></tbody>
+          </table></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">Skills Used</span><span class="panel-meta">12</span></div>
+          <div class="chips" id="skills-chips" style="margin-bottom:18px"></div>
+          <div class="panel-head"><span class="panel-title">Git Operations</span></div>
+          <div class="kv-block" id="gitops"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection" data-sub="storage" hidden>
+      <h3 class="subsection-title">Storage &amp; Files</h3>
+      <p class="subsection-desc">Where bytes live, and the file-snapshot footprint.</p>
+      <div class="grid cols-2-wide">
+        <div class="panel"><div class="panel-head"><span class="panel-title">Storage by Project</span><span class="panel-meta">MB</span></div><div class="chart-wrap h-mid"><canvas id="c-storage"></canvas></div></div>
+        <div class="panel"><div class="panel-head"><span class="panel-title">File Snapshots</span></div>
+          <div class="statgrid">
+            <div class="stat"><div class="label">File Snapshots</div><div class="value">9,382</div></div>
+            <div class="stat"><div class="label">Storage Total</div><div class="value">218.8 MB</div></div>
+            <div class="stat"><div class="label">Sessions w/ Snapshots</div><div class="value">573</div></div>
+            <div class="stat"><div class="label">Completion Rate</div><div class="value pos">79%</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection" data-sub="environment" hidden>
+      <h3 class="subsection-title">Environment</h3>
+      <p class="subsection-desc">Configuration and host system at generation time.</p>
+      <div class="grid cols-2">
+        <div class="panel"><div class="panel-head"><span class="panel-title">Configuration</span></div>
+          <div class="kv-block"><div class="row"><span class="k">Permission mode</span><span class="v">auto</span></div><div class="row"><span class="k">Auto-compact</span><span class="v">enabled</span></div><div class="row"><span class="k">Output style</span><span class="v">default</span></div><div class="row"><span class="k">MCP servers</span><span class="v">8 active</span></div><div class="row"><span class="k">Telemetry</span><span class="v">off</span></div></div>
+        </div>
+        <div class="panel"><div class="panel-head"><span class="panel-title">System Info</span></div>
+          <div class="kv-block"><div class="row"><span class="k">Platform</span><span class="v">linux</span></div><div class="row"><span class="k">Node</span><span class="v">v20.18.0</span></div><div class="row"><span class="k">Claude Code</span><span class="v">1.4.42</span></div><div class="row"><span class="k">Terminal</span><span class="v">tmux / zsh</span></div><div class="row"><span class="k">Locale</span><span class="v">en-US</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection" data-sub="agents" hidden>
+      <h3 class="subsection-title">Agents</h3>
+      <p class="subsection-desc">Subagent usage, common tasks, and reliability.</p>
+      <div class="statgrid" style="margin-bottom:var(--panel-gap)">
+        <div class="stat"><div class="label">Invocations</div><div class="value">2,169</div></div>
+        <div class="stat"><div class="label">Total Tasks</div><div class="value">86</div></div>
+        <div class="stat"><div class="label">Error Rate</div><div class="value accent">2.7%</div></div>
+        <div class="stat"><div class="label">Task Completion</div><div class="value pos">64%</div></div>
+      </div>
+      <div class="grid cols-2">
+        <div class="panel"><div class="panel-head"><span class="panel-title">Subagent Types</span></div><div class="chart-wrap h-mid"><canvas id="c-subagentTypes"></canvas></div></div>
+        <div class="panel"><div class="panel-head"><span class="panel-title">Top Task Descriptions</span></div><div class="chart-wrap h-mid"><canvas id="c-agentDescriptions"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="subsection" data-sub="errors" hidden>
+      <h3 class="subsection-title">Errors &amp; Reliability</h3>
+      <p class="subsection-desc">Error volume over time, and where failures cluster.</p>
+      <div class="statgrid" style="margin-bottom:var(--panel-gap)">
+        <div class="stat"><div class="label">Total Errors</div><div class="value accent">2,342</div><div class="sub">across tool calls</div></div>
+        <div class="stat"><div class="label">Error Rate</div><div class="value">2.7%</div><div class="sub">of all calls</div></div>
+      </div>
+      <div class="grid"><div class="panel"><div class="panel-head"><span class="panel-title">Error Rate over Time</span><span class="panel-meta">%</span></div><div class="chart-wrap h-mid"><canvas id="c-errorRate"></canvas></div></div></div>
+      <div class="grid cols-2">
+        <div class="panel"><div class="panel-head"><span class="panel-title">Errors by Category</span></div><div class="chart-wrap h-mid"><canvas id="c-errorsByCategory"></canvas></div></div>
+        <div class="panel"><div class="panel-head"><span class="panel-title">Errors by Tool</span></div><div class="chart-wrap h-mid"><canvas id="c-errorsByTool"></canvas></div></div>
+      </div>
+    </div>
+  </section>
+  </main>
+
+  <footer class="appfoot">
+    <div class="ver">v0.8.2</div>
+    <div>Contains private data — do not share publicly · Press F2 to toggle anonymization · <a href="#">GitHub</a></div>
+  </footer>
+
+</div>
+</div>
+
+<div id="tweaks-root"></div>
+
+<script src="js/data.js"></script>
+<script src="js/data-saas.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/charts-saas.js"></script>
+<script src="js/app-saas.js"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="tweaks-app.jsx"></script>
+</body>
+</html>

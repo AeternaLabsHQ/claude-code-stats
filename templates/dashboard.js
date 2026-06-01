@@ -1169,7 +1169,7 @@ function renderHeatmap() {
       const opacity = (0.08 + r * 0.92).toFixed(3);
       bg = 'rgba(' + accentRgb + ',' + opacity + ')';
     } else {
-      bg = 'transparent';
+      bg = 'color-mix(in srgb, var(--vc-fg-2) 9%, transparent)';
     }
     cw.push('<div class="heatmap-cell" style="background:'+bg+'" data-tip="'+k+': '+m+' messages" data-intensity="'+(maxMsg>0?(m/maxMsg).toFixed(2):0)+'"></div>');
     if (d.getDay()===0) { while(cw.length<7) cw.push('<div class="heatmap-cell" style="background:transparent"></div>'); weeks.push(cw); cw=[]; }

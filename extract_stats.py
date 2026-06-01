@@ -1305,46 +1305,202 @@ def _is_user_plan_limit_text(text: str) -> bool:
     return any(needle in t for needle in _USER_PLAN_LIMIT_SIGNALS)
 
 
-def _categorize_error(msg: str, tool_name: str) -> str:
-    """Categorize an error message into a human-readable category."""
-    msg_lower = msg.lower()
-    # Server-side overload (Anthropic's overloaded_error / HTTP 529). This is
-    # infrastructure capacity, not a user plan-limit, so it must NOT feed the
-    # Limits-tab event detection. Categorized separately on purpose.
-    if ("overloaded_error" in msg_lower
-            or "overloaded" in msg_lower
-            or re.search(r"\b529\b", msg_lower)):
-        return "server_overload"
-    if ("rate_limit_error" in msg_lower
-            or re.search(r"\b429\b", msg_lower)
-            or "over capacity" in msg_lower
-            or "usage limit reached" in msg_lower
-            or "plan limit reached" in msg_lower):
+# Categories a type:"user" transcript entry can fall into. Only "prompt"
+# is a message the person actually typed; the rest are synthetic entries
+# Claude Code emits on the "user" channel. Tracked as separate metrics.
+USER_ENTRY_CATEGORIES = ("prompt", "tool_result", "command", "interrupt", "meta")
+
+
+def _classify_user_entry(obj: dict) -> str:
+    """Classify a type:"user" transcript entry into one of
+    USER_ENTRY_CATEGORIES. Precedence: tool_result > command > interrupt >
+    meta > prompt. Claude Code records tool_result blocks on the "user"
+    channel, and emits slash-command / interrupt / meta wrappers as user
+    entries too; none of those are messages the person actually typed.
+    Mirrors the per-session chat transcript filter (which is why the
+    session detail page already shows only real prompts)."""
+    # Compaction summaries arrive as type:"user" with a plain-string body;
+    # they are a synthetic continuation note, counted via `compactions`.
+    if obj.get("isCompactSummary"):
+        return "meta"
+    content = obj.get("message", {}).get("content", "")
+    if isinstance(content, list):
+        # tool_result blocks are delivered on the user channel
+        if any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
+            return "tool_result"
+        text = next((b.get("text", "") for b in content
+                     if isinstance(b, dict) and b.get("type") == "text"), "")
+    elif isinstance(content, str):
+        text = content
+    else:
+        text = ""
+    text = text.strip()
+    if text.startswith("<command") or text.startswith("<local-command"):
+        return "command"
+    if text.startswith("[Request interrupted"):
+        return "interrupt"
+    if obj.get("isMeta"):
+        return "meta"
+    if not text:
+        # empty, non-tool-result user entry (e.g. attachment-only) — not a
+        # typed prompt; bucket with meta rather than inflating the count
+        return "meta"
+    return "prompt"
+
+
+def _is_real_user_prompt(obj: dict) -> bool:
+    """True iff a type:"user" entry is a genuine human-typed prompt."""
+    return _classify_user_entry(obj) == "prompt"
+
+
+def _merge_model_buckets(dst: dict, src: dict) -> None:
+    """Add every per-model token/cost/call bucket in `src` into `dst`
+    (summing numeric fields). Used to fold a subagent session's usage into
+    its parent so headline totals (cost, tokens, per-model) reflect true
+    API spend. `src` is left unchanged."""
+    for model, sb in src.items():
+        db = dst[model]
+        for key, val in sb.items():
+            if isinstance(val, (int, float)):
+                db[key] = db.get(key, 0) + val
+
+
+def _merge_streamed_assistant_entries(entries: list) -> list:
+    """Collapse stream-split assistant rows back into one entry per API
+    response.
+
+    Claude Code writes ONE JSONL line per assistant content block
+    (thinking / text / each tool_use). Every line of a single response
+    shares the same message.id and repeats the identical final `usage`
+    object. Counting per line therefore multiplies tokens / cost / calls /
+    message counts by the number of content blocks. We merge consecutive
+    assistant lines with the same message.id into a single entry (content
+    blocks concatenated, usage/timestamp/uuid kept from the first line) so
+    downstream accounting sees one response = one entry, exactly once.
+
+    message.id is globally unique per API response, so all rows of one
+    response are merged into the single entry at its first occurrence — even
+    when they are NOT consecutive. Agentic turns interleave one response's
+    tool_use rows with the tool_result (type:"user") rows that come back, so
+    the same message.id can recur dozens of times spread across the
+    transcript; consecutive-only merging would miss those. Assistant entries
+    without a message.id (rare) and the older one-line-per-response format
+    both pass through unchanged. The input list is not mutated; interleaved
+    non-assistant entries keep their position."""
+    merged = []
+    targets = {}        # message.id -> the merge-target entry in `merged`
+    for e in entries:
+        if not isinstance(e, dict) or e.get("type") != "assistant":
+            merged.append(e)
+            continue
+        mid = (e.get("message") or {}).get("id")
+        if mid and mid in targets:
+            targets[mid]["message"]["content"].extend(
+                (e.get("message") or {}).get("content", []) or []
+            )
+            continue
+        # first sighting of this response: shallow-copy so input stays intact
+        copy = dict(e)
+        msg = dict(e.get("message") or {})
+        msg["content"] = list(msg.get("content", []) or [])
+        copy["message"] = msg
+        merged.append(copy)
+        if mid:
+            targets[mid] = copy
+    return merged
+
+
+def _classify_tool_error(msg: str, tool_name: str) -> tuple:
+    """Classify a tool_result `is_error` payload into (source, category).
+
+    source is one of: "user" (the person declined / a parallel sibling was
+    cancelled — NOT a failure), "hook" (a PreToolUse/PostToolUse hook
+    failed), or "tool" (the tool call genuinely failed).
+
+    Deliberately does NOT recognise backend categories (rate_limit /
+    server_overload): those keywords routinely appear *inside* a tool's own
+    stdout/stderr (test output, code being edited, tracebacks) and matching
+    them here miscategorises ordinary tool failures as API rate-limits.
+    Genuine backend errors arrive on the isApiErrorMessage channel and are
+    classified by _classify_api_error()."""
+    m = msg.lower()
+    # user-driven, not failures
+    if "cancelled:" in m or "canceled:" in m or "parallel tool call" in m:
+        return ("user", "cancelled")
+    if ("doesn't want to proceed" in m or "does not want to proceed" in m
+            or "tool use was rejected" in m or "user rejected" in m):
+        return ("user", "rejected")
+    # hook failures
+    if "hook error" in m or "hook_error" in m:
+        return ("hook", "hook_error")
+    # genuine tool failures
+    if "no replacement was performed" in m or "old_string not found" in m \
+            or "string to replace not found" in m:
+        cat = "edit_no_match"
+    elif "not unique" in m or "multiple occurrences" in m or "matches of the string" in m:
+        cat = "edit_not_unique"
+    elif ("has not been read yet" in m or "has been modified since read" in m):
+        cat = "stale_read"
+    elif "does not exist" in m or "no such file" in m or ("not found" in m and "command not found" not in m):
+        cat = "file_not_found"
+    elif "command not found" in m:
+        cat = "command_not_found"
+    elif "permission" in m or "denied" in m:
+        cat = "permission_denied"
+    elif "timeout" in m or "timed out" in m:
+        cat = "timeout"
+    elif "syntaxerror" in m or "syntax error" in m:
+        cat = "syntax_error"
+    elif "importerror" in m or "modulenotfounderror" in m:
+        cat = "import_error"
+    elif "exit code" in m or "returned non-zero" in m:
+        cat = "exit_code"
+    elif tool_name == "Edit":
+        cat = "edit_failed"
+    else:
+        cat = "other"
+    return ("tool", cat)
+
+
+def _extract_command_label(text: str) -> str:
+    """Pull a readable slash-command label out of a `<command-name>` wrapper.
+    Returns "" for command *output* (`<local-command-stdout>`) or plain text,
+    so only genuine invocations become chat markers."""
+    if "<command-name>" not in text:
+        return ""
+    name = text.split("<command-name>", 1)[1].split("</command-name>", 1)[0].strip()
+    if not name:
+        return ""
+    if not name.startswith("/"):
+        name = "/" + name
+    args = ""
+    if "<command-args>" in text:
+        args = text.split("<command-args>", 1)[1].split("</command-args>", 1)[0].strip()
+    return (name + " " + args).strip()
+
+
+def _classify_api_error(text: str) -> str:
+    """Categorise an isApiErrorMessage payload (always source "backend")."""
+    t = (text or "").lower()
+    if ("hit your limit" in t or "usage limit" in t or "rate limit" in t
+            or "rate_limit_error" in t or re.search(r"\b429\b", t)):
         return "rate_limit"
-    if "rejected" in msg_lower or "doesn't want to proceed" in msg_lower:
-        return "rejected"
-    if "does not exist" in msg_lower or "not found" in msg_lower or "no such file" in msg_lower:
-        return "file_not_found"
-    if "not unique" in msg_lower or "multiple occurrences" in msg_lower:
-        return "edit_not_unique"
-    if "no replacement was performed" in msg_lower or "old_string not found" in msg_lower:
-        return "edit_no_match"
-    if "permission" in msg_lower or "denied" in msg_lower:
-        return "permission_denied"
-    if "timeout" in msg_lower or "timed out" in msg_lower:
-        return "timeout"
-    if "command not found" in msg_lower:
-        return "command_not_found"
-    if "exit code" in msg_lower or "returned non-zero" in msg_lower:
-        return "exit_code"
-    if "syntaxerror" in msg_lower or "syntax error" in msg_lower:
-        return "syntax_error"
-    if "importerror" in msg_lower or "modulenotfounderror" in msg_lower:
-        return "import_error"
-    if "hook error" in msg_lower or "hook_error" in msg_lower:
-        return "hook_error"
-    if tool_name == "Edit":
-        return "edit_failed"
+    if "overloaded" in t or re.search(r"\b529\b", t):
+        return "server_overload"
+    if ("authentication" in t or "run /login" in t or re.search(r"\b401\b", t)
+            or "invalid authentication" in t):
+        return "auth"
+    if (re.search(r"\b5\d\d\b", t) or "internal server error" in t
+            or "bad gateway" in t or "server-side issue" in t):
+        return "server_error"
+    if ("idle timeout" in t or "socket" in t or "connection was closed" in t
+            or "timed out" in t or "timeout" in t):
+        return "connection"
+    if "content filtering" in t or "content filter" in t:
+        return "content_filter"
+    if ("prompt is too long" in t or "too long" in t or "invalid_request" in t
+            or re.search(r"\b400\b", t) or "could not process" in t):
+        return "invalid_request"
     return "other"
 
 
@@ -1653,6 +1809,7 @@ def parse_session_transcripts():
                     else:
                         _line_iter = open(jsonl_file, "r", encoding="utf-8", errors="replace").readlines()
 
+                    _parsed_objs = []
                     for line in _line_iter:
                             total_lines += 1
                             line = line.strip()
@@ -1662,7 +1819,14 @@ def parse_session_transcripts():
                                 obj = json.loads(line)
                             except json.JSONDecodeError:
                                 continue
+                            _parsed_objs.append(obj)
 
+                    # Collapse stream-split assistant rows (Claude Code writes
+                    # one JSONL line per content block, each repeating the same
+                    # usage) into one entry per response before any accounting,
+                    # so tokens/cost/calls/message counts are not multiplied by
+                    # the block count. See _merge_streamed_assistant_entries.
+                    for obj in _merge_streamed_assistant_entries(_parsed_objs):
                             msg_type = obj.get("type")
                             # For subagent files, use the file stem as session_id
                             # (the sessionId field points to the parent)
@@ -1704,6 +1868,10 @@ def parse_session_transcripts():
                                     "message_count": 0,
                                     "user_message_count": 0,
                                     "assistant_message_count": 0,
+                                    "tool_result_count": 0,
+                                    "command_message_count": 0,
+                                    "interrupt_count": 0,
+                                    "meta_message_count": 0,
                                     "first_prompt": "",
                                     "file_size": file_size,
                                     "slug": obj.get("slug", ""),
@@ -1717,6 +1885,9 @@ def parse_session_transcripts():
                                     "agent_description": "",
                                     "error_count": 0,
                                     "errors": [],
+                                    "cancelled_count": 0,
+                                    "rejected_count": 0,
+                                    "errors_by_source": defaultdict(int),
                                     "limit_event_candidates": [],
                                     "user_timestamps": [],  # private: user-prompt ts_ms only, dropped before serialization
                                     "file_ops": [],
@@ -1742,19 +1913,26 @@ def parse_session_transcripts():
                             if obj.get("slug") and not sess["slug"]:
                                 sess["slug"] = obj["slug"]
 
-                            # Collect timestamps
+                            # Collect timestamps. Only conversational entries
+                            # (prompts, tool results, assistant turns) define the
+                            # session's start/end/duration; external markers like
+                            # pr-link arrive hours-to-days later and would inflate
+                            # duration by up to tens of hours.
+                            _ts_counts_for_duration = msg_type in ("user", "assistant")
                             ts_ms_for_msg = None
                             if timestamp:
                                 if isinstance(timestamp, str):
                                     try:
                                         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                                         ts_ms_for_msg = int(dt.timestamp() * 1000)
-                                        sess["timestamps"].append(ts_ms_for_msg)
+                                        if _ts_counts_for_duration:
+                                            sess["timestamps"].append(ts_ms_for_msg)
                                     except (ValueError, OSError):
                                         pass
                                 elif isinstance(timestamp, (int, float)):
                                     ts_ms_for_msg = int(timestamp)
-                                    sess["timestamps"].append(ts_ms_for_msg)
+                                    if _ts_counts_for_duration:
+                                        sess["timestamps"].append(ts_ms_for_msg)
 
                             # API-error messages flagged by Claude Code itself.
                             # This is the canonical channel for real user-plan
@@ -1778,16 +1956,64 @@ def parse_session_transcripts():
                                         "confidence": "high",
                                         "message_text": _api_txt[:400],
                                     })
+                                # Real backend/API failure (rate-limit, overload,
+                                # auth, 5xx, timeout, invalid request). Counted as
+                                # an error with source "backend" so the source
+                                # breakdown is complete. The limit-event tab above
+                                # is a separate view of the same signal.
+                                if _api_txt.strip():
+                                    sess["error_count"] += 1
+                                    sess["errors_by_source"]["backend"] += 1
+                                    sess["errors"].append({
+                                        "message": _api_txt[:200],
+                                        "tool": "",
+                                        "source": "backend",
+                                        "category": _classify_api_error(_api_txt),
+                                        "tool_use_id": "",
+                                        "timestamp": timestamp or "",
+                                    })
 
                             # User messages
                             if msg_type == "user":
                                 # Resolve pending text-only assistant turn: followed by a user
                                 # message → it was a final answer, keep as screen_text.
                                 sess["_pending_text_tokens"] = 0
-                                sess["message_count"] += 1
-                                sess["user_message_count"] += 1
-                                if ts_ms_for_msg is not None:
-                                    sess["user_timestamps"].append(ts_ms_for_msg)
+
+                                # Compaction: Claude Code records it as a
+                                # type:"user" entry flagged isCompactSummary
+                                # (there is no type:"summary" entry — that path
+                                # below is dead for current transcripts).
+                                if obj.get("isCompactSummary"):
+                                    sess["compactions"] += 1
+                                    _cts = ""
+                                    if isinstance(timestamp, str):
+                                        _cts = timestamp
+                                    elif isinstance(timestamp, (int, float)):
+                                        try:
+                                            _cts = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc).isoformat()
+                                        except (ValueError, OSError):
+                                            _cts = str(timestamp)
+                                    sess["compaction_events"].append({"timestamp": _cts})
+
+                                # Classify the user-channel entry. Only genuine
+                                # typed prompts count toward user_message_count /
+                                # message_count; tool_results, slash-commands,
+                                # interrupts and meta entries are tracked as their
+                                # own metrics so they no longer inflate User Msgs.
+                                _ucat = _classify_user_entry(obj)
+                                if _ucat == "prompt":
+                                    sess["message_count"] += 1
+                                    sess["user_message_count"] += 1
+                                    if ts_ms_for_msg is not None:
+                                        sess["user_timestamps"].append(ts_ms_for_msg)
+                                elif _ucat == "tool_result":
+                                    sess["tool_result_count"] += 1
+                                elif _ucat == "command":
+                                    sess["command_message_count"] += 1
+                                elif _ucat == "interrupt":
+                                    sess["interrupt_count"] += 1
+                                elif _ucat == "meta":
+                                    sess["meta_message_count"] += 1
 
                                 # Link Agent tool_result -> dispatch via tool_use_id + toolUseResult.agentId
                                 tur = obj.get("toolUseResult") if isinstance(obj.get("toolUseResult"), dict) else None
@@ -1805,28 +2031,37 @@ def parse_session_transcripts():
                                                         ad["agent_id"] = tur.get("agentId", "")
                                                         break
                                         if isinstance(block, dict) and block.get("is_error"):
-                                            sess["error_count"] += 1
                                             error_msg = str(block.get("content", ""))
                                             if "<tool_use_error>" in error_msg:
                                                 error_msg = error_msg.split("<tool_use_error>")[-1].split("</tool_use_error>")[0]
                                             tid = block.get("tool_use_id", "")
                                             tool_name = sess.get("_tool_id_map", {}).get(tid, "unknown")
-                                            category = _categorize_error(error_msg, tool_name)
-                                            sess["errors"].append({
-                                                "message": error_msg[:200],
-                                                "tool": tool_name,
-                                                "category": category,
-                                                "tool_use_id": tid,
-                                                "timestamp": timestamp or "",
-                                            })
+                                            source, category = _classify_tool_error(error_msg, tool_name)
+                                            if source == "user":
+                                                # Not a failure: the person declined the call,
+                                                # or a parallel sibling was cancelled. Tracked
+                                                # separately, kept out of error_count.
+                                                if category == "rejected":
+                                                    sess["rejected_count"] += 1
+                                                else:
+                                                    sess["cancelled_count"] += 1
+                                            else:
+                                                sess["error_count"] += 1
+                                                sess["errors_by_source"][source] += 1
+                                                sess["errors"].append({
+                                                    "message": error_msg[:200],
+                                                    "tool": tool_name,
+                                                    "source": source,
+                                                    "category": category,
+                                                    "tool_use_id": tid,
+                                                    "timestamp": timestamp or "",
+                                                })
                                             # NOTE: tool_result.is_error is intentionally NOT
-                                            # used as a limit-event signal. Tool failures
-                                            # often contain code snippets / test output that
-                                            # mention "rate_limit_error" or "429" incidentally
-                                            # (see _categorize_error). User-plan limits come
-                                            # in via isApiErrorMessage on a separate code path
-                                            # below; the tool-error category here is just for
-                                            # the per-session errors[] display.
+                                            # used as a limit-event signal, and backend
+                                            # categories (rate_limit / overload) are NOT matched
+                                            # here — tool output often mentions those words
+                                            # incidentally. Real backend errors come in via
+                                            # isApiErrorMessage (source "backend") below.
 
                                 if not sess["first_prompt"]:
                                     message = obj.get("message", {})
@@ -2055,6 +2290,12 @@ def parse_session_transcripts():
                 "messages": sub["message_count"],
                 "tools": dict(sub["tools"]),
             })
+            # Fold the subagent's real API usage into the parent's model
+            # buckets so headline totals (cost / tokens / per-model) include
+            # subagent spend. The subagent's turns live ONLY in its own file,
+            # so this adds each turn exactly once (no double count). The
+            # subagents[] breakdown above stays for per-subagent display.
+            _merge_model_buckets(parent["models"], sub["models"])
         del sessions[sub_id]
 
     # Compute gap-based cache-flush count from per-turn data (Task 1).
@@ -2134,6 +2375,7 @@ def extract_session_messages(session_id, project_dir_name):
         with open(jsonl_path, "r", encoding="utf-8", errors="replace") as f:
             _lines = f.readlines()
 
+    _detail_objs = []
     for line in _lines:
             line = line.strip()
             if not line:
@@ -2142,7 +2384,16 @@ def extract_session_messages(session_id, project_dir_name):
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            _detail_objs.append(obj)
 
+    # Same stream-split collapse as the stats pass, so the detail transcript
+    # shows one bubble per response (all its text/tools together) with the
+    # response's real cost, not one fragmented bubble per content block each
+    # stamped with the repeated full usage.
+    _tid_to_tool = {}       # tool_use id -> tool name, for tool_result errors
+    _last_mode = None       # dedupe mode markers: emit only on change
+    _last_perm = None       # dedupe permission-mode markers: emit only on change
+    for obj in _merge_streamed_assistant_entries(_detail_objs):
             msg_type = obj.get("type")
             timestamp = obj.get("timestamp", "")
 
@@ -2161,9 +2412,21 @@ def extract_session_messages(session_id, project_dir_name):
                                      if isinstance(b, dict) and b.get("type") == "text"), "")
                 _api_txt = str(_api_txt)
                 if _is_user_plan_limit_text(_api_txt):
+                    # Dedicated rate-limit marker (also the Limits-tab anchor).
                     messages.append({
                         "role": "rate_limit",
                         "content": _api_txt[:400],
+                        "timestamp": timestamp,
+                    })
+                    continue
+                if _api_txt.strip():
+                    # Other backend failure (auth / 5xx / overload / timeout …).
+                    messages.append({
+                        "role": "error",
+                        "source": "backend",
+                        "category": _classify_api_error(_api_txt),
+                        "tool": "",
+                        "content": _api_txt[:300],
                         "timestamp": timestamp,
                     })
                     continue
@@ -2171,22 +2434,61 @@ def extract_session_messages(session_id, project_dir_name):
             if msg_type == "user":
                 message = obj.get("message", {})
                 content = message.get("content", "")
-                # Skip tool results.
+
+                # Compaction is a type:"user" entry flagged isCompactSummary
+                # (the dead type:"summary" branch never fires). Emit a marker
+                # instead of dumping the continuation note as a fake user msg.
+                if obj.get("isCompactSummary"):
+                    messages.append({"role": "compaction", "timestamp": timestamp})
+                    continue
+
                 if isinstance(content, list):
                     texts = []
-                    is_tool_result = False
+                    tool_results = []
                     for block in content:
                         if isinstance(block, dict):
                             if block.get("type") == "tool_result":
-                                is_tool_result = True
-                                break
-                            if block.get("type") == "text":
+                                tool_results.append(block)
+                            elif block.get("type") == "text":
                                 texts.append(block.get("text", ""))
-                    if is_tool_result:
+                    if tool_results:
+                        # Tool results carry no chat text, but failed ones become
+                        # error / rejected markers right after the call.
+                        for tr in tool_results:
+                            if not tr.get("is_error"):
+                                continue
+                            etxt = str(tr.get("content", ""))
+                            if "<tool_use_error>" in etxt:
+                                etxt = etxt.split("<tool_use_error>")[-1].split("</tool_use_error>")[0]
+                            tname = _tid_to_tool.get(tr.get("tool_use_id", ""), "")
+                            esrc, ecat = _classify_tool_error(etxt, tname)
+                            if esrc == "user":
+                                if ecat == "rejected":
+                                    messages.append({
+                                        "role": "rejected", "tool": tname,
+                                        "content": etxt[:200], "timestamp": timestamp,
+                                    })
+                                # cancelled parallel-call cascades are noise → skip
+                                continue
+                            messages.append({
+                                "role": "error", "source": esrc, "category": ecat,
+                                "tool": tname, "content": etxt[:300], "timestamp": timestamp,
+                            })
                         continue
                     content = "\n".join(texts)
 
-                if not content or content.startswith("<command") or content.startswith("<local-command"):
+                if isinstance(content, str) and (content.startswith("<command") or content.startswith("<local-command")):
+                    # Slash-command invocation → marker (command *output* is dropped).
+                    label = _extract_command_label(content)
+                    if label:
+                        messages.append({"role": "command", "content": label, "timestamp": timestamp})
+                    continue
+
+                if isinstance(content, str) and content.startswith("[Request interrupted"):
+                    messages.append({"role": "interrupt", "content": content[:160], "timestamp": timestamp})
+                    continue
+
+                if not content:
                     continue
 
                 messages.append({
@@ -2202,14 +2504,20 @@ def extract_session_messages(session_id, project_dir_name):
                 content_blocks = message.get("content", [])
 
                 text_parts = []
+                thinking_parts = []
                 tools = []
                 for block in content_blocks:
                     if isinstance(block, dict):
                         if block.get("type") == "text":
                             text_parts.append(block.get("text", ""))
+                        elif block.get("type") in ("thinking", "redacted_thinking"):
+                            thinking_parts.append(block.get("thinking", ""))
                         elif block.get("type") == "tool_use":
                             tool_name = block.get("name", "")
                             tool_input = block.get("input", {})
+                            _tid = block.get("id", "")
+                            if _tid:
+                                _tid_to_tool[_tid] = tool_name
                             tool_info = {"name": tool_name}
                             if tool_name == "Bash":
                                 tool_info["detail"] = tool_input.get("command", "")[:200]
@@ -2226,10 +2534,16 @@ def extract_session_messages(session_id, project_dir_name):
                             tools.append(tool_info)
 
                 text = "\n".join(text_parts)
-                if not text and not tools:
+                thinking = "\n\n".join(t for t in thinking_parts if t).strip()
+                # thinking_parts is populated for every thinking block, even
+                # signature-only ones. Modern models (Opus 4.7/4.8) return
+                # encrypted thinking, so the text is empty — we still flag that
+                # the turn reasoned, but only attach text when it exists.
+                had_thinking = bool(thinking_parts)
+                if not text and not tools and not thinking:
                     continue
 
-                messages.append({
+                _amsg = {
                     "role": "assistant",
                     "content": text,
                     "model": get_model_display(model),
@@ -2242,7 +2556,12 @@ def extract_session_messages(session_id, project_dir_name):
                     "cost": round(calc_cost(model, usage), 4),
                     "tools": tools,
                     "timestamp": timestamp,
-                })
+                }
+                if thinking:
+                    _amsg["thinking"] = thinking[:8000]
+                if had_thinking:
+                    _amsg["thought"] = True
+                messages.append(_amsg)
 
             elif msg_type == "progress":
                 data_obj = obj.get("data", {})
@@ -2254,11 +2573,52 @@ def extract_session_messages(session_id, project_dir_name):
                         "timestamp": timestamp,
                     })
 
-            elif msg_type == "summary":
-                messages.append({
-                    "role": "compaction",
-                    "timestamp": timestamp,
-                })
+            elif msg_type == "attachment":
+                # type:"attachment" is overwhelmingly internal plumbing
+                # (task_reminder, *_delta, skill_listing, *_effort_*, hook
+                # results …), NOT user file/image uploads. Surface only the
+                # few types that represent real content events; drop the rest.
+                _att = obj.get("attachment", "")
+                _atype = ""
+                if isinstance(_att, dict):
+                    _atype = str(_att.get("type", ""))
+                else:
+                    _s = str(_att)
+                    if "'type':" in _s:
+                        _atype = _s.split("'type':", 1)[1].split(",", 1)[0].strip(" '\"}")
+                _EFFORT = {"ultra_effort_enter": "Ultra effort on",
+                           "ultra_effort_exit": "Ultra effort off",
+                           "ultrathink_effort": "Ultrathink"}
+                _ATTACH_SHOW = {"edited_text_file": "Edited file",
+                                "image": "Image", "file": "File",
+                                "pasted_text": "Pasted text",
+                                "pasted_contents": "Pasted content",
+                                "selected_lines": "Selection"}
+                if _atype in _EFFORT:
+                    messages.append({"role": "effort", "content": _EFFORT[_atype], "timestamp": timestamp})
+                elif _atype in _ATTACH_SHOW:
+                    messages.append({"role": "attachment", "content": _ATTACH_SHOW[_atype], "timestamp": timestamp})
+
+            elif msg_type == "mode":
+                _mv = str(obj.get("mode", ""))
+                if _mv and _mv != _last_mode:
+                    _last_mode = _mv
+                    messages.append({"role": "mode", "content": "Mode: " + _mv, "timestamp": timestamp})
+
+            elif msg_type == "permission-mode":
+                _pv = str(obj.get("permissionMode", ""))
+                if _pv and _pv != _last_perm:
+                    _last_perm = _pv
+                    messages.append({"role": "mode", "content": "Permission: " + _pv, "timestamp": timestamp})
+
+            elif msg_type == "queue-operation":
+                _qc = str(obj.get("content", "")).strip()
+                if _qc:
+                    messages.append({
+                        "role": "queue",
+                        "content": (str(obj.get("operation", "queue")) + ": " + _qc)[:200],
+                        "timestamp": timestamp,
+                    })
 
     return messages
 
@@ -2798,6 +3158,10 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "messages": sess["message_count"],
             "user_messages": sess["user_message_count"],
             "assistant_messages": sess["assistant_message_count"],
+            "tool_results": sess["tool_result_count"],
+            "command_messages": sess["command_message_count"],
+            "interrupts": sess["interrupt_count"],
+            "meta_messages": sess["meta_message_count"],
             "input_tokens": session_input,
             "output_tokens": session_output,
             "cache_read_tokens": session_cache_read,
@@ -2832,7 +3196,10 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "agent_dispatches": sess.get("agent_dispatches", []),
             "subagents": sess.get("subagents", []),
             "error_count": sess.get("error_count", 0),
-            "errors": [{"message": e["message"], "tool": e.get("tool", "unknown"), "category": e.get("category", "other"), "timestamp": e.get("timestamp", "")} for e in sess.get("errors", [])],
+            "cancelled_count": sess.get("cancelled_count", 0),
+            "rejected_count": sess.get("rejected_count", 0),
+            "errors_by_source": dict(sess.get("errors_by_source", {})),
+            "errors": [{"message": e["message"], "tool": e.get("tool", "unknown"), "source": e.get("source", "tool"), "category": e.get("category", "other"), "timestamp": e.get("timestamp", "")} for e in sess.get("errors", [])],
             "file_ops_count": len(sess.get("file_ops", [])),
             "git_ops": sess.get("git_ops", []),
             "source": sess.get("source", SOURCE_LABEL),
@@ -3043,13 +3410,19 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
 
     # Global Error Aggregation
     total_errors = 0
+    total_cancelled = 0
+    total_rejected = 0
     errors_by_tool = defaultdict(int)
     errors_by_category = defaultdict(int)
+    errors_by_source = defaultdict(int)
     for s in session_list:
         total_errors += s.get("error_count", 0)
+        total_cancelled += s.get("cancelled_count", 0)
+        total_rejected += s.get("rejected_count", 0)
         for e in s.get("errors", []):
             errors_by_tool[e.get("tool", "unknown")] += 1
             errors_by_category[e.get("category", "other")] += 1
+            errors_by_source[e.get("source", "tool")] += 1
     total_tool_calls = sum(s.get("api_calls", 0) for s in session_list)
 
     # Global Git Ops
@@ -3170,6 +3543,9 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "total_errors": total_errors,
             "total_tool_calls": total_tool_calls,
             "error_rate": round(total_errors / max(total_tool_calls, 1) * 100, 2),
+            "total_cancelled": total_cancelled,
+            "total_rejected": total_rejected,
+            "by_source": sorted([{"source": s, "count": n} for s, n in errors_by_source.items()], key=lambda x: -x["count"]),
             "by_tool": sorted([{"tool": t, "count": c} for t, c in errors_by_tool.items()], key=lambda x: -x["count"]),
             "by_category": sorted([{"category": c, "count": n} for c, n in errors_by_category.items()], key=lambda x: -x["count"]),
         },

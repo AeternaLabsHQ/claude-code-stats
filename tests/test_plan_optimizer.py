@@ -174,49 +174,53 @@ def test_idle_gap_overspend_pct_of_session_total():
     assert s["estimated_overspend_pct_of_session"] == 82
 
 
-# ── Task 3: rate-limit error categorization ─────────────────────────
+# ── Error classification: backend (isApiErrorMessage) vs tool ───────
+# Backend categories (rate_limit / overload) are matched ONLY on the
+# isApiErrorMessage channel via _classify_api_error. Tool-result errors go
+# through _classify_tool_error and must NEVER be tagged as backend, because
+# tool stdout/stderr mentions those keywords incidentally.
 
-from extract_stats import _categorize_error, _is_user_plan_limit_text
-
-
-def test_categorize_rate_limit_error_string():
-    assert _categorize_error("rate_limit_error", "API") == "rate_limit"
-
-
-def test_categorize_429_status():
-    assert _categorize_error("HTTP 429 Too Many Requests", "API") == "rate_limit"
+from extract_stats import _classify_tool_error, _classify_api_error, _is_user_plan_limit_text
 
 
-def test_categorize_over_capacity():
-    assert _categorize_error("API is over capacity", "API") == "rate_limit"
+def test_api_rate_limit_error_string():
+    assert _classify_api_error("rate_limit_error") == "rate_limit"
 
 
-def test_categorize_usage_limit_reached():
-    assert _categorize_error("Usage limit reached. Reset at 17:00 UTC.", "API") == "rate_limit"
+def test_api_429_status():
+    assert _classify_api_error("HTTP 429 Too Many Requests") == "rate_limit"
 
 
-def test_categorize_overloaded_is_server_overload_not_rate_limit():
-    # 'overloaded' / 'overloaded_error' / HTTP 529 are Anthropic-side capacity
-    # issues, NOT user plan-limits. They must categorize separately so they
-    # do not pollute Limit-Event detection on the Limits tab.
-    assert _categorize_error("Anthropic overloaded right now", "API") == "server_overload"
-    assert _categorize_error('{"type":"overloaded_error"}', "API") == "server_overload"
-    assert _categorize_error("HTTP 529 Overloaded", "API") == "server_overload"
+def test_api_usage_limit_reached():
+    assert _classify_api_error("Usage limit reached. Reset at 17:00 UTC.") == "rate_limit"
 
 
-def test_categorize_429_requires_word_boundary():
+def test_api_overloaded_is_server_overload_not_rate_limit():
+    assert _classify_api_error('{"type":"overloaded_error"}') == "server_overload"
+    assert _classify_api_error("HTTP 529 Overloaded") == "server_overload"
+
+
+def test_api_429_requires_word_boundary():
     # Bare digit sequences inside unrelated numbers must not trigger.
-    assert _categorize_error("queue had 1429 items", "API") != "rate_limit"
-    assert _categorize_error("processed 42900 tokens", "API") != "rate_limit"
+    assert _classify_api_error("queue had 1429 items") != "rate_limit"
+    assert _classify_api_error("processed 42900 tokens") != "rate_limit"
 
 
-def test_categorize_non_rate_limit_unchanged():
-    # Existing category 'permission_denied' still works.
-    assert _categorize_error("Permission denied", "Bash") == "permission_denied"
+def test_tool_permission_denied():
+    assert _classify_tool_error("Permission denied", "Bash") == ("tool", "permission_denied")
 
 
-def test_categorize_other_unchanged():
-    assert _categorize_error("random unexpected text", "Unknown") == "other"
+def test_tool_other_unchanged():
+    assert _classify_tool_error("random unexpected text", "Unknown") == ("tool", "other")
+
+
+def test_tool_error_never_tagged_backend():
+    # The bug the user spotted: tool output that mentions rate_limit_error / 429
+    # must stay source=tool, not be miscategorised as a backend rate-limit.
+    src, cat = _classify_tool_error(
+        "Exit code 1\n# test covers rate_limit_error and HTTP 429 paths\nnot ok 2", "Bash")
+    assert src == "tool"
+    assert cat != "rate_limit"
 
 
 # ── User-plan-limit text detection (isApiErrorMessage path) ────────

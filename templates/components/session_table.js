@@ -179,6 +179,26 @@
       get: (s) => s.assistant_messages || 0,
       render: (s, ctx) => fmtNum(s.assistant_messages || 0, ctx.locale)
     },
+    { id: 'tool_results', label: 'Tool Results', group: 'volume', align: 'right', sortable: true,
+      defaultIn: [],
+      get: (s) => s.tool_results || 0,
+      render: (s, ctx) => fmtNum(s.tool_results || 0, ctx.locale)
+    },
+    { id: 'command_messages', label: 'Commands', group: 'volume', align: 'right', sortable: true,
+      defaultIn: [],
+      get: (s) => s.command_messages || 0,
+      render: (s, ctx) => fmtNum(s.command_messages || 0, ctx.locale)
+    },
+    { id: 'interrupts', label: 'Interrupts', group: 'volume', align: 'right', sortable: true,
+      defaultIn: [],
+      get: (s) => s.interrupts || 0,
+      render: (s, ctx) => fmtNum(s.interrupts || 0, ctx.locale)
+    },
+    { id: 'meta_messages', label: 'Meta', group: 'volume', align: 'right', sortable: true,
+      defaultIn: [],
+      get: (s) => s.meta_messages || 0,
+      render: (s, ctx) => fmtNum(s.meta_messages || 0, ctx.locale)
+    },
     { id: 'api_calls', label: 'API Calls', group: 'volume', align: 'right', sortable: true,
       defaultIn: [],
       get: (s) => s.api_calls || 0,

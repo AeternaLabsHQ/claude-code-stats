@@ -122,13 +122,32 @@ function evtId(ts) { return 'evt-' + String(ts || '').replace(/[^a-zA-Z0-9]/g, '
 let chatHtml = '';
 msgs.forEach((m,i) => {
   if (m.role==='hook') {
-    chatHtml += '<div class="marker hook" id="marker-'+i+'"><span>&#9881;</span> Hook: '+escHtml(m.hook_name)+' <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker hook event-group" id="marker-'+i+'"><span>&#9881;</span> Hook: '+escHtml(m.hook_name)+' <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='compaction') {
-    chatHtml += '<div class="marker compaction" id="marker-'+i+'"><span>&#9889;</span> Context Compaction <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker compaction event-group" id="marker-'+i+'"><span>&#9889;</span> Context Compaction <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='rate_limit') {
-    chatHtml += '<div class="marker rate-limit" id="'+evtId(m.timestamp)+'">' +
+    chatHtml += '<div class="marker rate-limit error-group" id="'+evtId(m.timestamp)+'">' +
       '<span>&#9888;</span> Rate-Limit-Event: <strong>'+escHtml(m.content)+'</strong>' +
       '<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+  } else if (m.role==='error') {
+    const elabel = (m.source==='backend'?'Backend':(m.tool||'Tool')) + ' &middot; ' + escHtml(m.category||'error');
+    chatHtml += '<div class="marker error error-group" id="marker-'+i+'"><span>&#9888;</span> Error: <strong>'+elabel+'</strong>'+
+      (m.content?' <span class="marker-detail">'+escHtml(m.content.slice(0,140))+'</span>':'')+
+      '<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+  } else if (m.role==='rejected') {
+    chatHtml += '<div class="marker rejected event-group" id="marker-'+i+'"><span>&#9995;</span> Rejected: <strong>'+escHtml(m.tool||'tool')+'</strong> <span style="opacity:.7">(you declined)</span><span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+  } else if (m.role==='command') {
+    chatHtml += '<div class="marker command event-group" id="marker-'+i+'"><span>&#8984;</span> Command: <strong>'+escHtml(m.content)+'</strong><span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+  } else if (m.role==='interrupt') {
+    chatHtml += '<div class="marker interrupt event-group" id="marker-'+i+'"><span>&#9099;</span> Interrupted by user<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+  } else if (m.role==='attachment') {
+    chatHtml += '<div class="marker attachment event-group" id="marker-'+i+'"><span>&#128206;</span> '+escHtml(m.content)+'<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+  } else if (m.role==='mode') {
+    chatHtml += '<div class="marker mode event-group" id="marker-'+i+'"><span>&#9881;</span> '+escHtml(m.content)+'<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+  } else if (m.role==='queue') {
+    chatHtml += '<div class="marker queue event-group" id="marker-'+i+'"><span>&#9203;</span> Queued: '+escHtml(m.content)+'<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+  } else if (m.role==='effort') {
+    chatHtml += '<div class="marker effort event-group" id="marker-'+i+'"><span>&#129504;</span> Effort: <strong>'+escHtml(m.content)+'</strong><span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else {
     // Check for Agent dispatches in tools
     const agentTools = (m.tools || []).filter(t => t.name === 'Agent');
@@ -144,14 +163,27 @@ msgs.forEach((m,i) => {
     const isLong = (m.content||'').length > 2000;
     const display = isLong ? m.content.slice(0,2000) : m.content;
     const hasAgentDispatch = agentTools.length > 0;
+    // Extended thinking. Text only exists for older models (Opus 4.6);
+    // 4.7/4.8 return encrypted thinking, so we just flag that the turn
+    // reasoned. Text present -> collapsible block; signature-only -> a small
+    // indicator badge in the header.
+    const thinkingHtml = m.thinking ?
+      '<div class="msg-thinking">' +
+        '<div class="thinking-toggle" data-idx="'+i+'"><span>&#128173;</span> Thinking ('+(m.thinking.length/1000).toFixed(1)+'K) <span class="thinking-caret">&#9656;</span></div>' +
+        '<div class="thinking-body" id="think'+i+'" style="display:none">'+renderMd(m.thinking)+'</div>' +
+      '</div>' : '';
+    const thoughtBadge = (m.thought && !m.thinking) ?
+      '<span class="thought-badge" title="Extended thinking was used on this turn. Claude Code does not store the reasoning text for this model, only an encrypted signature.">&#128173;</span>' : '';
     chatHtml += '<div class="msg '+m.role+(hasAgentDispatch?' has-agent-dispatch':'')+'" id="msg-'+i+'">' +
       '<div class="msg-header">' +
         '<div class="msg-role '+m.role+'">'+(m.role==='user'?'U':'A')+'</div>' +
         '<span class="msg-time">'+fmtTime(m.timestamp)+'</span>' +
         (m.model ? '<span class="msg-model"><span class="model-badge '+modelClass(m.model)+'">'+escHtml(m.model)+'</span></span>' : '') +
+        thoughtBadge +
         (m.tokens ? '<span class="msg-tokens">'+fmtTokens(m.tokens.input)+'in / '+fmtTokens(m.tokens.output)+'out</span>' : '') +
         (m.tokens && turnContext(m.tokens) > CONTEXT_1M_THRESHOLD ? ctx1mBadge('Prompt context '+fmtTokens(turnContext(m.tokens))+' — exceeds the 200k standard window (1M enabled)') : '') +
       '</div>' +
+      thinkingHtml +
       '<div class="msg-content" id="mc'+i+'">'+renderMd(display)+'</div>' +
       (isLong ? '<div class="msg-expand" data-idx="'+i+'">Show full message ('+(m.content.length/1000).toFixed(1)+'K chars)</div>' : '') +
       (m.tools && m.tools.length>0 ? '<div class="msg-tools">'+m.tools.map(t =>
@@ -175,6 +207,17 @@ document.querySelectorAll('.msg-expand').forEach(el => {
 // Agent dispatch toggle
 document.querySelectorAll('.agent-toggle').forEach(el => {
   el.addEventListener('click', function() { this.classList.toggle('expanded'); });
+});
+
+// Thinking block toggle
+document.querySelectorAll('.thinking-toggle').forEach(el => {
+  el.addEventListener('click', function() {
+    const body = document.getElementById('think'+this.getAttribute('data-idx'));
+    if (!body) return;
+    const open = body.style.display === 'none';
+    body.style.display = open ? '' : 'none';
+    this.classList.toggle('expanded', open);
+  });
 });
 
 // Syntax highlighting
@@ -216,9 +259,18 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
       if (activeFilter === 'all') { el.style.display = ''; return; }
       if (activeFilter === 'agent-dispatch') {
         // Show agent-dispatch markers and messages with agent dispatches
-        if (el.classList.contains('agent-dispatch')) { el.style.display = ''; return; }
-        if (el.classList.contains('has-agent-dispatch')) { el.style.display = ''; return; }
-        el.style.display = 'none'; return;
+        el.style.display = (el.classList.contains('agent-dispatch') || el.classList.contains('has-agent-dispatch')) ? '' : 'none';
+        return;
+      }
+      if (activeFilter === 'error') {
+        // Tool/backend errors + rate-limit markers
+        el.style.display = el.classList.contains('error-group') ? '' : 'none';
+        return;
+      }
+      if (activeFilter === 'event') {
+        // Compaction, command, interrupt, rejected, attachment, mode, queue, hook, effort
+        el.style.display = el.classList.contains('event-group') ? '' : 'none';
+        return;
       }
       if (el.classList.contains('marker')) { el.style.display = 'none'; return; }
       el.style.display = el.classList.contains(activeFilter) ? '' : 'none';

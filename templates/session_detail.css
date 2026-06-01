@@ -306,6 +306,28 @@ body.flow-hidden .left-column { max-height: calc(100vh - 180px); }
 .marker.agent-dispatch .agent-prompt { display:none; width:100%; margin-top:8px; padding:8px 12px; background:var(--bg); border-radius:6px; font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-word; color:var(--text); max-height:400px; overflow-y:auto; }
 .marker.agent-dispatch.expanded .agent-prompt { display:block; }
 .agent-type-badge { display:inline-block; padding:1px 6px; border-radius:3px; font-size:10px; font-weight:600; background:rgba(99,102,241,0.25); color:var(--accent2); margin-left:6px; }
+
+/* Event / error markers */
+.marker.error { background:rgba(239,68,68,0.13); border:1px solid rgba(239,68,68,0.45); color:var(--red); font-size:12px; }
+.marker.error strong { font-weight:600; }
+.marker .marker-detail { color:var(--text2); font-weight:400; opacity:0.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:50%; }
+.marker.rejected { background:rgba(148,163,184,0.12); border:1px solid rgba(148,163,184,0.35); color:var(--text2); }
+.marker.command { background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.25); color:var(--accent2); }
+.marker.interrupt { background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); color:var(--amber); }
+.marker.attachment { background:rgba(20,184,166,0.08); border:1px solid rgba(20,184,166,0.28); color:#14b8a6; }
+.marker.mode { background:rgba(148,163,184,0.08); border:1px solid rgba(148,163,184,0.25); color:var(--text2); }
+.marker.queue { background:rgba(148,163,184,0.08); border:1px solid rgba(148,163,184,0.25); color:var(--text2); }
+.marker.effort { background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); color:#a855f7; }
+.thought-badge { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:600; line-height:1; color:#a855f7; background:rgba(168,85,247,0.14); border:1px solid rgba(168,85,247,0.45); border-radius:6px; padding:2px 6px; margin-left:4px; cursor:help; }
+.thought-badge::after { content:"thought"; }
+
+/* Collapsible thinking block on assistant messages */
+.msg-thinking { margin:4px 0 8px; }
+.thinking-toggle { display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-size:11px; color:var(--text2); padding:2px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); user-select:none; }
+.thinking-toggle:hover { color:var(--text); border-color:var(--accent); }
+.thinking-toggle .thinking-caret { transition:transform 0.15s ease; display:inline-block; }
+.thinking-toggle.expanded .thinking-caret { transform:rotate(90deg); }
+.thinking-body { margin-top:6px; padding:10px 12px; background:var(--bg); border-left:2px solid var(--border); border-radius:6px; font-size:12.5px; line-height:1.55; color:var(--text2); white-space:normal; max-height:480px; overflow-y:auto; }
 .sidebar { padding:20px; max-height:calc(100vh - 180px); overflow-y:auto; }
 .sidebar-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px; }
 .sidebar-card h4 { font-size:13px; font-weight:600; margin-bottom:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; }

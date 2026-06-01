@@ -571,17 +571,21 @@ function filterData(days, projectFilter) {
   // Recalculate error_summary from filtered sessions
   const fErrors = F.sessions.reduce((s, x) => s + (x.error_count || 0), 0);
   const fToolCalls = F.sessions.reduce((s, x) => s + (x.api_calls || 0), 0);
-  const fErrByTool = {}, fErrByCat = {};
+  const fErrByTool = {}, fErrByCat = {}, fErrBySrc = {};
   F.sessions.forEach(s => {
     (s.errors || []).forEach(e => {
       fErrByTool[e.tool || 'unknown'] = (fErrByTool[e.tool || 'unknown'] || 0) + 1;
       fErrByCat[e.category || 'other'] = (fErrByCat[e.category || 'other'] || 0) + 1;
+      fErrBySrc[e.source || 'tool'] = (fErrBySrc[e.source || 'tool'] || 0) + 1;
     });
   });
   F.error_summary = {
     total_errors: fErrors,
     total_tool_calls: fToolCalls,
     error_rate: fToolCalls > 0 ? +(fErrors / fToolCalls * 100).toFixed(2) : 0,
+    total_cancelled: F.sessions.reduce((s, x) => s + (x.cancelled_count || 0), 0),
+    total_rejected: F.sessions.reduce((s, x) => s + (x.rejected_count || 0), 0),
+    by_source: Object.entries(fErrBySrc).map(([source, count]) => ({source, count})).sort((a,b) => b.count - a.count),
     by_tool: Object.entries(fErrByTool).map(([tool, count]) => ({tool, count})).sort((a,b) => b.count - a.count),
     by_category: Object.entries(fErrByCat).map(([category, count]) => ({category, count})).sort((a,b) => b.count - a.count),
   };
@@ -2143,11 +2147,20 @@ function renderAgentsTab() {
 
   // Error overview
   const errEl = document.getElementById('errorOverview');
-  const catLabels = {'rejected':'Rejected','file_not_found':'File Not Found','edit_not_unique':'Edit Not Unique','edit_no_match':'Edit No Match','permission_denied':'Permission Denied','timeout':'Timeout','command_not_found':'Cmd Not Found','exit_code':'Exit Code Error','syntax_error':'Syntax Error','import_error':'Import Error','hook_error':'Hook Error','edit_failed':'Edit Failed','other':'Other'};
+  const catLabels = {'rejected':'Rejected','file_not_found':'File Not Found','edit_not_unique':'Edit Not Unique','edit_no_match':'Edit No Match','stale_read':'Stale Read','permission_denied':'Permission Denied','timeout':'Timeout','command_not_found':'Cmd Not Found','exit_code':'Exit Code Error','syntax_error':'Syntax Error','import_error':'Import Error','hook_error':'Hook Error','edit_failed':'Edit Failed','rate_limit':'Rate Limit','server_overload':'Server Overload','auth':'Auth','server_error':'Server Error','connection':'Connection','invalid_request':'Invalid Request','content_filter':'Content Filter','other':'Other'};
+  const srcLabels = {'backend':'Backend','tool':'Tool','hook':'Hook','user':'User'};
+  const srcColors = {'backend':'#a855f7','tool':'#ef4444','hook':'#eab308','user':'#64748b'};
+  const bySrc = es.by_source || [];
+  const srcLine = bySrc.length ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">' + bySrc.map(s =>
+      '<span style="font-size:12px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+(srcColors[s.source]||'#999')+';margin-right:4px"></span>'+(srcLabels[s.source]||s.source)+' <b>'+s.count+'</b></span>'
+    ).join('') + '</div>' : '';
+  const cr = (es.total_cancelled||0) + (es.total_rejected||0);
+  const crNote = cr ? '<div style="font-size:11px;color:var(--text2);margin-bottom:8px">'+(es.total_cancelled||0)+' cancelled · '+(es.total_rejected||0)+' rejected <span style="opacity:.7">(not counted as errors)</span></div>' : '';
   const topCats = (es.by_category || []).slice(0, 5);
   errEl.innerHTML =
-    '<div style="margin-bottom:12px"><span style="font-size:20px;font-weight:700;color:var(--red)">'+(es.total_errors||0)+'</span> errors / <span style="font-weight:600">'+(es.total_tool_calls||0)+'</span> tool calls</div>' +
+    '<div style="margin-bottom:8px"><span style="font-size:20px;font-weight:700;color:var(--red)">'+(es.total_errors||0)+'</span> errors / <span style="font-weight:600">'+(es.total_tool_calls||0)+'</span> tool calls</div>' +
     '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">__L_agents_error_rate__: '+(es.error_rate||0)+'%</div>' +
+    srcLine + crNote +
     '<div style="margin-top:12px">' + topCats.map(c =>
       '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">' +
         '<span style="font-size:12px">'+(catLabels[c.category]||c.category)+'</span>' +

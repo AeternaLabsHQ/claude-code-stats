@@ -1840,7 +1840,7 @@ document.addEventListener('keydown', function(e) {
       note = document.createElement('div');
       note.id = 'anonNote';
       note.className = 'vc';
-      note.style.cssText = 'position:fixed;top:14px;right:14px;padding:8px 14px;border:1px solid var(--vc-accent,#b04a2f);background:var(--vc-panel,#fbfaf6);font-family:Geist Mono,JetBrains Mono,ui-monospace,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;z-index:9999;transition:opacity 0.3s;color:var(--vc-accent,#b04a2f);';
+      note.style.cssText = 'position:fixed;top:14px;right:14px;padding:8px 14px;border-radius:var(--vc-radius-sm,10px);border:1px solid var(--vc-accent,#c2562f);background:var(--vc-panel,#ffffff);box-shadow:var(--vc-shadow);font-family:var(--vc-font-mono,JetBrains Mono,ui-monospace,monospace);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;z-index:9999;transition:opacity 0.3s;color:var(--vc-accent,#c2562f);';
       document.body.appendChild(note);
     }
     note.textContent = document.body.classList.contains('anon-mode') ? '> ANONYMIZATION ON' : '> ANONYMIZATION OFF';

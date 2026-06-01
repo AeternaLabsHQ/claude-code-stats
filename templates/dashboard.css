@@ -449,9 +449,10 @@ body.anon-mode .anon-blur {
   .vc .masonry-section { grid-template-columns: 1fr; }
 }
 
-/* Plan & Billing progress-stats: align typography with vc body */
-.vc .progress-stats { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); }
-.vc .progress-stats .stat-val { font-weight: 500; font-size: var(--vc-fs-xs); color: var(--vc-fg); }
+/* Plan & Billing period stats: SaaS period-stats grid treatment */
+.vc .progress-stats { font-size: var(--vc-fs-xs); color: var(--vc-fg-2); }
+.vc .progress-stats .stat-item > span:first-child { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--vc-fg-3); }
+.vc .progress-stats .stat-val { font-weight: 700; font-size: 16px; color: var(--vc-fg); font-variant-numeric: tabular-nums; }
 
 /* Tabs from legacy tabBar (#tabBar inside .vc scope, used as backup) */
 .vc .tabs { display: none; }  /* Hidden — we use .vc-nav-tabs instead */
@@ -902,7 +903,7 @@ body.vc-page > div[style*="text-align:center"] a {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.vc-tag.acc { color: var(--vc-accent); border-color: var(--vc-accent); }
+.vc-tag.acc { color: var(--vc-accent); border-color: transparent; background: var(--vc-accent-soft); border-radius: var(--vc-radius-pill); padding: 2px 7px; letter-spacing: 0.08em; }
 
 /* Misc grid (Insights tab) */
 .vc-misc-grid {
@@ -1139,11 +1140,12 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 
 .billing-progress { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:24px; }
 .billing-progress h3 { font-size:15px; font-weight:600; margin-bottom:16px; }
-.progress-bar-outer { background:var(--bg3); border-radius:8px; height:32px; overflow:hidden; position:relative; margin-bottom:12px; }
-.progress-bar-inner { height:100%; border-radius:8px; transition:width .5s; display:flex; align-items:center; justify-content:flex-end; padding-right:10px; font-size:12px; font-weight:600; }
-.progress-stats { display:flex; gap:24px; flex-wrap:wrap; color:var(--text2); font-size:13px; }
-.progress-stats .stat-item { display:flex; flex-direction:column; gap:2px; }
-.progress-stats .stat-val { color:var(--text); font-weight:600; font-size:15px; }
+.progress-bar-outer { position:relative; height:26px; border-radius:var(--vc-radius-pill); overflow:hidden; margin:6px 0 18px; background:color-mix(in srgb, var(--vc-fg-2) 12%, transparent); }
+.progress-bar-inner { position:absolute; inset:0 auto 0 0; height:100%; border-radius:var(--vc-radius-pill); background:var(--vc-accent); transition:width .5s; display:flex; align-items:center; justify-content:flex-end; padding-right:10px; min-width:38px; color:#fff; font-family:var(--vc-font-mono); font-size:11px; font-weight:700; }
+.progress-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:14px 20px; color:var(--vc-fg-2); font-size:var(--vc-fs-xs); }
+.progress-stats .stat-item { display:flex; flex-direction:column; gap:3px; }
+.progress-stats .stat-item > span:first-child { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--vc-fg-3); }
+.progress-stats .stat-val { color:var(--vc-fg); font-weight:700; font-size:16px; font-variant-numeric:tabular-nums; }
 
 .plan-comparison { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
 .plan-comparison h3 { font-size:15px; font-weight:600; margin-bottom:4px; }
@@ -1234,23 +1236,21 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .vc .vc-idle-aggregate b { color: var(--vc-fg); }
 .vc-limits-section { margin: 20px 0; }
 .vc-limits-section h3 { margin-bottom: 12px; }
-.lim-rows { display: flex; flex-direction: column; gap: 4px; }
-.lim-row { display: grid; grid-template-columns: 180px 1fr 90px; align-items: center; gap: 12px; font-size: 13px; }
-.lim-lbl { color: var(--text2); font-family: monospace; }
-.lim-bar { position: relative; height: 16px; background: var(--bg3); border-radius: 3px; }
-.lim-cnt { color: var(--text2); text-align: right; font-family: monospace; }
-.lim-bar .evt { position: absolute; top: 2px; width: 8px; height: 12px; border-radius: 2px; transform: translateX(-50%); cursor: pointer; text-decoration: none; }
-/* Explicit = bold red (real data). Heuristic = warm gray-brown (inferred,
-   visually subordinate). The previous --vc-accent for heuristic was almost
-   identical to --red and made the two categories indistinguishable in the
-   legend. */
-.evt-explicit { background: var(--red); }
-.evt-heuristic-high { background: var(--vc-fg-2, #4d4a42); }
-.evt-heuristic-med { background: var(--vc-fg-2, #4d4a42); opacity: 0.55; }
-.lim-legend { margin-top: 12px; font-size: 12px; color: var(--text2); }
-.lim-legend .evt { position: relative; display: inline-block; width: 10px; height: 10px; vertical-align: middle; transform: none; margin-right: 4px; }
-.lim-tip { margin-top: 6px; font-size: 12px; color: var(--text2); }
-.vc-empty { color: var(--text2); font-style: italic; }
+.lim-rows { display: flex; flex-direction: column; gap: 2px; }
+.lim-row { display: grid; grid-template-columns: 180px 1fr 90px; align-items: center; gap: 14px; padding: 7px 0; }
+.lim-lbl { color: var(--vc-fg-2); font-family: var(--vc-font-mono); font-size: 12px; white-space: nowrap; }
+.lim-bar { position: relative; height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--vc-fg-2) 12%, transparent); }
+.lim-cnt { color: var(--vc-fg-3); text-align: right; font-family: var(--vc-font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lim-bar .evt { position: absolute; top: 1px; width: 6px; height: 10px; border-radius: 2px; transform: translateX(-50%); cursor: pointer; text-decoration: none; }
+/* Explicit = bold neg (real data). Heuristic = muted fg-2 (inferred,
+   visually subordinate). */
+.evt-explicit { background: var(--vc-neg); }
+.evt-heuristic-high { background: var(--vc-fg-2); }
+.evt-heuristic-med { background: var(--vc-fg-2); opacity: 0.55; }
+.lim-legend { margin-top: 12px; font-size: 11px; color: var(--vc-fg-2); }
+.lim-legend .evt { position: relative; display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: middle; transform: none; margin-right: 7px; }
+.lim-tip { margin-top: 6px; font-size: 12px; color: var(--vc-fg-3); }
+.vc-empty { color: var(--vc-fg-3); font-style: italic; }
 
 .plan-rec-table { border-collapse: collapse; width: 100%; margin-top: 8px; font-family: monospace; font-size: 13px; }
 .plan-rec-table th, .plan-rec-table td { border-bottom: 1px solid var(--border); padding: 4px 8px; text-align: right; }
@@ -1271,9 +1271,19 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
   .vc-distbar-row { min-width: 280px; }
   .vc-distbar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
-.plan-rec-summary { margin-top: 16px; font-size: 14px; }
+.plan-rec-summary { margin-top: 16px; padding: 12px 16px; border-radius: var(--vc-radius-sm); border: 1px solid var(--vc-accent-soft); background: var(--vc-accent-soft); font-family: var(--vc-font-mono); font-size: 12px; color: var(--vc-fg-2); line-height: 1.6; }
 .plan-rec-summary > div { margin-bottom: 4px; }
-.plan-rec-cal { color: var(--text2); font-size: 12px; }
-.plan-rec-disclaimer { margin-top: 16px; padding: 8px 12px; border: 1px solid var(--red); border-radius: 3px; color: var(--text); font-size: 13px; background: rgba(181, 74, 58, 0.08); }
+.plan-rec-summary > div:last-child { margin-bottom: 0; }
+.plan-rec-summary b { color: var(--vc-fg); }
+
+/* Currency toggle (USD / local) in the Plan tab meta — segmented control.
+   The buttons themselves carry inline styles (border / bg / color via tokens);
+   here we shape the group: collapse the gap and round + clip the container so
+   the two buttons read as one bordered segmented control. */
+#vcPlanMeta > span { gap: 0 !important; border-radius: var(--vc-radius-ctl); overflow: hidden; }
+#vcPlanMeta button { font-family: var(--vc-font-label, var(--vc-font-sans)); font-size: 11px; letter-spacing: 0.04em; }
+#vcPlanMeta button + button { margin-left: -1px; }
+.plan-rec-cal { color: var(--vc-fg-3); font-size: 12px; }
+.plan-rec-disclaimer { margin-top: 16px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--vc-fg-2) 30%, transparent); border-radius: var(--vc-radius-sm); color: var(--vc-fg-2); font-size: 12px; background: color-mix(in srgb, var(--vc-fg-2) 6%, transparent); line-height: 1.6; }
 .model-pricing-notice { margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--amber); border-radius: 3px; color: var(--text); font-size: 13px; background: rgba(176, 74, 47, 0.08); }
 .model-pricing-notice strong { font-weight: 600; }

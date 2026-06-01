@@ -1639,7 +1639,7 @@ function renderPlan() {
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } },
         tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmtPlanMoney(ctx.raw) } } },
-      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: unitLabel, color: '#64748b' } } } }
+      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: unitLabel, color: window.__vcFg2 || '#4d4a42' } } } }
   });
 
   if (_planChartCostPerDay) _planChartCostPerDay.destroy();
@@ -1654,7 +1654,7 @@ function renderPlan() {
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false },
         tooltip: { callbacks: { label: ctx => fmtPlanMoney(ctx.raw) + ' / ' + (D.locale.plan.day || 'day') } } },
-      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: perDayLabel, color: '#64748b' } } } }
+      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: perDayLabel, color: window.__vcFg2 || '#4d4a42' } } } }
   });
 
   // Period table

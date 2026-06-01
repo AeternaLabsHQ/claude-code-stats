@@ -70,6 +70,13 @@ function effStyle(pct) {
 // dataset declarations at module-load time always have a real color.
 const _VC_PALETTE_LIGHT = ['#b04a2f', '#4d4a42', '#918a7a', '#f1d9cd'];
 const _VC_PALETTE_DARK  = ['#d97757', '#b3ad9b', '#76705f', '#2c1c14'];
+
+// Single categorical palette for multi-series doughnut/bar charts. Earth-tone
+// family (terracotta / sage / ochre / clay …) matching the SaaS reskin; replaces
+// the old bright slate/rainbow/hsl() loops. Mirrors docs/design-handoff CAT_PALETTE.
+const _VC_CAT = ['#c4623f', '#7aa589', '#cda43f', '#a8442a', '#6f8f9e',
+  '#9b7bb0', '#4f7a5f', '#d98b6a', '#8a8175', '#b8966a'];
+
 function vcCurrentPalette() {
   if (typeof document !== 'undefined') {
     const cls = document.documentElement.classList;
@@ -79,13 +86,38 @@ function vcCurrentPalette() {
   }
   return _VC_PALETTE_LIGHT;
 }
+// Live token reader: returns the currently-applied value of a --vc-* custom
+// property (scoped to .vc, falling back to :root), or `fallback` if unreadable.
+// Lets a custom.css accent override actually recolor the charts at runtime.
+function _vcLiveVar(name, fallback) {
+  if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') return fallback;
+  try {
+    const probe = document.querySelector('.vc') || document.documentElement;
+    const val = getComputedStyle(probe).getPropertyValue(name).trim();
+    return val || fallback;
+  } catch { return fallback; }
+}
+// Live accent: prefer the runtime --vc-accent (so custom.css overrides win),
+// fall back to the theme-aware hardcoded palette slot 0.
+function vcAccentLive() {
+  return _vcLiveVar('--vc-accent', vcCurrentPalette()[0]);
+}
 function vcColor(rank) {
   const p = vcCurrentPalette();
+  // Slot 0 is the accent — read the live token so custom.css overrides apply.
+  if (rank % p.length === 0) return vcAccentLive();
   return p[rank % p.length];
 }
 function vcRgba(rank, alpha) {
-  const hex = vcColor(rank).replace('#', '');
-  if (hex.length !== 6) return vcColor(rank);
+  return _vcHexRgba(vcColor(rank), alpha);
+}
+// Convert a #rrggbb (or #rgb) color to an rgba() string. Non-hex inputs
+// (already rgb()/oklch/etc.) are returned unchanged.
+function _vcHexRgba(color, alpha) {
+  if (typeof color !== 'string' || color[0] !== '#') return color;
+  let hex = color.slice(1);
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  if (hex.length !== 6) return color;
   const r = parseInt(hex.substr(0,2), 16);
   const g = parseInt(hex.substr(2,2), 16);
   const b = parseInt(hex.substr(4,2), 16);
@@ -168,8 +200,10 @@ function makeSourceBadge(label) {
   return span;
 }
 
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.borderColor = '#1e293b';
+// Initial placeholders; setupVcChartDefaults() (called below) immediately
+// overwrites these with the resolved --vc-fg-3 / --vc-grid tokens.
+Chart.defaults.color = '#918a7a';
+Chart.defaults.borderColor = '#d8d2c4';
 
 // Variant-C Chart.js theming — overrides legacy defaults to match Terminal aesthetic
 function setupVcChartDefaults() {
@@ -187,6 +221,9 @@ function setupVcChartDefaults() {
   const grid2 = v('--vc-grid-2', '#e8e3d6');
   const accent = v('--vc-accent', '#b04a2f');
   const panel = v('--vc-panel', '#fbfaf6');
+  // Font: read --vc-font-sans (SaaS 'Manrope'), take first family, strip quotes.
+  // Mirrors the fam() helper in docs/design-handoff/js/charts.js.
+  const fontFam = (v('--vc-font-sans', "'Manrope', system-ui, sans-serif").split(',')[0] || 'Manrope').replace(/['"]/g, '').trim() || 'Manrope';
 
   // Disable all chart animations (entrance, hover, update) — the
   // single-accent Terminal aesthetic feels snappier without them.
@@ -199,7 +236,7 @@ function setupVcChartDefaults() {
     hide: { animations: { x: { to: 0 }, y: { to: 0 } } },
   };
 
-  Chart.defaults.font.family = "'Geist Mono', 'JetBrains Mono', ui-monospace, monospace";
+  Chart.defaults.font.family = fontFam;
   Chart.defaults.font.size = 11;
   Chart.defaults.color = fg3;
   Chart.defaults.borderColor = grid;
@@ -217,15 +254,15 @@ function setupVcChartDefaults() {
   }
   Chart.defaults.plugins.legend.labels = Chart.defaults.plugins.legend.labels || {};
   Chart.defaults.plugins.legend.labels.color = fg2;
-  Chart.defaults.plugins.legend.labels.font = {family: "'Geist Mono', monospace", size: 10};
+  Chart.defaults.plugins.legend.labels.font = {family: fontFam, size: 10};
   Chart.defaults.plugins.tooltip.backgroundColor = panel;
   Chart.defaults.plugins.tooltip.titleColor = fg;
   Chart.defaults.plugins.tooltip.bodyColor = fg2;
   Chart.defaults.plugins.tooltip.borderColor = grid;
   Chart.defaults.plugins.tooltip.borderWidth = 1;
   Chart.defaults.plugins.tooltip.cornerRadius = 0;
-  Chart.defaults.plugins.tooltip.titleFont = {family: "'Geist Mono', monospace", size: 11, weight: '500'};
-  Chart.defaults.plugins.tooltip.bodyFont = {family: "'Geist Mono', monospace", size: 11};
+  Chart.defaults.plugins.tooltip.titleFont = {family: fontFam, size: 11, weight: '500'};
+  Chart.defaults.plugins.tooltip.bodyFont = {family: fontFam, size: 11};
   if (Chart.defaults.scale) {
     Chart.defaults.scale.grid = Chart.defaults.scale.grid || {};
     Chart.defaults.scale.grid.color = grid2;
@@ -233,7 +270,7 @@ function setupVcChartDefaults() {
     Chart.defaults.scale.grid.drawTicks = false;
     Chart.defaults.scale.ticks = Chart.defaults.scale.ticks || {};
     Chart.defaults.scale.ticks.color = fg3;
-    Chart.defaults.scale.ticks.font = {family: "'Geist Mono', monospace", size: 10};
+    Chart.defaults.scale.ticks.font = {family: fontFam, size: 10};
   }
   // Mutate the per-chart scaleDefaults object in place so charts that spread
   // {...scaleDefaults.x} or reference scaleDefaults.x directly pick up the
@@ -637,10 +674,10 @@ function renderToolUsageChart() {
       type: 'bar',
       data: { labels: tools.map(t => t.name),
         datasets: [{ label: D.locale.insights.tool_calls, data: tools.map(t => t.count),
-          backgroundColor: tools.map((_, i) => 'hsl(' + (i * 18) + ',60%,55%)'), borderRadius: 0 }] },
+          backgroundColor: tools.map((_, i) => _VC_CAT[i % _VC_CAT.length]), borderRadius: 0 }] },
       options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
         plugins: { legend: { display: false } },
-        scales: { x: { ...scaleDefaults.x, title: { display: true, text: D.locale.insights.tool_calls, color: '#64748b' } },
+        scales: { x: { ...scaleDefaults.x, title: { display: true, text: D.locale.insights.tool_calls, color: window.__vcFg2 || '#5b6473' } },
           y: { ...scaleDefaults.y, ticks: { font: { size: 11 } } } } }
     });
   }
@@ -654,14 +691,9 @@ const WC_LABELS = {
   bash_commands: 'Bash Commands',
   tool_inputs: 'Other Tool Inputs',
 };
-const WC_COLORS = {
-  screen_text: '#10b981',
-  screen_text_narration: '#06b6d4',
-  thinking: '#94a3b8',
-  file_writes: '#6366f1',
-  bash_commands: '#f59e0b',
-  tool_inputs: '#a855f7',
-};
+// Stable per-category index into the earth-tone _VC_CAT palette (replaces the
+// old bright slate/rainbow hex map so colors track the categorical theme).
+const WC_CAT_ORDER = ['screen_text', 'screen_text_narration', 'thinking', 'file_writes', 'bash_commands', 'tool_inputs'];
 
 function renderWriteCategoriesChart() {
   const canvas = document.getElementById('chartWriteCategories');
@@ -678,7 +710,10 @@ function renderWriteCategoriesChart() {
       labels: summary.map(e => WC_LABELS[e.category] || e.category),
       datasets: [{
         data: summary.map(e => e.output_tokens),
-        backgroundColor: summary.map(e => WC_COLORS[e.category] || '#64748b'),
+        backgroundColor: summary.map((e, i) => {
+          const idx = WC_CAT_ORDER.indexOf(e.category);
+          return _VC_CAT[(idx >= 0 ? idx : i) % _VC_CAT.length];
+        }),
         borderWidth: 0,
       }],
     },
@@ -713,7 +748,7 @@ function renderToolTokenChart() {
   }
   if (values.length === 0) return;
 
-  const palette = ['#10b981','#06b6d4','#6366f1','#f59e0b','#ef4444','#a855f7','#ec4899','#84cc16','#14b8a6','#f97316','#3b82f6','#eab308','#94a3b8'];
+  const palette = _VC_CAT;
 
   const canvas = document.getElementById('chartToolTokens');
   if (!canvas) return;
@@ -920,7 +955,7 @@ function renderCosts() {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } }, tooltip: { mode: 'index', intersect: false } },
-      scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, stacked: true, title: { display: true, text: 'USD', color: '#64748b' } } }
+      scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, stacked: true, title: { display: true, text: 'USD', color: window.__vcFg2 || '#5b6473' } } }
     }
   });
 
@@ -933,7 +968,7 @@ function renderCosts() {
     },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
-      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: 'USD', color: '#64748b' } } } }
+      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: 'USD', color: window.__vcFg2 || '#5b6473' } } } }
   });
 
   const cbt = F.cost_by_token_type;
@@ -946,7 +981,7 @@ function renderCosts() {
     },
     options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
       plugins: { legend: { display: false } },
-      scales: { x: { ...scaleDefaults.x, title: { display: true, text: 'USD', color: '#64748b' } }, y: scaleDefaults.y } }
+      scales: { x: { ...scaleDefaults.x, title: { display: true, text: 'USD', color: window.__vcFg2 || '#5b6473' } }, y: scaleDefaults.y } }
   });
 
   // Pricing notice: Claude models seen in the data with no PRICING entry, so
@@ -1120,7 +1155,7 @@ function renderCosts() {
           y: {
             ...scaleDefaults.y,
             min: 0, max: 100,
-            title: { display: true, text: '%', color: '#64748b' },
+            title: { display: true, text: '%', color: window.__vcFg2 || '#5b6473' },
             ticks: { ...scaleDefaults.y.ticks, callback: v => v + '%' },
           },
         },
@@ -1132,8 +1167,9 @@ function renderCosts() {
 }
 
 function _vcAccentRgb() {
-  // Use the active palette (theme-aware), no DOM dependency
-  const hex = vcColor(0).replace('#', '');
+  // Live accent (custom.css overrides win), theme-aware palette as fallback.
+  let hex = vcAccentLive().replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
   if (hex.length !== 6) return '176,74,47';
   const r = parseInt(hex.substr(0,2), 16);
   const g = parseInt(hex.substr(2,2), 16);
@@ -1214,8 +1250,8 @@ function renderActivity() {
       plugins: { legend: { display: true, labels: { color: window.__vcFg2 || '#4d4a42' } } },
       scales: {
         x: scaleDefaults.x,
-        y: { ...scaleDefaults.y, position: 'left', title: { display: true, text: D.locale.activity.messages_label, color: '#64748b' } },
-        y1: { ...scaleDefaults.y, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: D.locale.activity.sessions_label, color: '#64748b' } },
+        y: { ...scaleDefaults.y, position: 'left', title: { display: true, text: D.locale.activity.messages_label, color: window.__vcFg2 || '#5b6473' } },
+        y1: { ...scaleDefaults.y, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: D.locale.activity.sessions_label, color: window.__vcFg2 || '#5b6473' } },
       } }
   });
 
@@ -1890,7 +1926,7 @@ function renderInsights() {
       type: 'doughnut',
       data: { labels: storageItems.map(s => s.name),
         datasets: [{ data: storageItems.map(s => s.size_mb),
-          backgroundColor: storageItems.map((_, i) => 'hsl(' + (i * 40 + 200) + ',55%,50%)'), borderWidth: 0 }] },
+          backgroundColor: storageItems.map((_, i) => _VC_CAT[i % _VC_CAT.length]), borderWidth: 0 }] },
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { position: 'right', labels: { color: window.__vcFg2 || '#4d4a42', padding: 8, font: { size: 11 } } },
           tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.raw + ' MB' } } } }
@@ -2061,11 +2097,12 @@ function renderInsights() {
   const errDates = Object.keys(dailyErrors).sort();
   const errRates = errDates.map(d => dailyErrors[d].calls > 0 ? +(dailyErrors[d].errors / dailyErrors[d].calls * 100).toFixed(1) : 0);
   if (errDates.length > 0) {
+    const negCol = _vcLiveVar('--vc-neg', '#d24b3e');
     new Chart(document.getElementById('errorRateChart'), {
       type: 'line',
       data: {
         labels: errDates,
-        datasets: [{ label: 'Error Rate (%)', data: errRates, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill:true, tension:0.3 }]
+        datasets: [{ label: 'Error Rate (%)', data: errRates, borderColor: negCol, backgroundColor: _vcHexRgba(negCol, 0.1), fill:true, tension:0.3 }]
       },
       options: { responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a',maxTicksLimit:15}}, y:{ticks:{color:window.__vcFg3||'#918a7a'}, beginAtZero:true} } }
     });
@@ -2086,7 +2123,7 @@ function renderAgentsTab() {
       type: 'doughnut',
       data: {
         labels: atd.map(d => d.type),
-        datasets: [{ data: atd.map(d => d.count), backgroundColor: chartColors }]
+        datasets: [{ data: atd.map(d => d.count), backgroundColor: atd.map((_, i) => _VC_CAT[i % _VC_CAT.length]) }]
       },
       options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:window.__vcFg2||'#4d4a42',font:{size:11}} } } }
     });
@@ -2136,9 +2173,11 @@ function renderAgentsTab() {
         '<span class="tag" style="background:rgba(99,102,241,0.15);color:var(--accent2)">\u25B6 '+(tasks.in_progress||0)+' in progress</span>' +
         '<span class="tag" style="background:rgba(148,163,184,0.15);color:var(--text2)">\u25CB '+(tasks.pending||0)+' pending</span>' +
       '</div>';
+    const posCol = _vcLiveVar('--vc-pos', '#1f9d63');
+    const mutedCol = _vcLiveVar('--vc-fg-3', '#918a7a');
     new Chart(document.getElementById('taskDonut'), {
       type: 'doughnut',
-      data: { labels:['Completed','Pending','In Progress'], datasets:[{data:[tasks.completed,tasks.pending||0,tasks.in_progress||0], backgroundColor:['#22c55e','#94a3b8',vcColor(0)]}] },
+      data: { labels:['Completed','Pending','In Progress'], datasets:[{data:[tasks.completed,tasks.pending||0,tasks.in_progress||0], backgroundColor:[posCol, mutedCol, vcColor(0)]}] },
       options: { cutout:'70%', responsive:true, plugins:{legend:{display:false}} }
     });
   } else {
@@ -2149,7 +2188,7 @@ function renderAgentsTab() {
   const errEl = document.getElementById('errorOverview');
   const catLabels = {'rejected':'Rejected','file_not_found':'File Not Found','edit_not_unique':'Edit Not Unique','edit_no_match':'Edit No Match','stale_read':'Stale Read','permission_denied':'Permission Denied','timeout':'Timeout','command_not_found':'Cmd Not Found','exit_code':'Exit Code Error','syntax_error':'Syntax Error','import_error':'Import Error','hook_error':'Hook Error','edit_failed':'Edit Failed','rate_limit':'Rate Limit','server_overload':'Server Overload','auth':'Auth','server_error':'Server Error','connection':'Connection','invalid_request':'Invalid Request','content_filter':'Content Filter','other':'Other'};
   const srcLabels = {'backend':'Backend','tool':'Tool','hook':'Hook','rejected':'Rejected','user':'User'};
-  const srcColors = {'backend':'#a855f7','tool':'#ef4444','hook':'#eab308','rejected':'#fb923c','user':'#64748b'};
+  const srcColors = {'backend':_VC_CAT[5],'tool':_vcLiveVar('--vc-neg','#d24b3e'),'hook':_VC_CAT[2],'rejected':_VC_CAT[0],'user':_vcLiveVar('--vc-fg-3','#918a7a')};
   const bySrc = es.by_source || [];
   const srcLine = bySrc.length ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">' + bySrc.map(s =>
       '<span style="font-size:12px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+(srcColors[s.source]||'#999')+';margin-right:4px"></span>'+(srcLabels[s.source]||s.source)+' <b>'+s.count+'</b></span>'
@@ -2170,7 +2209,9 @@ function renderAgentsTab() {
   const ebc = es.by_category || [];
   if (errorByCatChartInstance) errorByCatChartInstance.destroy();
   if (ebc.length > 0) {
-    const errColors = ['#ef4444','#f97316','#eab308','#22c55e',vcColor(2),vcColor(0),'#a855f7','#ec4899','#64748b','#78716c','#84cc16','#14b8a6','#f43f5e'];
+    // Error categories: lead with the negative/error color, then cycle the
+    // earth-tone categorical palette for the remaining slices.
+    const errColors = ebc.map((_, i) => i === 0 ? _vcLiveVar('--vc-neg', '#d24b3e') : _VC_CAT[(i - 1) % _VC_CAT.length]);
     errorByCatChartInstance = new Chart(document.getElementById('errorByCategoryChart'), {
       type: 'doughnut',
       data: {
@@ -2189,7 +2230,7 @@ function renderAgentsTab() {
       type: 'bar',
       data: {
         labels: ebt.map(e => e.tool),
-        datasets: [{ data: ebt.map(e => e.count), backgroundColor: 'rgba(239,68,68,0.7)', borderRadius:4 }]
+        datasets: [{ data: ebt.map(e => e.count), backgroundColor: _vcHexRgba(_vcLiveVar('--vc-neg', '#d24b3e'), 0.7), borderRadius:4 }]
       },
       options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a'}}, y:{ticks:{color:window.__vcFg3||'#918a7a',font:{size:11}}} } }
     });
@@ -2255,6 +2296,20 @@ window.addEventListener('resize', function() {
 });
 
 // ── Init ───────────────────────────────────────────────────────────────
+// Apply the persisted/system theme class to <html> BEFORE any chart is built.
+// custom.css (linked just above this script) scopes its --vc-* overrides to
+// html.theme-light/.theme-dark .vc, so the class must be present at chart-build
+// time for an accent override to be readable via getComputedStyle. The full
+// theme wiring (toggle + re-sync) is set up later in the top-bar IIFE.
+try {
+  const _saved = localStorage.getItem('vc-theme');
+  const _prefersDark = (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const _initTheme = (_saved === 'light' || _saved === 'dark') ? _saved : (_prefersDark ? 'dark' : 'light');
+  document.documentElement.classList.remove('theme-light', 'theme-dark');
+  document.documentElement.classList.add('theme-' + _initTheme);
+  if (typeof setupVcChartDefaults === 'function') setupVcChartDefaults();
+} catch (e) {}
+
 filterData(0, '');
 initTimeFilter();
 let pfTimer;

@@ -250,32 +250,46 @@ if (location.hash && location.hash.startsWith('#evt-')) {
 }
 
 // Role filter
-let activeFilter = 'all';
+// Chat filters are multi-select: each category button toggles on/off
+// independently and the active categories combine as a union (an element
+// shows if it matches ANY active category). "All" is the reset state —
+// clicking it clears the categories; deselecting the last active category
+// falls back to "All".
+const FILTER_MATCHERS = {
+  user: el => el.classList.contains('user'),
+  assistant: el => el.classList.contains('assistant'),
+  // agent-dispatch markers + messages that dispatched a subagent
+  'agent-dispatch': el => el.classList.contains('agent-dispatch') || el.classList.contains('has-agent-dispatch'),
+  // tool/backend errors + rate-limit markers
+  error: el => el.classList.contains('error-group'),
+  // compaction, command, interrupt, rejected, attachment, mode, queue, hook, effort
+  event: el => el.classList.contains('event-group'),
+};
+const activeFilters = new Set(['all']);
+function applyChatFilters() {
+  const showAll = activeFilters.has('all');
+  const keys = [...activeFilters].filter(k => k !== 'all');
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', activeFilters.has(b.getAttribute('data-filter')));
+  });
+  document.querySelectorAll('#chatPanel > .msg, #chatPanel > .marker').forEach(el => {
+    const show = showAll || keys.some(k => FILTER_MATCHERS[k] && FILTER_MATCHERS[k](el));
+    el.style.display = show ? '' : 'none';
+  });
+}
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', function() {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    activeFilter = this.getAttribute('data-filter');
-    document.querySelectorAll('#chatPanel > .msg, #chatPanel > .marker').forEach(el => {
-      if (activeFilter === 'all') { el.style.display = ''; return; }
-      if (activeFilter === 'agent-dispatch') {
-        // Show agent-dispatch markers and messages with agent dispatches
-        el.style.display = (el.classList.contains('agent-dispatch') || el.classList.contains('has-agent-dispatch')) ? '' : 'none';
-        return;
-      }
-      if (activeFilter === 'error') {
-        // Tool/backend errors + rate-limit markers
-        el.style.display = el.classList.contains('error-group') ? '' : 'none';
-        return;
-      }
-      if (activeFilter === 'event') {
-        // Compaction, command, interrupt, rejected, attachment, mode, queue, hook, effort
-        el.style.display = el.classList.contains('event-group') ? '' : 'none';
-        return;
-      }
-      if (el.classList.contains('marker')) { el.style.display = 'none'; return; }
-      el.style.display = el.classList.contains(activeFilter) ? '' : 'none';
-    });
+    const key = this.getAttribute('data-filter');
+    if (key === 'all') {
+      activeFilters.clear();
+      activeFilters.add('all');
+    } else {
+      activeFilters.delete('all');           // leaving the "all" reset state
+      if (activeFilters.has(key)) activeFilters.delete(key);
+      else activeFilters.add(key);
+      if (activeFilters.size === 0) activeFilters.add('all'); // last one off → reset
+    }
+    applyChatFilters();
   });
 });
 

@@ -5,6 +5,7 @@ const D = "__DATA_PLACEHOLDER__";
 const fmt = n => n.toLocaleString(D.locale.locale_code);
 const fmtUSD = n => '$' + n.toLocaleString(D.locale.locale_code, {minimumFractionDigits:2, maximumFractionDigits:2});
 let planCurrencyMode = (D.plan && D.plan.currency_symbol) ? 'local' : 'usd';
+let costMetricMode = 'usd'; // 'usd' | 'local' | 'tokens' — Costs tab metric toggle
 function planCurrencySymbol() {
   return (D.plan && D.plan.currency_symbol) || '$';
 }
@@ -369,6 +370,38 @@ function calcFilteredPlanCost(filteredDates) {
     cost += (p.plan_cost_usd || 0) * fraction;
   });
   return Math.round(cost * 100) / 100;
+}
+
+// ── Costs tab metric toggle: FX helpers ────────────────────────────────
+// Mirrors Plan & Billing per-cycle FX (extract_stats.py: plan_cost_local / plan_cost_usd).
+function periodFx(p) {
+  return (p && p.plan_cost_local && p.plan_cost_usd) ? p.plan_cost_local / p.plan_cost_usd : null;
+}
+function currentFx() {
+  if (!D.plan) return null;
+  let fx = periodFx(D.plan.current_billing);
+  if (fx) return fx;
+  const ps = D.plan.periods || [];
+  for (let i = ps.length - 1; i >= 0; i--) {
+    fx = periodFx(ps[i]);
+    if (fx) return fx;
+  }
+  return null;
+}
+function fxForDate(dateStr) {
+  if (!D.plan) return null;
+  // periods use start/end, current_billing uses period_start/period_end
+  const all = (D.plan.periods || []).concat(D.plan.current_billing ? [D.plan.current_billing] : []);
+  for (const p of all) {
+    const start = p.start || p.period_start;
+    const end = p.end || p.period_end;
+    if (start && end && start <= dateStr && dateStr <= end) {
+      const fx = periodFx(p);
+      if (fx) return fx;
+      break; // matching period without a rate -> fallback chain
+    }
+  }
+  return currentFx();
 }
 
 function filterData(days, projectFilter) {

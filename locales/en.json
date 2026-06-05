@@ -40,7 +40,7 @@
     "cumulative_label": "Cumulative (API $)",
     "daily_tokens": "Tokens per Day by Model",
     "cumulative_tokens": "Cumulative Tokens",
-    "cumulative_tokens_label": "Cumulative (tokens)",
+    "cumulative_tokens_label": "Cumulative (Tokens)",
     "toggle_tokens": "Tokens",
     "model_dist": "Model Distribution (API Value)",
     "token_type": "API Value by Token Type",

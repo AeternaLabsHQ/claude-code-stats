@@ -965,20 +965,32 @@ function renderIdleGapAggregateCard() {
   const el = document.getElementById('idleGapAggregateCard');
   if (!el) return;
   const agg = (F && F.idle_gap_aggregate) || null;
-  if (!agg || !agg.total_overspend_tokens) {
+  if (!agg || (!agg.total_overspend_tokens && !agg.nogap_flush_count)) {
     el.style.display = 'none';
     return;
   }
   const L = (D && D.locale && D.locale.idleGap) || {};
+  const LF = (D && D.locale && D.locale.cacheFlush) || {};
   const T = {
-    dashTitle: L.dashTitle || 'Idle-Gap-Mehrverbrauch (gesamte Range)',
+    dashTitle: L.dashTitle || 'Idle-gap overhead (full range)',
     sessions:  L.sessions  || 'Sessions',
+    nogapTitle: LF.cardTitle || 'Cache-flush anomalies (no gap)',
+    events: LF.events || 'events',
   };
   const fmtTokensAgg = (n) => n >= 1_000_000 ? (n/1_000_000).toFixed(1) + 'M' : (n >= 1000 ? (n/1000).toFixed(0) + 'k' : String(n));
-  el.innerHTML =
-    '<span class="vc-k">' + T.dashTitle + '</span> ' +
-    '<span class="vc-v">≈ ' + fmtTokensAgg(agg.total_overspend_tokens) + ' Tokens · ≈ $' + (agg.total_overspend_usd || 0).toFixed(2) + ' · ' +
-    (agg.session_count_with_overspend || 0) + ' ' + T.sessions + '</span>';
+  let html = '';
+  if (agg.total_overspend_tokens > 0) {
+    html +=
+      '<div class="vc-idle-row"><span class="vc-k">' + T.dashTitle + '</span> ' +
+      '<span class="vc-v">≈ ' + fmtTokensAgg(agg.total_overspend_tokens) + ' Tokens · ≈ $' + (agg.total_overspend_usd || 0).toFixed(2) + ' · ' +
+      (agg.session_count_with_overspend || 0) + ' ' + T.sessions + '</span></div>';
+  }
+  if (agg.nogap_flush_count > 0) {
+    html +=
+      '<div class="vc-idle-row"><span class="vc-k">' + T.nogapTitle + '</span> ' +
+      '<span class="vc-v">' + agg.nogap_flush_count + ' ' + T.events + ' · ≈ ' + fmtTokensAgg(agg.nogap_rewrite_tokens) + ' Tokens · ≈ $' + (agg.nogap_rewrite_usd || 0).toFixed(2) + '</span></div>';
+  }
+  el.innerHTML = html;
   el.style.display = '';
 }
 
@@ -989,17 +1001,24 @@ const IDLE_GAP_OVERSPEND_USD_PER_M = 3.75;
 function recomputeIdleGapAggregate(filteredSessions) {
   let totalOversp = 0;
   let withOversp = 0;
+  let nogapFlushes = 0;
+  let nogapRewrite = 0;
   for (const s of (filteredSessions || [])) {
     const igs = s.idle_gap_summary;
     if (igs && igs.estimated_overspend_tokens > 0) {
       totalOversp += igs.estimated_overspend_tokens;
       withOversp += 1;
     }
+    nogapFlushes += s.cache_nogap_flush_count || 0;
+    nogapRewrite += s.cache_nogap_rewrite_tokens || 0;
   }
   F.idle_gap_aggregate = {
     total_overspend_tokens: totalOversp,
     total_overspend_usd: Math.round(totalOversp * IDLE_GAP_OVERSPEND_USD_PER_M / 1_000_000 * 100) / 100,
     session_count_with_overspend: withOversp,
+    nogap_flush_count: nogapFlushes,
+    nogap_rewrite_tokens: nogapRewrite,
+    nogap_rewrite_usd: Math.round(nogapRewrite * IDLE_GAP_OVERSPEND_USD_PER_M / 1_000_000 * 100) / 100,
   };
 }
 

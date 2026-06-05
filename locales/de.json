@@ -225,6 +225,13 @@
     "th_edits": "Edits",
     "th_writes": "Writes"
   },
+  "cacheFlush": {
+    "cardTitle": "Cache-Flush-Anomalien (ohne Pause)",
+    "events": "Events",
+    "chart_title": "Cache-Flushes pro Tag",
+    "legend_gap": "TTL/Idle-Gap-Flushes",
+    "legend_nogap": "No-Gap-Anomalien"
+  },
   "idleGap": {
     "title": "Idle Gaps",
     "short": "<5 min",

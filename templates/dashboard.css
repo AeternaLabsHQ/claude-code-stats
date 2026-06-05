@@ -1427,6 +1427,8 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 }
 .vc .vc-idle-aggregate .vc-v,
 .vc .vc-idle-aggregate b { color: var(--vc-fg); }
+.vc .vc-idle-aggregate { flex-direction: column; align-items: flex-start; gap: 6px; }
+.vc .vc-idle-aggregate .vc-idle-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .vc-limits-section { margin: 20px 0; }
 .vc-limits-section h3 { margin-bottom: 12px; }
 .lim-rows { display: flex; flex-direction: column; gap: 2px; }

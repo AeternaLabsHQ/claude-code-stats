@@ -347,8 +347,11 @@ function buildVcChartColors(n) {
 const chartColors = buildVcChartColors(13);
 let currentProjectFilter = '';
 
-function calcFilteredPlanCost(filteredDates) {
-  if (!filteredDates.length || !D.plan) return D.kpi.actual_plan_cost;
+function calcFilteredPlanCost(filteredDates, local) {
+  if (!filteredDates.length || !D.plan) {
+    const base = D.kpi.actual_plan_cost;
+    return local ? base * (currentFx() || 0) : base;
+  }
   const minDate = filteredDates[0];
   const maxDate = filteredDates[filteredDates.length - 1];
   let cost = 0;
@@ -367,7 +370,13 @@ function calcFilteredPlanCost(filteredDates) {
     const msPerDay = 86400000;
     const overlapDays = Math.round((new Date(overlapEnd) - new Date(overlapStart)) / msPerDay) + 1;
     const fraction = Math.min(1, overlapDays / totalDays);
-    cost += (p.plan_cost_usd || 0) * fraction;
+    const usd = p.plan_cost_usd || 0;
+    // local: what the user actually paid (plan_cost_local), falling back to
+    // a current-rate conversion for USD-only periods
+    const amount = local
+      ? (p.plan_cost_local != null ? p.plan_cost_local : usd * (currentFx() || 0))
+      : usd;
+    cost += amount * fraction;
   });
   return Math.round(cost * 100) / 100;
 }
@@ -1018,6 +1027,7 @@ function renderCostMetricToggle() {
       costMetricMode = mode;
       renderCostMetricToggle();
       renderCostCharts(); // does its own defensive chart destroy
+      renderVcKpis();     // money KPI (API equivalent) follows the currency mode
     };
     return b;
   };
@@ -2791,13 +2801,22 @@ function renderVcKpis() {
   const k = (typeof F !== 'undefined' && F.kpi) ? F.kpi : (D && D.kpi) || {};
   if (!k) return;
 
-  const apiEq = k.total_cost || 0;
-  const paid = k.actual_plan_cost || 0;
+  // In local-currency mode the money KPI follows the costs-tab toggle:
+  // API equivalent converts per-day (matches the daily chart), paid uses the
+  // actual local plan costs per period. Tokens mode keeps the USD display.
+  const localMode = costMetricMode === 'local' && typeof F !== 'undefined' && !!currentFx();
+  const fmtMoney = localMode ? costModeFmt : fmtVcUsd;
+  const apiEq = localMode
+    ? (F.daily_costs || []).reduce((a, r) => a + (r.total || 0) * (fxForDate(r.date) || 0), 0)
+    : (k.total_cost || 0);
+  const paid = localMode
+    ? calcFilteredPlanCost((F.daily_costs || []).map(r => r.date), true)
+    : (k.actual_plan_cost || 0);
   const savePct = apiEq > 0 ? ((apiEq - paid) / apiEq * 100) : 0;
   const apiEqEl = document.getElementById('vcKpiApiEq');
-  if (apiEqEl) apiEqEl.textContent = fmtVcUsd(apiEq);
+  if (apiEqEl) apiEqEl.textContent = fmtMoney(apiEq);
   const apiSubEl = document.getElementById('vcKpiApiEqSub');
-  if (apiSubEl) apiSubEl.innerHTML = 'paid <b>' + fmtVcUsd(paid) + '</b> &middot; save <b>' + savePct.toFixed(1) + '%</b>';
+  if (apiSubEl) apiSubEl.innerHTML = 'paid <b>' + fmtMoney(paid) + '</b> &middot; save <b>' + savePct.toFixed(1) + '%</b>';
   const deltaEl = document.getElementById('vcKpiSavePct');
   if (deltaEl) {
     if (savePct >= 0) {

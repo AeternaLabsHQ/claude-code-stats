@@ -35,6 +35,7 @@ in the frontend (`s.model_breakdown` per session, `D.plan` periods for FX).
 | FX rate | **Same mechanism as Plan & Billing**: per-cycle rate `plan_cost_local / plan_cost_usd` from the period matching the date; current cycle's rate as fallback for dates outside known periods. Nothing new invented. |
 | "API Value by Token Type" chart + model table | **Stay USD.** Per-date FX on range aggregates would be imprecise, and the table already has token columns. Possible later extension. |
 | Persistence | None - mode resets on reload, consistent with `planCurrencyMode`. |
+| KPI strip (added 2026-06-05 after browser review) | **API EQUIVALENT card follows the currency mode**: value converts per-day (matches the daily chart sum), "paid" uses actual local plan costs per period (`calcFilteredPlanCost(dates, true)`). Tokens mode keeps the USD display (money metric; tokens have their own card). Toggle onclick re-renders the KPI strip. |
 
 ## Design
 

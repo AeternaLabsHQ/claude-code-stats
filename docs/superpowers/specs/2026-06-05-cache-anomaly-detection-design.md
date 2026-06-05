@@ -44,6 +44,10 @@ March when the TTL was cut).
   (read collapse - distinguishes true invalidation from legitimately large
   incremental writes). `nogap_rewrite_tokens` sums the `cache_creation` of
   those turns (the re-billed context).
+- **Compaction guard** (review finding): turns within 120s of a
+  `compaction_events` timestamp are excluded from the no-gap classification -
+  compaction legitimately rebuilds the cache and would otherwise
+  false-positive as an anomaly. Gap-flush classification is unaffected.
 - Validated against real logs: Mar 18 / Apr 39 / May 60 events; no false
   explosion.
 

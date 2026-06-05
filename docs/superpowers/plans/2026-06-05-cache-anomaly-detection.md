@@ -493,7 +493,7 @@ const { resolve } = require('node:path');
 "
 ```
 
-Expected: final line `OK — cache anomaly detection verified`. Plausibility anchor from the raw-log analysis (2026-06-05): total no-gap events across all months ≈ 130 (Mar 18 / Apr 39 / May 60 / Jun 12, Feb 2); the aggregate should land in that ballpark (sessions in the migration source may add more - more is plausible, zero is not).
+Expected: final line `OK — cache anomaly detection verified`. Plausibility anchor from the raw-log analysis (2026-06-05): the pre-guard estimate was ≈130 no-gap events across all months (Mar 18 / Apr 39 / May 60 / Jun 12, Feb 2). The shipped detector additionally excludes compaction-adjacent rebuilds, so the aggregate should land NOTICEABLY BELOW ≈130 but ABOVE zero (zero would suggest the guard is over-suppressing; >200 would suggest it is not applied).
 
 - [ ] **Step 4: Screenshot the cache section**
 

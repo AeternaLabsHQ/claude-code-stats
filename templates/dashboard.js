@@ -995,6 +995,40 @@ function recomputeIdleGapAggregate(filteredSessions) {
 }
 
 // ── Tab 1: Costs ───────────────────────────────────────────────────────
+// ── Costs tab metric toggle (USD | local currency | Tokens) ───────────
+// Owns #vcCostMeta (updateVcTabMetas leaves it alone). Pattern follows the
+// Plan & Billing currency toggle in renderPlan().
+function renderCostMetricToggle() {
+  const meta = document.getElementById('vcCostMeta');
+  if (!meta) return;
+  meta.innerHTML = '';
+  const activeRange = document.querySelector('.vc-range-btn.active');
+  const range = activeRange ? (activeRange.dataset.days === '0' ? 'all' : activeRange.dataset.days + 'd') : 'all';
+  meta.appendChild(document.createTextNode(range + ' · daily · '));
+  const wrap = document.createElement('span');
+  wrap.style.cssText = 'display:inline-flex;gap:4px;align-items:center;';
+  const mkBtn = (mode, label) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    const on = costMetricMode === mode;
+    b.style.cssText = 'padding:2px 8px;border:1px solid var(--border);background:' + (on ? 'var(--accent)' : 'transparent') + ';color:' + (on ? '#fff' : 'inherit') + ';cursor:pointer;font:inherit;border-radius:0;';
+    b.onclick = () => {
+      if (costMetricMode === mode) return;
+      costMetricMode = mode;
+      renderCostMetricToggle();
+      renderCostCharts(); // does its own defensive chart destroy
+    };
+    return b;
+  };
+  wrap.appendChild(mkBtn('usd', 'USD'));
+  if (D.plan && D.plan.currency_symbol && currentFx()) {
+    wrap.appendChild(mkBtn('local', D.plan.currency_symbol));
+  }
+  wrap.appendChild(mkBtn('tokens', (D.locale.costs && D.locale.costs.toggle_tokens) || 'Tokens'));
+  meta.appendChild(wrap);
+}
+
 // Format a value according to the active costs metric mode.
 function costModeFmt(v) {
   if (costMetricMode === 'tokens') return fmtTokens(v);
@@ -1069,6 +1103,7 @@ function renderCostCharts() {
 }
 
 function renderCosts() {
+  renderCostMetricToggle();
   renderCostCharts();
 
   const cbt = F.cost_by_token_type;
@@ -2904,7 +2939,7 @@ function updateVcTabMetas() {
     const active = document.querySelector('.vc-range-btn.active');
     return active ? (active.dataset.days === '0' ? 'all' : active.dataset.days + 'd') : 'all';
   })();
-  _vcMeta('vcCostMeta', range + ' · daily · USD');
+  // vcCostMeta is owned by renderCostMetricToggle (metric toggle)
   _vcMeta('vcProjectsMeta', (F && F.projects ? F.projects.length : 0) + ' projects · ' + range);
   _vcMeta('vcSessionsMeta', (F && F.sessions ? F.sessions.length : 0) + ' sessions · ' + range);
   // vcPlanMeta is owned by renderPlan (currency toggle)

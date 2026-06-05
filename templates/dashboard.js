@@ -1342,7 +1342,9 @@ function renderCosts() {
       flushByDate[s.date].gap += s.cache_flush_count || 0;
       flushByDate[s.date].nogap += s.cache_nogap_flush_count || 0;
     });
-    const flushDates = Object.keys(flushByDate).sort();
+    const flushDates = Object.keys(flushByDate)
+      .filter(d => flushByDate[d].gap || flushByDate[d].nogap)
+      .sort();
     const LF = (D.locale && D.locale.cacheFlush) || {};
     charts.cacheFlushDaily = new Chart(cfCanvas, {
       type: 'bar',
@@ -1356,7 +1358,7 @@ function renderCosts() {
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } }, tooltip: { mode: 'index', intersect: false } },
-        scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, stacked: true, ticks: { ...scaleDefaults.y.ticks, precision: 0 } } }
+        scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, stacked: true, ticks: { ...scaleDefaults.y.ticks, precision: 0 }, title: { display: true, text: 'Flushes', color: window.__vcFg2 || '#5b6473' } } }
       }
     });
   }

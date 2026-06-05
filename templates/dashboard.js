@@ -412,6 +412,7 @@ function filterData(days, projectFilter) {
 
   // Rebuild daily aggregates from filtered sessions
   const dailyCostMap = {};
+  const dailyTokenMap = {};   // input + output tokens (no cache), per model per day
   const dailyMsgMap = {};
   F.sessions.forEach(s => {
     if (!s.date) return;
@@ -419,13 +420,18 @@ function filterData(days, projectFilter) {
     dailyMsgMap[s.date].messages += s.messages || 0;
     dailyMsgMap[s.date].sessions += 1;
     if (!dailyCostMap[s.date]) dailyCostMap[s.date] = {date: s.date, total: 0};
+    if (!dailyTokenMap[s.date]) dailyTokenMap[s.date] = {date: s.date, total: 0};
     dailyCostMap[s.date].total += s.cost || 0;
     Object.entries(s.model_breakdown || {}).forEach(([model, d]) => {
       dailyCostMap[s.date][model] = (dailyCostMap[s.date][model] || 0) + (d.cost || 0);
+      const tok = (d.input_tokens || 0) + (d.output_tokens || 0);
+      dailyTokenMap[s.date][model] = (dailyTokenMap[s.date][model] || 0) + tok;
+      dailyTokenMap[s.date].total += tok;
     });
   });
   const allDates = [...new Set([...Object.keys(dailyCostMap), ...Object.keys(dailyMsgMap)])].sort();
   F.daily_costs = allDates.map(d => dailyCostMap[d] || {date: d, total: 0});
+  F.daily_tokens = allDates.map(d => dailyTokenMap[d] || {date: d, total: 0});
   F.daily_messages = allDates.map(d => dailyMsgMap[d] || {date: d, messages: 0, sessions: 0});
 
   const cacheEffByDate = {};
@@ -478,6 +484,8 @@ function filterData(days, projectFilter) {
   // Recalculate cumulative costs from filtered daily costs
   let cum = 0;
   F.cumulative_costs = F.daily_costs.map(r => { cum += r.total; return {date: r.date, cost: cum}; });
+  let cumTok = 0;
+  F.cumulative_tokens = F.daily_tokens.map(r => { cumTok += r.total; return {date: r.date, tokens: cumTok}; });
 
   // Recalculate model_summary from filtered sessions
   const modelMap = {};

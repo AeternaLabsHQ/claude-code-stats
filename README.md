@@ -8,12 +8,12 @@ A self-hosted analytics dashboard for [Claude Code](https://docs.anthropic.com/e
 
 <table>
   <tr>
-    <td><a href="docs/images/claude-code-stats-01.jpeg"><img src="docs/images/claude-code-stats-01.jpeg" width="380" alt="KPI Dashboard"></a></td>
-    <td><a href="docs/images/claude-code-stats-02.jpeg"><img src="docs/images/claude-code-stats-02.jpeg" width="380" alt="Token & API Value"></a></td>
+    <td><a href="docs/images/claude-code-stats-01.jpeg"><img src="docs/images/claude-code-stats-01.jpeg" width="380" alt="Token & API Value"></a></td>
+    <td><a href="docs/images/claude-code-stats-02.jpeg"><img src="docs/images/claude-code-stats-02.jpeg" width="380" alt="Plan & Billing"></a></td>
   </tr>
   <tr>
     <td><a href="docs/images/claude-code-stats-06.jpeg"><img src="docs/images/claude-code-stats-06.jpeg" width="380" alt="Sessions"></a></td>
-    <td><a href="docs/images/claude-code-stats-07.jpeg"><img src="docs/images/claude-code-stats-07.jpeg" width="380" alt="Insights"></a></td>
+    <td><a href="docs/images/claude-code-stats-07.jpeg"><img src="docs/images/claude-code-stats-07.jpeg" width="380" alt="Insights & System"></a></td>
   </tr>
 </table>
 

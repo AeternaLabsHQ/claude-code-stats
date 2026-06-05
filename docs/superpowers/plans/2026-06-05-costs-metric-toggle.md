@@ -71,10 +71,10 @@ console.log('aggregated token total:', tokTotal);
 if (!(tokTotal > 0)) throw new Error('F.daily_tokens empty or zero');
 
 // 3. Clicking Tokens switches title, y-axis, and data source
-const titleBefore = await page.textContent('#costsDailyTitle');
+const titleBefore = await page.textContent('#chartDailyCostTitle');
 await page.click('#vcCostMeta button:has-text("Tokens")');
 await page.waitForTimeout(300);
-const titleAfter = await page.textContent('#costsDailyTitle');
+const titleAfter = await page.textContent('#chartDailyCostTitle');
 console.log('daily title:', JSON.stringify(titleBefore), '->', JSON.stringify(titleAfter));
 if (titleAfter === titleBefore) throw new Error('daily <h3> did not switch in tokens mode');
 const yTitle = await page.evaluate(() => charts.dailyCost.options.scales.y.title.text);
@@ -108,7 +108,7 @@ if (btnLabels.length === 3) {
 // 5. Switching back to USD restores the original title
 await page.click('#vcCostMeta button:has-text("USD")');
 await page.waitForTimeout(300);
-const titleRestored = await page.textContent('#costsDailyTitle');
+const titleRestored = await page.textContent('#chartDailyCostTitle');
 if (titleRestored !== titleBefore) throw new Error('USD mode did not restore title');
 
 if (errors.length) throw new Error('browser errors:\n' + errors.join('\n'));
@@ -201,7 +201,7 @@ Line 133, change:
 to:
 
 ```html
-<div class="chart-box"><h3 id="costsDailyTitle">__L_costs_daily_cost__</h3><canvas id="chartDailyCost"></canvas></div>
+<div class="chart-box"><h3 id="chartDailyCostTitle">__L_costs_daily_cost__</h3><canvas id="chartDailyCost"></canvas></div>
 ```
 
 Line 136, change:
@@ -213,13 +213,13 @@ Line 136, change:
 to:
 
 ```html
-<div class="chart-box"><h3 id="costsCumTitle">__L_costs_cumulative__</h3><canvas id="chartCumCost"></canvas></div>
+<div class="chart-box"><h3 id="chartCumCostTitle">__L_costs_cumulative__</h3><canvas id="chartCumCost"></canvas></div>
 ```
 
 - [ ] **Step 2: Verify**
 
 ```bash
-grep -c 'costsDailyTitle\|costsCumTitle' templates/dashboard.html
+grep -c 'chartDailyCostTitle\|chartCumCostTitle' templates/dashboard.html
 ```
 
 Expected: `2`
@@ -471,9 +471,9 @@ function renderCostCharts() {
     ? { ...scaleDefaults.y.ticks, callback: v => fmtTokens(v) }
     : scaleDefaults.y.ticks;
 
-  const dailyTitle = document.getElementById('costsDailyTitle');
+  const dailyTitle = document.getElementById('chartDailyCostTitle');
   if (dailyTitle) dailyTitle.textContent = mode === 'tokens' ? L.daily_tokens : L.daily_cost;
-  const cumTitle = document.getElementById('costsCumTitle');
+  const cumTitle = document.getElementById('chartCumCostTitle');
   if (cumTitle) cumTitle.textContent = mode === 'tokens' ? L.cumulative_tokens : L.cumulative;
 
   charts.dailyCost = new Chart(document.getElementById('chartDailyCost'), {

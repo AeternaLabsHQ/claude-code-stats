@@ -117,7 +117,7 @@ Per mode, `renderCostCharts()` selects:
 | Daily chart `<h3>` | `costs.daily_cost` | `costs.daily_cost` | `costs.daily_tokens` (new) |
 | Cumulative `<h3>` / dataset label | `costs.cumulative` / `costs.cumulative_label` | same | `costs.cumulative_tokens` / `costs.cumulative_tokens_label` (new) |
 
-The two `<h3>` titles get ids (`costsDailyTitle`, `costsCumTitle`) in
+The two `<h3>` titles get ids (`chartDailyCostTitle`, `chartCumCostTitle`) in
 `dashboard.html` so JS can swap their text; the build-time `__L_*__`
 placeholder text remains as the initial (usd) state.
 

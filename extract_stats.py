@@ -1568,7 +1568,8 @@ def summarize_context_window(turns: list[dict], threshold: int = CONTEXT_1M_THRE
     }
 
 
-def _detect_cache_flushes(turns: list[dict], has_1h_cache: bool) -> dict:
+def _detect_cache_flushes(turns: list[dict], has_1h_cache: bool,
+                          compaction_ts_ms: list[int] | None = None) -> dict:
     """Gap-based + no-gap cache-flush detection in one pass.
 
     Gap flush (TTL victim) - unchanged semantics:
@@ -1582,6 +1583,8 @@ def _detect_cache_flushes(turns: list[dict], has_1h_cache: bool) -> dict:
     and the turn's cache_read collapses to under 50% of the previous
     turn's - the cache was rebuilt although it cannot have expired.
     nogap_rewrite_tokens sums the cache_creation of those turns.
+    Turns within 120s of a compaction event are excluded from the
+    no-gap classification - compaction legitimately rebuilds the cache.
     """
     result = {"gap_flushes": 0, "nogap_flushes": 0, "nogap_rewrite_tokens": 0}
     if len(turns) < 3:
@@ -1620,8 +1623,12 @@ def _detect_cache_flushes(turns: list[dict], has_1h_cache: bool) -> dict:
         if gap_ms >= gap_threshold_ms:
             result["gap_flushes"] += 1
         elif prev["cache_read"] > 0 and t["cache_read"] < 0.5 * prev["cache_read"]:
-            result["nogap_flushes"] += 1
-            result["nogap_rewrite_tokens"] += t["cache_creation"]
+            near_compaction = any(
+                abs(t["ts"] - c) < 120_000 for c in (compaction_ts_ms or [])
+            )
+            if not near_compaction:
+                result["nogap_flushes"] += 1
+                result["nogap_rewrite_tokens"] += t["cache_creation"]
 
     return result
 
@@ -2348,7 +2355,18 @@ def parse_session_transcripts():
             m.get("cache_1h_tokens", 0) > 0
             for m in sess.get("models", {}).values()
         )
-        flushes = _detect_cache_flushes(turns, has_1h)
+        compaction_ts_ms = []
+        for ev in sess.get("compaction_events", []):
+            ts = ev.get("timestamp")
+            if not ts:
+                continue
+            try:
+                compaction_ts_ms.append(int(
+                    datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp() * 1000
+                ))
+            except ValueError:
+                continue
+        flushes = _detect_cache_flushes(turns, has_1h, compaction_ts_ms)
         sess["cache_flush_count"] = flushes["gap_flushes"]
         sess["cache_nogap_flush_count"] = flushes["nogap_flushes"]
         sess["cache_nogap_rewrite_tokens"] = flushes["nogap_rewrite_tokens"]

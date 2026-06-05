@@ -61,6 +61,19 @@ class TestDetectCacheFlushes(unittest.TestCase):
         result = _detect_cache_flushes(turns, True)
         self.assertEqual(result["gap_flushes"], 0)
         self.assertEqual(result["nogap_flushes"], 1)
+        self.assertEqual(result["nogap_rewrite_tokens"], 50_000)
+
+    def test_nogap_near_compaction_not_counted(self):
+        # Same anomaly pattern, but a compaction event explains the rebuild
+        turns = steady_session() + [turn(250, 50_000, 500)]
+        result = _detect_cache_flushes(turns, False, compaction_ts_ms=[250 * 1000])
+        self.assertEqual(result["nogap_flushes"], 0)
+        self.assertEqual(result["nogap_rewrite_tokens"], 0)
+
+    def test_gap_flush_unaffected_by_compaction_guard(self):
+        turns = steady_session() + [turn(590, 50_000, 11_000)]
+        result = _detect_cache_flushes(turns, False, compaction_ts_ms=[590 * 1000])
+        self.assertEqual(result["gap_flushes"], 1)
 
 
 if __name__ == "__main__":

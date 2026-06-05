@@ -61,6 +61,7 @@ def test_cache_flush_gap_below_threshold_ignored():
     ]
     result = _detect_cache_flushes(turns, has_1h_cache=False)
     assert result["gap_flushes"] == 0
+    assert result["nogap_flushes"] == 1
 
 
 def test_cache_flush_creation_within_2x_median_ignored():
@@ -92,6 +93,7 @@ def test_cache_flush_1h_cache_uses_60min_threshold():
     ]
     result = _detect_cache_flushes(turns, has_1h_cache=True)
     assert result["gap_flushes"] == 0
+    assert result["nogap_flushes"] == 1
 
 
 def test_cache_flush_multiple_real_pauses_counted():

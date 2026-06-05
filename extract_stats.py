@@ -1568,22 +1568,28 @@ def summarize_context_window(turns: list[dict], threshold: int = CONTEXT_1M_THRE
     }
 
 
-def _detect_cache_flushes(turns: list[dict], has_1h_cache: bool) -> int:
-    """Gap-based flush detection.
+def _detect_cache_flushes(turns: list[dict], has_1h_cache: bool) -> dict:
+    """Gap-based + no-gap cache-flush detection in one pass.
 
-    A turn counts as a cache-flush only if all three conditions hold:
+    Gap flush (TTL victim) - unchanged semantics:
       1. Cache was previously established (post-buildup phase)
       2. Gap since previous turn exceeds the active cache TTL
       3. Turn's cache_creation > 2x rolling median of post-buildup
          cache_creation values (floor: 100 tokens)
+
+    No-gap flush (anomaly; e.g. the 2026 Claude Code mid-work
+    invalidation bugs): conditions 1+3, but the gap is BELOW the TTL
+    and the turn's cache_read collapses to under 50% of the previous
+    turn's - the cache was rebuilt although it cannot have expired.
+    nogap_rewrite_tokens sums the cache_creation of those turns.
     """
+    result = {"gap_flushes": 0, "nogap_flushes": 0, "nogap_rewrite_tokens": 0}
     if len(turns) < 3:
-        return 0
+        return result
 
     gap_threshold_ms = (3600 if has_1h_cache else 300) * 1000
     sorted_turns = sorted(turns, key=lambda t: t["ts"])
 
-    flushes = 0
     buildup_over = False
     creation_history: list[int] = []
 
@@ -1604,17 +1610,20 @@ def _detect_cache_flushes(turns: list[dict], has_1h_cache: bool) -> int:
 
         if not prev:
             continue
-        gap_ms = t["ts"] - prev["ts"]
-        if gap_ms < gap_threshold_ms:
-            continue
-
         if len(creation_history) < 3:
             continue
         median = statistics.median(creation_history[:-1])
-        if t["cache_creation"] > 2 * max(median, 100):
-            flushes += 1
+        if t["cache_creation"] <= 2 * max(median, 100):
+            continue
 
-    return flushes
+        gap_ms = t["ts"] - prev["ts"]
+        if gap_ms >= gap_threshold_ms:
+            result["gap_flushes"] += 1
+        elif prev["cache_read"] > 0 and t["cache_read"] < 0.5 * prev["cache_read"]:
+            result["nogap_flushes"] += 1
+            result["nogap_rewrite_tokens"] += t["cache_creation"]
+
+    return result
 
 
 def _compute_idle_gap_summary(turns: list[dict]) -> dict | None:
@@ -2339,7 +2348,10 @@ def parse_session_transcripts():
             m.get("cache_1h_tokens", 0) > 0
             for m in sess.get("models", {}).values()
         )
-        sess["cache_flush_count"] = _detect_cache_flushes(turns, has_1h)
+        flushes = _detect_cache_flushes(turns, has_1h)
+        sess["cache_flush_count"] = flushes["gap_flushes"]
+        sess["cache_nogap_flush_count"] = flushes["nogap_flushes"]
+        sess["cache_nogap_rewrite_tokens"] = flushes["nogap_rewrite_tokens"]
         sess["idle_gap_summary"] = _compute_idle_gap_summary(turns)
         ctx_window = summarize_context_window(turns)
         sess["peak_context_tokens"] = ctx_window["peak_context_tokens"]
@@ -3221,6 +3233,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "compactions": sess["compactions"],
             "compaction_events": sess["compaction_events"],
             "cache_flush_count": sess.get("cache_flush_count", 0),
+            "cache_nogap_flush_count": sess.get("cache_nogap_flush_count", 0),
+            "cache_nogap_rewrite_tokens": sess.get("cache_nogap_rewrite_tokens", 0),
             "idle_gap_summary": sess.get("idle_gap_summary"),
             "first_prompt": sess["first_prompt"],
             "slug": sess["slug"],

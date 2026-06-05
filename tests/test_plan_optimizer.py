@@ -14,12 +14,12 @@ def _turn(ts_min, cc=0, cr=0):
 
 def test_cache_flush_trivial_session_returns_zero():
     turns = [_turn(0, cc=1000, cr=0), _turn(1, cc=200, cr=800)]
-    assert _detect_cache_flushes(turns, has_1h_cache=False) == 0
+    assert _detect_cache_flushes(turns, has_1h_cache=False)["gap_flushes"] == 0
 
 
 def test_cache_flush_buildup_only_session_returns_zero():
     turns = [_turn(i, cc=1000, cr=0) for i in range(6)]
-    assert _detect_cache_flushes(turns, has_1h_cache=False) == 0
+    assert _detect_cache_flushes(turns, has_1h_cache=False)["gap_flushes"] == 0
 
 
 def test_cache_flush_warm_session_no_gaps_returns_zero():
@@ -31,7 +31,7 @@ def test_cache_flush_warm_session_no_gaps_returns_zero():
         _turn(4, cc=100, cr=2800),
         _turn(5, cc=100, cr=3000),
     ]
-    assert _detect_cache_flushes(turns, has_1h_cache=False) == 0
+    assert _detect_cache_flushes(turns, has_1h_cache=False)["gap_flushes"] == 0
 
 
 def test_cache_flush_single_real_pause_returns_one():
@@ -44,10 +44,12 @@ def test_cache_flush_single_real_pause_returns_one():
         _turn(5, cc=110, cr=2800),
         _turn(15, cc=2000, cr=500),
     ]
-    assert _detect_cache_flushes(turns, has_1h_cache=False) == 1
+    assert _detect_cache_flushes(turns, has_1h_cache=False)["gap_flushes"] == 1
 
 
 def test_cache_flush_gap_below_threshold_ignored():
+    # 7-min gap < 5-min TTL threshold: not a gap flush.
+    # The read collapse makes it a no-gap anomaly (new behavior).
     turns = [
         _turn(0, cc=1000, cr=0),
         _turn(1, cc=500, cr=500),
@@ -57,7 +59,8 @@ def test_cache_flush_gap_below_threshold_ignored():
         _turn(5, cc=110, cr=2800),
         _turn(7, cc=2000, cr=500),
     ]
-    assert _detect_cache_flushes(turns, has_1h_cache=False) == 0
+    result = _detect_cache_flushes(turns, has_1h_cache=False)
+    assert result["gap_flushes"] == 0
 
 
 def test_cache_flush_creation_within_2x_median_ignored():
@@ -70,10 +73,14 @@ def test_cache_flush_creation_within_2x_median_ignored():
         _turn(5, cc=110, cr=2800),
         _turn(15, cc=180, cr=2500),
     ]
-    assert _detect_cache_flushes(turns, has_1h_cache=False) == 0
+    result = _detect_cache_flushes(turns, has_1h_cache=False)
+    assert result["gap_flushes"] == 0
+    assert result["nogap_flushes"] == 0
 
 
 def test_cache_flush_1h_cache_uses_60min_threshold():
+    # 35-min gap < 60-min TTL: not a gap flush.
+    # The read collapse makes it a no-gap anomaly (new behavior).
     turns = [
         _turn(0, cc=1000, cr=0),
         _turn(1, cc=500, cr=500),
@@ -83,7 +90,8 @@ def test_cache_flush_1h_cache_uses_60min_threshold():
         _turn(5, cc=110, cr=2800),
         _turn(35, cc=2000, cr=500),
     ]
-    assert _detect_cache_flushes(turns, has_1h_cache=True) == 0
+    result = _detect_cache_flushes(turns, has_1h_cache=True)
+    assert result["gap_flushes"] == 0
 
 
 def test_cache_flush_multiple_real_pauses_counted():
@@ -99,7 +107,7 @@ def test_cache_flush_multiple_real_pauses_counted():
         _turn(22, cc=100, cr=2900),
         _turn(40, cc=3000, cr=1500),
     ]
-    assert _detect_cache_flushes(turns, has_1h_cache=False) == 2
+    assert _detect_cache_flushes(turns, has_1h_cache=False)["gap_flushes"] == 2
 
 
 # ── Task 2: idle-gap summary ───────────────────────────────────────

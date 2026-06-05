@@ -569,10 +569,8 @@ function renderCostMetricToggle() {
     b.onclick = () => {
       if (costMetricMode === mode) return;
       costMetricMode = mode;
-      if (charts.dailyCost) { charts.dailyCost.destroy(); delete charts.dailyCost; }
-      if (charts.cumCost) { charts.cumCost.destroy(); delete charts.cumCost; }
       renderCostMetricToggle();
-      renderCostCharts();
+      renderCostCharts(); // does its own defensive chart destroy
     };
     return b;
   };

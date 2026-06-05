@@ -2695,6 +2695,9 @@ document.addEventListener('keydown', function(e) {
     document.body.classList.toggle('anon-mode', anonMode);
     // Re-render everything via applyFilter (handles cleanup)
     applyFilter(currentDays);
+    // Top bar USER is set once at load and not covered by applyFilter
+    const topUser = document.getElementById('vcTopUser');
+    if (topUser) topUser.textContent = anonMode ? 'Anonymous' : ((D.account && D.account.name) || '-');
     // Show/hide notification
     let note = document.getElementById('anonNote');
     if (!note) {

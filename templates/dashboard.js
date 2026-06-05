@@ -995,9 +995,36 @@ function recomputeIdleGapAggregate(filteredSessions) {
 }
 
 // ── Tab 1: Costs ───────────────────────────────────────────────────────
-function renderCosts() {
-  const dates = F.daily_costs.map(d => d.date);
+// Format a value according to the active costs metric mode.
+function costModeFmt(v) {
+  if (costMetricMode === 'tokens') return fmtTokens(v);
+  if (costMetricMode === 'local') {
+    return v.toLocaleString(D.locale.locale_code, {minimumFractionDigits: 2, maximumFractionDigits: 2})
+      + ' ' + ((D.plan && D.plan.currency_symbol) || '');
+  }
+  return fmtUSD(v);
+}
+
+// The two metric-switchable charts (daily by model + cumulative).
+// Separate from renderCosts() so the toggle can rebuild just these two.
+function renderCostCharts() {
+  const mode = costMetricMode;
+  const L = D.locale.costs;
   const models = D.models;
+  const dates = F.daily_costs.map(d => d.date);
+  const dailySrc = mode === 'tokens' ? F.daily_tokens : F.daily_costs;
+  const cumSrc = mode === 'tokens' ? F.cumulative_tokens : F.cumulative_costs;
+  const yTitle = mode === 'tokens' ? 'Tokens'
+    : (mode === 'local' ? ((D.plan && D.plan.currency_symbol) || 'USD') : 'USD');
+  const conv = (v, date) => mode === 'local' ? v * (fxForDate(date) || 0) : v;
+  const yTicks = mode === 'tokens'
+    ? { ...scaleDefaults.y.ticks, callback: v => fmtTokens(v) }
+    : scaleDefaults.y.ticks;
+
+  const dailyTitle = document.getElementById('chartDailyCostTitle');
+  if (dailyTitle) dailyTitle.textContent = mode === 'tokens' ? L.daily_tokens : L.daily_cost;
+  const cumTitle = document.getElementById('chartCumCostTitle');
+  if (cumTitle) cumTitle.textContent = mode === 'tokens' ? L.cumulative_tokens : L.cumulative;
 
   charts.dailyCost = new Chart(document.getElementById('chartDailyCost'), {
     type: 'bar',
@@ -1005,29 +1032,39 @@ function renderCosts() {
       labels: dates,
       datasets: models.map(m => ({
         label: m,
-        data: F.daily_costs.map(d => d[m] || 0),
+        data: dailySrc.map(d => conv(d[m] || 0, d.date)),
         backgroundColor: vcModelColor(m),
         borderRadius: 0,
       }))
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } }, tooltip: { mode: 'index', intersect: false } },
-      scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, stacked: true, title: { display: true, text: 'USD', color: window.__vcFg2 || '#5b6473' } } }
+      plugins: {
+        legend: { labels: { color: window.__vcFg2 || '#4d4a42' } },
+        tooltip: { mode: 'index', intersect: false,
+          callbacks: { label: ctx => ctx.dataset.label + ': ' + costModeFmt(ctx.parsed.y) } }
+      },
+      scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, ticks: yTicks, stacked: true, title: { display: true, text: yTitle, color: window.__vcFg2 || '#5b6473' } } }
     }
   });
 
   charts.cumCost = new Chart(document.getElementById('chartCumCost'), {
     type: 'line',
     data: {
-      labels: F.cumulative_costs.map(d => d.date),
-      datasets: [{ label: D.locale.costs.cumulative_label, data: F.cumulative_costs.map(d => d.cost),
+      labels: cumSrc.map(d => d.date),
+      datasets: [{ label: mode === 'tokens' ? L.cumulative_tokens_label : L.cumulative_label,
+        data: cumSrc.map(d => conv(mode === 'tokens' ? d.tokens : d.cost, d.date)),
         borderColor: vcColor(1), backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, title: { display: true, text: 'USD', color: window.__vcFg2 || '#5b6473' } } } }
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => costModeFmt(ctx.parsed.y) } } },
+      scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, ticks: yTicks, title: { display: true, text: yTitle, color: window.__vcFg2 || '#5b6473' } } } }
   });
+}
+
+function renderCosts() {
+  renderCostCharts();
 
   const cbt = F.cost_by_token_type;
   charts.tokenType = new Chart(document.getElementById('chartTokenType'), {

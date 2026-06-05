@@ -1331,6 +1331,36 @@ function renderCosts() {
     });
   }
 
+  // Cache flushes per day: gap = TTL victims (structural), no-gap = anomalies
+  // (e.g. invalidation bugs) - loud color on the actionable series.
+  const cfCanvas = document.getElementById('chartCacheFlushDaily');
+  if (cfCanvas) {
+    const flushByDate = {};
+    F.sessions.forEach(s => {
+      if (!s.date) return;
+      if (!flushByDate[s.date]) flushByDate[s.date] = { gap: 0, nogap: 0 };
+      flushByDate[s.date].gap += s.cache_flush_count || 0;
+      flushByDate[s.date].nogap += s.cache_nogap_flush_count || 0;
+    });
+    const flushDates = Object.keys(flushByDate).sort();
+    const LF = (D.locale && D.locale.cacheFlush) || {};
+    charts.cacheFlushDaily = new Chart(cfCanvas, {
+      type: 'bar',
+      data: {
+        labels: flushDates,
+        datasets: [
+          { label: LF.legend_gap || 'TTL/idle-gap flushes', data: flushDates.map(d => flushByDate[d].gap), backgroundColor: vcRgba(2, 0.45), borderRadius: 0 },
+          { label: LF.legend_nogap || 'No-gap anomalies', data: flushDates.map(d => flushByDate[d].nogap), backgroundColor: vcColor(0), borderRadius: 0 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: window.__vcFg2 || '#4d4a42' } }, tooltip: { mode: 'index', intersect: false } },
+        scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, stacked: true, ticks: { ...scaleDefaults.y.ticks, precision: 0 } } }
+      }
+    });
+  }
+
   renderIdleGapAggregateCard();
 }
 

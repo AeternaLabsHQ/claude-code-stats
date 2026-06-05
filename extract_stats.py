@@ -2364,7 +2364,7 @@ def parse_session_transcripts():
                 compaction_ts_ms.append(int(
                     datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp() * 1000
                 ))
-            except ValueError:
+            except (ValueError, OSError, OverflowError):
                 continue
         flushes = _detect_cache_flushes(turns, has_1h, compaction_ts_ms)
         sess["cache_flush_count"] = flushes["gap_flushes"]

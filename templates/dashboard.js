@@ -1009,6 +1009,10 @@ function costModeFmt(v) {
 // Separate from renderCosts() so the toggle can rebuild just these two.
 function renderCostCharts() {
   const mode = costMetricMode;
+  // Defensive destroy: the metric toggle rebuilds these two without going
+  // through applyFilter()'s bulk chart teardown.
+  if (charts.dailyCost) { charts.dailyCost.destroy(); delete charts.dailyCost; }
+  if (charts.cumCost) { charts.cumCost.destroy(); delete charts.cumCost; }
   const L = D.locale.costs;
   const models = D.models;
   const dates = F.daily_costs.map(d => d.date);
@@ -1016,6 +1020,7 @@ function renderCostCharts() {
   const cumSrc = mode === 'tokens' ? F.cumulative_tokens : F.cumulative_costs;
   const yTitle = mode === 'tokens' ? 'Tokens'
     : (mode === 'local' ? ((D.plan && D.plan.currency_symbol) || 'USD') : 'USD');
+  // fxForDate() can't return null here: the local-mode button is gated on currentFx().
   const conv = (v, date) => mode === 'local' ? v * (fxForDate(date) || 0) : v;
   const yTicks = mode === 'tokens'
     ? { ...scaleDefaults.y.ticks, callback: v => fmtTokens(v) }

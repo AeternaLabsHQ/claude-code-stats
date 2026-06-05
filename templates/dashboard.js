@@ -995,7 +995,8 @@ function renderIdleGapAggregateCard() {
 }
 
 // Sonnet 4.x cache_write_5m rate, used to estimate idle-gap overspend
-// in USD. Update if Anthropic reprices the cache_write_5m tier.
+// and no-gap cache-rewrite costs in USD. Update if Anthropic reprices
+// the cache_write_5m tier.
 const IDLE_GAP_OVERSPEND_USD_PER_M = 3.75;
 
 function recomputeIdleGapAggregate(filteredSessions) {

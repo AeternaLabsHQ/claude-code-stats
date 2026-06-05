@@ -19,12 +19,15 @@ A self-hosted analytics dashboard for [Claude Code](https://docs.anthropic.com/e
 
 Highlights:
 
-- **Cost analytics** - API-equivalent cost, full token breakdown (input / output / cache-read / cache-write), cache efficiency, plan vs. actual usage
+- **Five focused tabs** - Token & API Value, Plan & Billing, Activity & Projects, Sessions, Insights & System; card-based interface with light / dark themes
+- **Cost & token analytics** - API-equivalent cost, full token breakdown (input / output / cache-read / cache-write), cache efficiency, plan vs. actual usage
+- **Metric toggle** - Switch the daily and cumulative charts between USD, your billing currency, and consumed tokens (input + output); the money KPI follows along
+- **Cache health & anomaly detection** - Idle-gap (TTL) overhead tracking plus detection of no-gap cache invalidations like the 2026 Claude Code cache bugs, with a per-day flush chart as an early-warning signal
 - **Session replay & table** - Interactive node-graph with auto-play, plus a searchable, sortable session table with CSV / XLSX / Markdown / ZIP export
 - **Multi-attribute filtering** - Range sliders for tokens, cost, duration, tool calls, agent dispatches, errors; one-click presets and persistent state across reloads
 - **Limits & plan recommendation (beta)** - Detects rate-limit and server-overload events from transcripts, 5-hour rolling-window tracker, empirically calibrated plan-tier suggestion
 - **Per-tool token attribution** - Output tokens and cost broken out by tool per session, plus a separate reasoning bucket; live-recomputed donut on the dashboard
-- **Privacy & theming** - F2 anonymization mode for screenshots, light / dark / system theme, optional `custom.css` for full color overrides without touching source
+- **Privacy & theming** - F2 anonymization mode for screenshots, light / dark / system theme, optional `custom.css` recolors the UI and charts live without touching source
 - **Multi-user / migration** - Merge multiple `~/.claude` directories or import data from old machines; automatic session deduplication
 
 <details>
@@ -35,34 +38,28 @@ Highlights:
 - Global time-range filter (All / 7D / 30D / 90D / 1Y) and project search across the whole dashboard
 - Plan-cost reference rescales proportionally to the selected range
 - Hash-based deep links for tabs (e.g. `index.html#sessions`) survive a full page reload
-- Mobile-responsive layout
+- Mobile-responsive layout; data tables become stacked, labeled cards on small screens
+- Universal column sorting on every data table; resizable columns (drag to size, double-click to auto-fit) on the project and plans tables
 
-#### KPI strip
+#### Token & API Value
 
-- 5-cell KPI strip pinned to the top: total cost, messages, sessions, token breakdown
-- Hover tooltips explain each metric
+- KPI band at the top of the tab: API equivalent (with savings delta), sessions, messages, output tokens, cache hit rate
+- Metric toggle **USD / billing currency / Tokens** for the daily by-model chart and the cumulative chart: the token view counts input + output (cache excluded), the currency view converts with your per-billing-cycle exchange rate, and the API-equivalent KPI follows the selected currency
+- Daily API value by model (stacked), cumulative curve, API value by token type, model detail table
+- Estimated-pricing notice when a model in your data is missing from the price table
 
-#### Cost & token analytics
+#### Plan & Billing
 
-- Daily costs, cumulative costs, model distribution, cost by token type
-- Cache-efficiency per-day box plot to surface day-over-day variance
-- Per-session cache-efficiency badge and flush counter
+- Cost savings analysis vs. your subscription plan: savings, ROI, and cost-per-day per billing cycle
+- Per-billing-cycle slicing (monthly cycles even for annual plans)
+- USD / local-currency toggle
+- Limits timeline integrated into the tab, so rate-limit events appear in billing context
 
-#### Activity
+#### Activity & Projects
 
-- Message patterns: hourly, weekday, sessions per day
 - GitHub-style activity heatmap
-
-#### Agents & errors
-
-- Subagent type distribution
-- Error breakdown by category and tool
-- Task management overview
-
-#### Projects
-
-- Top projects by cost
-- Per-project detail pages with memories and workflow timeline
+- Message patterns: hourly, weekday, daily messages and sessions in one dual-axis chart
+- Top projects table with per-project detail pages including memories and workflow timeline
 
 #### Sessions
 
@@ -72,6 +69,8 @@ Highlights:
 - Active-filter chip row with per-chip clear; state persists across reloads
 - Sortable, resizable session table
 - Per-session detail pages with chat replay and Markdown / CSV / XLSX / ZIP export
+- Per-session cache-efficiency badge and flush counter
+- Chat replay marks errors, compactions, slash commands, interrupts, and rejected tool calls; multi-select event filters, a thinking indicator, and output tokens attributed to each slash command
 
 #### Session flow visualization
 
@@ -98,19 +97,23 @@ Highlights:
 - 5-hour rolling-window tracker (matches Anthropic's enforcement)
 - Weekly hit-count summary
 - Idle-gap correlation with short / medium / long buckets
-- Gap-based cache-flush detection separates real misses from idle gaps
 - Plan-tier recommendation with empirical per-day calibration
 
-#### Insights
+#### Insights & System
 
-- Tool usage, storage breakdown, installed plugins, plan-mode plans
-- File-history and todos
-- Skills and hooks display
+- Numbered sub-navigation: Cache & Tokens, Agents, Errors & Reliability, Tools & Plugins, Storage & Files, Workflows
+- Cache & Tokens: cache-efficiency KPIs and per-day box plot, output-token share by tool, output tokens by activity, plus the cache anomaly card (idle-gap overhead and no-gap flush events) and a "Cache Flushes per Day" chart
+- Cache anomaly detection separates TTL/idle-gap flushes from no-gap invalidations (the cache was rebuilt although it cannot have expired - the pattern behind the 2026 Claude Code cache bugs); compaction rebuilds are excluded to avoid false alarms
+- Agents: subagent type and dispatch distribution, task overview
+- Errors & Reliability: error breakdown by source (backend / tool / user / hook), category, and tool
+- Tools & Plugins: tool usage, installed plugins
+- Storage & Files: storage breakdown, file snapshots, todos
+- Workflows: plan-mode plans table, skills and hooks, git operations
 
 #### Theming & privacy
 
 - Light / dark / system theme toggle
-- Optional `public/custom.css` overrides colors and fonts; the example file ships every build
+- Optional `public/custom.css` overrides colors and fonts; the example file ships every build, and accent changes recolor the UI and charts live without a rebuild
 - F2 anonymization mode (extends to source labels, plan titles, skills, hooks, project memories)
 - Configurable display name, empty-session filter, optional Session Flow hide-switch
 

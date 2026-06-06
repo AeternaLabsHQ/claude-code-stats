@@ -23,11 +23,12 @@ Highlights:
 - **Cost & token analytics** - API-equivalent cost, full token breakdown (input / output / cache-read / cache-write), cache efficiency, plan vs. actual usage
 - **Metric toggle** - Switch the daily and cumulative charts between USD, your billing currency, and consumed tokens (input + output); the money KPI follows along
 - **Cache health & anomaly detection** - Idle-gap (TTL) overhead tracking plus detection of no-gap cache invalidations like the 2026 Claude Code cache bugs, with a per-day flush chart as an early-warning signal
-- **Session replay & table** - Interactive node-graph with auto-play, plus a searchable, sortable session table with CSV / XLSX / Markdown / ZIP export
+- **Session replay & table** - Interactive node-graph with timeline playback, plus a searchable, sortable session table with CSV / XLSX / Markdown / ZIP export
 - **Multi-attribute filtering** - Range sliders for tokens, cost, duration, tool calls, agent dispatches, errors; one-click presets and persistent state across reloads
 - **Limits & plan recommendation (beta)** - Detects rate-limit and server-overload events from transcripts, 5-hour rolling-window tracker, empirically calibrated plan-tier suggestion
 - **Per-tool token attribution** - Output tokens and cost broken out by tool per session, plus a separate reasoning bucket; live-recomputed donut on the dashboard
-- **Privacy & theming** - F2 anonymization mode for screenshots, light / dark / system theme, optional `custom.css` recolors the UI and charts live without touching source
+- **Privacy** - F2 anonymization mode for screenshots, `--no-memories` flag to exclude project memory content
+- **Theming** - Light / dark / system theme, optional `custom.css` recolors the UI and charts live without touching source
 - **Multi-user / migration** - Merge multiple `~/.claude` directories or import data from old machines; automatic session deduplication
 
 <details>
@@ -76,7 +77,7 @@ Highlights:
 
 - Interactive canvas-based replay with node graph and particle animations
 - User node + bidirectional message flow, Chat node with wait-time indicator
-- Auto-play timeline, fullscreen mode, live message and tool-call counters
+- Play/pause timeline (starts paused), fullscreen mode, live message and tool-call counters
 - Theme-aware canvas (grid, nodes, icons switch with the theme)
 
 #### Token attribution
@@ -110,11 +111,15 @@ Highlights:
 - Storage & Files: storage breakdown, file snapshots, todos
 - Workflows: plan-mode plans table, skills and hooks, git operations
 
-#### Theming & privacy
+#### Theming
 
 - Light / dark / system theme toggle
 - Optional `public/custom.css` overrides colors and fonts; the example file ships every build, and accent changes recolor the UI and charts live without a rebuild
+
+#### Privacy
+
 - F2 anonymization mode (extends to source labels, plan titles, skills, hooks, project memories)
+- `--no-memories` flag excludes project memory content from the build
 - Configurable display name, empty-session filter, optional Session Flow hide-switch
 
 </details>

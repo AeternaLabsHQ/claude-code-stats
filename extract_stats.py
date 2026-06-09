@@ -1758,6 +1758,48 @@ def _detect_5h_fingerprint_events(prompts: list[dict]) -> list[dict]:
     return events
 
 
+LIMIT_EVENT_CLUSTER_SEC = 15 * 60  # events closer than this describe one limit hit
+
+
+def _iso_to_ms(s):
+    """ISO-8601 string → epoch ms, or None if unparseable."""
+    try:
+        return int(datetime.fromisoformat(str(s).replace("Z", "+00:00")).timestamp() * 1000)
+    except (ValueError, OSError, AttributeError, TypeError):
+        return None
+
+
+def _dedupe_limit_events(events):
+    """Collapse limit events that describe the same underlying limit hit.
+
+    Parallel sessions surface the same banner within seconds of each other,
+    and retries repeat it minutes later. Sorted by time, an event merges
+    into the current cluster when it is within LIMIT_EVENT_CLUSTER_SEC of
+    the cluster's last event; the earliest event represents the cluster and
+    `merged_count` records how many raw events it absorbed. Events without
+    a parseable timestamp are kept unmerged at the end.
+    """
+    parsed, rest = [], []
+    for ev in events:
+        ms = _iso_to_ms(ev.get("timestamp"))
+        if ms is None:
+            rest.append(ev)
+        else:
+            parsed.append((ms, ev))
+    parsed.sort(key=lambda x: x[0])
+    deduped = []
+    last_ms = None
+    for ms, ev in parsed:
+        if last_ms is not None and ms - last_ms <= LIMIT_EVENT_CLUSTER_SEC * 1000:
+            deduped[-1]["merged_count"] += 1
+        else:
+            ev = dict(ev)
+            ev["merged_count"] = 1
+            deduped.append(ev)
+        last_ms = ms
+    return deduped + rest
+
+
 def parse_session_transcripts():
     """Parse all session JSONL transcripts from all sources."""
     sessions = {}  # session_id -> session_data
@@ -3537,7 +3579,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         sess.pop("user_timestamps", None)
         sess.pop("_pending_text_tokens", None)
 
-    all_limit_events = explicit_events + fingerprint_events
+    all_limit_events = _dedupe_limit_events(explicit_events + fingerprint_events)
     all_limit_events.sort(key=lambda e: e.get("timestamp", ""))
 
     # ── 5h-Window + Weekly aggregation across ALL sessions ──────────────

@@ -1908,14 +1908,24 @@ function renderPlan() {
     const apiVal = planMoneyValue(p, 'api_cost') || 0;
     const planVal = planMoneyValue(p, 'plan_cost') || 0;
     const savingsVal = planMoneyValue(p, 'savings') || 0;
+    // In-progress cycle: show the real period end + elapsed/total days + a
+    // muted projected ROI alongside the actual (so-far) ROI.
+    const cur = p.is_current;
+    const periodEnd = (cur && p.period_end_full) ? p.period_end_full : p.end;
+    const daysVal = (cur && p.days_total_full)
+      ? (p.days_elapsed + ' / ' + p.days_total_full + ' (' + p.days_active + D.locale.plan.active_suffix + ')')
+      : (p.total_days + ' (' + p.days_active + D.locale.plan.active_suffix + ')');
     const cells = [
-      {val: p.start + ' \u2013 ' + p.end, cls:'primary', highlight:false, label:'Period'},
+      {val: p.start + ' \u2013 ' + periodEnd, cls:'primary', highlight:false, label:'Period',
+       badge: cur ? (D.locale.plan.running || 'running') : null},
       {val: p.plan, cls:'', highlight:false, label:'Plan'},
-      {val: p.total_days + ' (' + p.days_active + D.locale.plan.active_suffix + ')', cls:'num', highlight:false, label:'Days'},
+      {val: daysVal, cls:'num', highlight:false, label:'Days'},
       {val: fmtPlanMoney(apiVal), cls:'num', label:'API Cost'},
       {val: fmtPlanMoney(planVal), cls:'num', label:'Plan Cost'},
       {val: fmtPlanMoney(savingsVal), cls:'num', color:'var(--vc-pos)', label:'Savings'},
-      {val: p.roi_factor + 'x', cls:'num', color:'var(--vc-accent)', label:'ROI'},
+      {val: p.roi_factor + 'x', cls:'num', color:'var(--vc-accent)', label:'ROI',
+       sub: (cur && p.projected_roi != null) ? ('\u2192 ' + p.projected_roi + 'x') : null,
+       subTitle: D.locale.plan.projected},
       {val: String(p.sessions), cls:'num', label:'Sessions'},
       {val: fmt(p.messages), cls:'num', label:'Messages'},
     ];
@@ -1925,6 +1935,21 @@ function renderPlan() {
       td.setAttribute('data-label', c.label);
       td.textContent = c.val;
       if (c.color) { td.style.color = c.color; td.style.fontWeight = '600'; }
+      if (c.badge) {
+        td.appendChild(document.createTextNode(' '));
+        const b = document.createElement('span');
+        b.className = 'period-running-badge';
+        b.textContent = c.badge;
+        td.appendChild(b);
+      }
+      if (c.sub) {
+        td.appendChild(document.createTextNode(' '));
+        const s = document.createElement('span');
+        s.className = 'period-roi-proj';
+        s.textContent = c.sub;
+        if (c.subTitle) s.title = c.subTitle;
+        td.appendChild(s);
+      }
       tr.appendChild(td);
     });
     tbody.appendChild(tr);

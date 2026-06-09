@@ -461,6 +461,18 @@ body.anon-mode .anon-blur {
 .vc .progress-stats .stat-item > span:first-child { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--vc-fg-3); }
 .vc .progress-stats .stat-val { font-weight: 700; font-size: 16px; color: var(--vc-fg); font-variant-numeric: tabular-nums; }
 
+/* In-progress period row: "running" marker + muted projected-ROI hint */
+.vc .period-running-badge {
+  font-family: var(--vc-font-sans); font-size: 9.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; font-weight: 700; white-space: nowrap;
+  color: var(--vc-accent); background: var(--vc-accent-soft);
+  padding: 1px 6px; border-radius: var(--vc-radius-pill); vertical-align: middle;
+}
+.vc .period-roi-proj {
+  font-family: var(--vc-font-mono); font-size: 0.85em; font-weight: 500;
+  color: var(--vc-fg-3); white-space: nowrap;
+}
+
 /* Tabs from legacy tabBar (#tabBar inside .vc scope, used as backup) */
 .vc .tabs { display: none; }  /* Hidden — we use .vc-nav-tabs instead */
 

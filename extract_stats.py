@@ -2823,6 +2823,9 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
                 "sessions": session_count,
                 "messages": message_count,
                 "cost_per_day": round(cost_per_day, 2),
+                # In-progress cycle of the open plan: truncated to today here,
+                # enriched with full-period framing after current_billing below.
+                "is_current": ph.get("end") is None and cycle_end == today,
             }
             if fx is not None:
                 period_entry["api_cost_local"] = round(api_cost * fx, 2)
@@ -2928,6 +2931,18 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
         current_billing["projected_cost_local"] = round(projected_cost * current_fx, 2)
         current_billing["savings_local"] = round(current_savings * current_fx, 2)
         current_billing["cost_per_day_local"] = round(current_cost_per_day * current_fx, 2)
+
+    # Enrich the in-progress period row with full-period framing: the real
+    # period end (next billing day − 1), elapsed/total days, and a projected
+    # ROI. The row's money figures stay actual (so-far) so totals stay honest;
+    # only the date/days/ROI gain forward-looking context.
+    for p in periods:
+        if p.get("is_current"):
+            p["period_end_full"] = (billing_end - timedelta(days=1)).strftime("%Y-%m-%d")
+            p["days_total_full"] = days_total
+            p["days_elapsed"] = days_elapsed
+            p["projected_roi"] = round(projected_cost / current_plan_cost_usd, 1) if current_plan_cost_usd > 0 else 0
+            break
 
     # Total savings across all periods
     total_api = sum(p["api_cost"] for p in periods)

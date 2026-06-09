@@ -266,7 +266,7 @@
     "calEmpirical": "empirical",
     "calDefault": "default fallback",
     "calOverride": "config override",
-    "recBasis": "Basis: last {n} cycles ({w} 5h-windows) - tolerance: <={q}% of 5h-windows, <={a} weeks over cap",
+    "recBasis": "Basis: last {n} cycles ({w} 5h-windows) - tolerance: ≤{q}% of 5h-windows, ≤{a} weeks over cap",
     "calFloor": "floored at the most expensive limit-free window",
     "disclaimer": "Hit counts use empirical caps from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 ratio is approximate. Weekly cap is roughly 7 x the 5h cap."
   }

@@ -2081,7 +2081,7 @@ function renderPlanRecommendation() {
     capPerWindow: L.capPerWindow || 'per 5h-window',
     capPerWeek:   L.capPerWeek   || 'per week',
     anchors:      L.anchors      || 'anchor windows',
-    recBasis:     L.recBasis     || 'Basis: last {n} cycles ({w} 5h-windows) - tolerance: <={q}% of 5h-windows, <={a} weeks over cap',
+    recBasis:     L.recBasis     || 'Basis: last {n} cycles ({w} 5h-windows) - tolerance: ≤{q}% of 5h-windows, ≤{a} weeks over cap',
     calFloor:     L.calFloor     || 'floored at the most expensive limit-free window',
     disclaimer:   L.disclaimer   || "Hit counts use empirical caps derived from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 tier ratio is approximate. Weekly cap is estimated as 7 x the 5h cap until a dedicated weekly-limit detector is added.",
   };

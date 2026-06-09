@@ -2861,6 +2861,42 @@ def _expand_billing_cycles(ph, start_str, end_str):
 
 WEEKLY_VS_5H_RATIO = 7  # weekly cap ≈ 7 × 5h-cap (rough — one full 5h-session per day × 7 days)
 
+REC_RECENT_CYCLES = 3         # recommendation looks at the last N billing cycles
+REC_5H_HIT_QUOTA = 0.05       # tier holds if it hits in <=5% of recent 5h-windows
+REC_WEEKLY_HIT_ALLOWANCE = 1  # ...and in at most this many recent weeks
+
+
+def _recommend_tier(rec_cycles):
+    """Cheapest tier whose recent hit rate stays inside the tolerance.
+
+    Only the last REC_RECENT_CYCLES cycles count -- usage from months ago,
+    shaped by a different plan, should not disqualify a tier forever. A
+    tier holds when its 5h hits are <= REC_5H_HIT_QUOTA of the recent
+    window count and its weekly hits are <= REC_WEEKLY_HIT_ALLOWANCE.
+    Returns (recommended_tier_or_None, basis_dict).
+    """
+    recent = rec_cycles[-REC_RECENT_CYCLES:]
+    window_total = sum(c.get("total_5h_windows", 0) for c in recent)
+    tier_5h = {t: sum(c.get("tier_5h_hits", {}).get(t, 0) for c in recent)
+               for t in PLAN_TIER_FACTORS}
+    tier_weekly = {t: sum(c.get("tier_weekly_hits", {}).get(t, 0) for c in recent)
+                   for t in PLAN_TIER_FACTORS}
+    recommended = None
+    for tier in ("Pro", "Max 5x", "Max 20x"):
+        if (tier_5h[tier] <= REC_5H_HIT_QUOTA * window_total
+                and tier_weekly[tier] <= REC_WEEKLY_HIT_ALLOWANCE):
+            recommended = tier
+            break
+    basis = {
+        "recent_cycles": len(recent),
+        "recent_window_total": window_total,
+        "hit_quota": REC_5H_HIT_QUOTA,
+        "weekly_allowance": REC_WEEKLY_HIT_ALLOWANCE,
+        "tier_recent_5h_hits": tier_5h,
+        "tier_recent_weekly_hits": tier_weekly,
+    }
+    return recommended, basis
+
 
 def build_plan_analysis(daily_cost_series, session_list, first_session=None,
                           all_limit_events=None, windows_5h=None, weekly_buckets=None):
@@ -3153,24 +3189,18 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
             "limit_event_count": p.get("limit_event_count", 0),
         })
 
-    # Recommendation: cheapest tier whose total 5h-hits across all cycles
-    # is 0 (or below a small slack). Weekly hits factor in as a tiebreaker:
-    # if multiple tiers have 0 5h-hits, pick the cheapest that also has 0
-    # weekly-hits.
-    SLACK = 0  # zero tolerance — any hit means the tier was insufficient
+    # Totals over all cycles feed the per-cycle tables; the recommendation
+    # itself only looks at recent cycles with a hit-quota tolerance.
     tier_total_5h     = {t: sum(c["tier_5h_hits"].get(t, 0) for c in rec_cycles)
                           for t in PLAN_TIER_FACTORS}
     tier_total_weekly = {t: sum(c["tier_weekly_hits"].get(t, 0) for c in rec_cycles)
                           for t in PLAN_TIER_FACTORS}
-    recommended_tier = None
-    for tier in ("Pro", "Max 5x", "Max 20x"):
-        if tier_total_5h[tier] <= SLACK and tier_total_weekly[tier] <= SLACK:
-            recommended_tier = tier
-            break
+    recommended_tier, rec_basis = _recommend_tier(rec_cycles)
 
     plan_recommendation = {
         "current_tier":     normalized_current,
         "recommended_tier": recommended_tier,
+        "rec_basis": rec_basis,
         "total_cycles":     len(rec_cycles),
         "tier_total_5h_hits":     tier_total_5h,
         "tier_total_weekly_hits": tier_total_weekly,

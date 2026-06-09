@@ -184,3 +184,60 @@ def test_zero_cap_yields_no_cost_hits():
     hits = _count_5h_hits(wins, {"Pro": 0.0, "Max 5x": 0.0, "Max 20x": 0.0},
                           {0: "Max 5x"}, set())
     assert hits == {"Pro": 0, "Max 5x": 0, "Max 20x": 0}
+
+
+from extract_stats import _recommend_tier
+
+ZERO = {"Pro": 0, "Max 5x": 0, "Max 20x": 0}
+
+
+def _cycle(windows, hits5, hitsw):
+    return {"total_5h_windows": windows,
+            "tier_5h_hits": hits5, "tier_weekly_hits": hitsw}
+
+
+def test_recommendation_uses_only_recent_cycles():
+    old = _cycle(50, {"Pro": 50, "Max 5x": 50, "Max 20x": 50}, ZERO)
+    new = _cycle(40, ZERO, ZERO)
+    rec, basis = _recommend_tier([old, new, new, new])
+    assert rec == "Pro"
+    assert basis["recent_cycles"] == 3
+    assert basis["recent_window_total"] == 120
+
+
+def test_recommendation_tolerates_hits_within_quota():
+    # 5 Pro hits of 120 windows = 4.2% <= 5%
+    c = _cycle(40, {"Pro": 5, "Max 5x": 0, "Max 20x": 0}, ZERO)
+    z = _cycle(40, ZERO, ZERO)
+    rec, _ = _recommend_tier([c, z, z])
+    assert rec == "Pro"
+
+
+def test_recommendation_escalates_above_quota():
+    # 30 Pro hits of 120 windows = 25% > 5% -> Pro out, Max 5x holds (1 hit)
+    c = _cycle(40, {"Pro": 30, "Max 5x": 1, "Max 20x": 0}, ZERO)
+    z = _cycle(40, ZERO, ZERO)
+    rec, _ = _recommend_tier([c, z, z])
+    assert rec == "Max 5x"
+
+
+def test_recommendation_weekly_allowance():
+    # Pro: 2 weekly hits > allowance of 1 -> Max 5x (1 weekly hit) holds
+    c = _cycle(40, ZERO, {"Pro": 2, "Max 5x": 1, "Max 20x": 0})
+    z = _cycle(40, ZERO, ZERO)
+    rec, _ = _recommend_tier([c, z, z])
+    assert rec == "Max 5x"
+
+
+def test_recommendation_none_when_even_top_tier_overruns():
+    c = _cycle(40, {"Pro": 40, "Max 5x": 40, "Max 20x": 40}, ZERO)
+    rec, _ = _recommend_tier([c])
+    assert rec is None
+
+
+def test_recommendation_basis_fields():
+    z = _cycle(40, ZERO, ZERO)
+    _, basis = _recommend_tier([z])
+    assert basis["hit_quota"] == 0.05
+    assert basis["weekly_allowance"] == 1
+    assert basis["tier_recent_5h_hits"]["Pro"] == 0

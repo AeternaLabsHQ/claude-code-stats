@@ -140,3 +140,41 @@ def test_config_override_is_never_floored():
     assert info["source"] == "config_override"
     assert info["floor_applied"] is False
     assert info["base_pro_per_window_usd"] == 30.0
+
+
+from extract_stats import _count_5h_hits
+
+CAPS = {"Pro": 23.0, "Max 5x": 115.0, "Max 20x": 460.0}
+
+
+def test_anchor_window_counts_as_hit_on_active_and_cheaper_tiers():
+    # Real limit hit on Max 5x with (proxy) cost below every cap: still a
+    # hit for Max 5x and Pro, but says nothing about Max 20x.
+    wins = [(0, {"cost": 30.0})]
+    hits = _count_5h_hits(wins, CAPS, {0: "Max 5x"}, {0})
+    assert hits == {"Pro": 1, "Max 5x": 1, "Max 20x": 0}
+
+
+def test_cost_above_cap_counts_without_anchor():
+    wins = [(0, {"cost": 120.0})]
+    hits = _count_5h_hits(wins, CAPS, {0: "Max 5x"}, set())
+    assert hits == {"Pro": 1, "Max 5x": 1, "Max 20x": 0}
+
+
+def test_anchor_window_not_double_counted():
+    wins = [(0, {"cost": 120.0})]
+    hits = _count_5h_hits(wins, CAPS, {0: "Max 5x"}, {0})
+    assert hits == {"Pro": 1, "Max 5x": 1, "Max 20x": 0}
+
+
+def test_anchor_on_unknown_tier_falls_back_to_cost_comparison():
+    wins = [(0, {"cost": 30.0})]
+    hits = _count_5h_hits(wins, CAPS, {0: None}, {0})
+    assert hits == {"Pro": 1, "Max 5x": 0, "Max 20x": 0}
+
+
+def test_zero_cap_yields_no_cost_hits():
+    wins = [(0, {"cost": 30.0})]
+    hits = _count_5h_hits(wins, {"Pro": 0.0, "Max 5x": 0.0, "Max 20x": 0.0},
+                          {0: "Max 5x"}, set())
+    assert hits == {"Pro": 0, "Max 5x": 0, "Max 20x": 0}

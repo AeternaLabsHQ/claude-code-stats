@@ -1850,6 +1850,27 @@ def _match_limit_events_to_windows(events, windows):
     return matched
 
 
+def _count_5h_hits(indexed_windows, caps, tier_by_idx, anchor_ids):
+    """Per-tier hit counts for a list of (window_index, window) pairs.
+
+    A window counts as a hit for tier U when its cost exceeds U's cap, OR
+    when it contains a detected limit event and U is not above the tier
+    that was active -- a real hit on the active tier is by definition also
+    a hit on every cheaper tier, regardless of what the USD proxy says.
+    """
+    hits = {}
+    for tier, cap in caps.items():
+        n = 0
+        for i, w in indexed_windows:
+            active = tier_by_idx.get(i)
+            anchored = (i in anchor_ids and active in PLAN_TIER_FACTORS
+                        and PLAN_TIER_FACTORS[tier] <= PLAN_TIER_FACTORS[active])
+            if anchored or (cap > 0 and w["cost"] > cap):
+                n += 1
+        hits[tier] = n
+    return hits
+
+
 def parse_session_transcripts():
     """Parse all session JSONL transcripts from all sources."""
     sessions = {}  # session_id -> session_data
@@ -3111,11 +3132,11 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
     rec_cycles = []
     for p in periods:
         api = p.get("api_cost", 0)
-        cycle_windows = [w for w in windows_5h if _cycle_contains_ts(p, w["start_ts"])]
+        cycle_windows = [(i, w) for i, w in enumerate(windows_5h)
+                         if _cycle_contains_ts(p, w["start_ts"])]
         cycle_weeks   = [b for b in weekly_buckets if _cycle_contains_ts(p, b["week_start_ts"])]
-        hits_5h = {}
-        for tier, cap in cap_info_5h["caps_per_window"].items():
-            hits_5h[tier] = sum(1 for w in cycle_windows if w["cost"] > cap) if cap > 0 else 0
+        hits_5h = _count_5h_hits(cycle_windows, cap_info_5h["caps_per_window"],
+                                 cycle_tier_by_window_idx, limit_event_window_ids)
         hits_weekly = {}
         for tier, cap in cap_info_weekly["caps_per_week"].items():
             hits_weekly[tier] = sum(1 for b in cycle_weeks if b["cost"] > cap) if cap > 0 else 0

@@ -1864,6 +1864,7 @@ def _count_5h_hits(indexed_windows, caps, tier_by_idx, anchor_ids):
         for i, w in indexed_windows:
             active = tier_by_idx.get(i)
             anchored = (i in anchor_ids and active in PLAN_TIER_FACTORS
+                        and tier in PLAN_TIER_FACTORS
                         and PLAN_TIER_FACTORS[tier] <= PLAN_TIER_FACTORS[active])
             if anchored or (cap > 0 and w["cost"] > cap):
                 n += 1

@@ -167,6 +167,12 @@ def test_anchor_window_not_double_counted():
     assert hits == {"Pro": 1, "Max 5x": 1, "Max 20x": 0}
 
 
+def test_anchor_window_on_max_20x_hits_all_tiers():
+    wins = [(0, {"cost": 50.0})]  # cost below every cap
+    hits = _count_5h_hits(wins, CAPS, {0: "Max 20x"}, {0})
+    assert hits == {"Pro": 1, "Max 5x": 1, "Max 20x": 1}
+
+
 def test_anchor_on_unknown_tier_falls_back_to_cost_comparison():
     wins = [(0, {"cost": 30.0})]
     hits = _count_5h_hits(wins, CAPS, {0: None}, {0})

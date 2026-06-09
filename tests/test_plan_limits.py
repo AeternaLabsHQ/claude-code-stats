@@ -96,3 +96,47 @@ def test_event_in_dead_gap_between_windows_matches_nothing():
 def test_event_with_unparseable_timestamp_is_skipped():
     wins = [_win(T0, T0 + 2 * H)]
     assert _match_limit_events_to_windows([_ev("")], wins) == set()
+
+
+from extract_stats import _estimate_5h_window_cap_usd
+
+
+def test_floor_raises_implausibly_low_empirical_base():
+    # Anchor on Max 5x cost $10 -> base $2. But an event-free Max 5x window
+    # cost $115 -- the cap must be at least that, so base floors to 115/5.
+    wins = [{"start_ts": 0, "end_ts": 1, "cost": 10.0},
+            {"start_ts": 2, "end_ts": 3, "cost": 115.0}]
+    tiers = {0: "Max 5x", 1: "Max 5x"}
+    info = _estimate_5h_window_cap_usd(wins, {0}, tiers, None)
+    assert info["floor_applied"] is True
+    assert info["base_pro_per_window_usd"] == 23.0
+    assert info["caps_per_window"]["Max 5x"] == 115.0
+    assert info["source"] == "empirical"
+
+
+def test_floor_not_applied_when_anchor_median_is_higher():
+    wins = [{"start_ts": 0, "end_ts": 1, "cost": 100.0},
+            {"start_ts": 2, "end_ts": 3, "cost": 50.0}]
+    tiers = {0: "Max 5x", 1: "Max 5x"}
+    info = _estimate_5h_window_cap_usd(wins, {0}, tiers, None)
+    assert info["floor_applied"] is False
+    assert info["base_pro_per_window_usd"] == 20.0
+
+
+def test_floor_also_lifts_default_fallback():
+    # No anchors -> default base 100; event-free Pro window of $150 lifts it.
+    wins = [{"start_ts": 0, "end_ts": 1, "cost": 150.0}]
+    tiers = {0: "Pro"}
+    info = _estimate_5h_window_cap_usd(wins, set(), tiers, None)
+    assert info["source"] == "default"
+    assert info["floor_applied"] is True
+    assert info["base_pro_per_window_usd"] == 150.0
+
+
+def test_config_override_is_never_floored():
+    wins = [{"start_ts": 0, "end_ts": 1, "cost": 500.0}]
+    tiers = {0: "Pro"}
+    info = _estimate_5h_window_cap_usd(wins, set(), tiers, 30.0)
+    assert info["source"] == "config_override"
+    assert info["floor_applied"] is False
+    assert info["base_pro_per_window_usd"] == 30.0

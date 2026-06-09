@@ -307,7 +307,10 @@ def _estimate_5h_window_cap_usd(windows, limit_event_window_ids,
     Each limit-hit window's cost ≈ 100% of the cap on the tier that was
     active during that window. Normalise to a Pro baseline by dividing by
     that tier's factor (1.0 for Pro, 5.0 for Max 5x, 20.0 for Max 20x),
-    take the median across all limit-hit windows, then scale.
+    take the median across all limit-hit windows, then scale. The result
+    is floored at the most expensive limit-event-free window per tier
+    (normalised to Pro), since the true cap cannot be below a cost that
+    was actually reached without a cutoff.
 
     override_pro: USD per Pro-tier 5h-window (config override)
     cycle_tier_by_window_id: window_index → normalized tier name (or None)
@@ -335,12 +338,34 @@ def _estimate_5h_window_cap_usd(windows, limit_event_window_ids,
             base = PRO_CAPACITY_USD_DEFAULT
             source = "default"
 
+    # Plausibility floor: the true cap on tier T is at least the cost of
+    # the most expensive window on T that did NOT contain a limit event --
+    # had it been over the cap, it would have been cut off. Anchors biased
+    # low (resume-side windows, misaligned window starts) would otherwise
+    # produce caps the observed data already refutes. A config override is
+    # authoritative and never floored.
+    floor_pro = 0.0
+    for i, w in enumerate(windows):
+        if i in limit_event_window_ids:
+            continue
+        tier = cycle_tier_by_window_id.get(i)
+        factor = PLAN_TIER_FACTORS.get(tier)
+        if not factor or w["cost"] <= 0:
+            continue
+        floor_pro = max(floor_pro, w["cost"] / factor)
+    floor_applied = False
+    if source != "config_override" and floor_pro > base:
+        base = floor_pro
+        floor_applied = True
+
     caps = {t: round(base * f, 2) for t, f in PLAN_TIER_FACTORS.items()}
     return {
         "caps_per_window": caps,
         "base_pro_per_window_usd": round(base, 2),
         "anchor_window_count": len(anchors),
         "source": source,
+        "floor_pro_per_window_usd": round(floor_pro, 2),
+        "floor_applied": floor_applied,
     }
 
 

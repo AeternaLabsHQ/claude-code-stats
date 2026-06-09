@@ -53,3 +53,46 @@ def test_dedupe_does_not_mutate_input():
     evs = [_ev("2026-04-14T13:14:48Z")]
     _dedupe_limit_events(evs)
     assert "merged_count" not in evs[0]
+
+
+from extract_stats import _match_limit_events_to_windows
+
+T0 = 1_750_000_000_000  # arbitrary fixed epoch ms
+H = 3600 * 1000
+
+
+def _iso(ms):
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).isoformat()
+
+
+def _win(start_ms, last_turn_ms, cost=10.0):
+    return {"start_ts": start_ms, "end_ts": last_turn_ms, "cost": cost}
+
+
+def test_fingerprint_event_anchors_pre_gap_window():
+    # Window A active [T0, T0+2h]; limit pause; resume at T0+7h opens window B.
+    # The limited window is A (contains gap_start), NOT B (contains timestamp).
+    wins = [_win(T0, T0 + 2 * H), _win(T0 + 7 * H, T0 + 8 * H)]
+    ev = {"type": "heuristic", "subtype": "5h_fingerprint",
+          "timestamp": _iso(T0 + 7 * H), "gap_start": _iso(T0 + 2 * H),
+          "gap_end": _iso(T0 + 7 * H)}
+    assert _match_limit_events_to_windows([ev], wins) == {0}
+
+
+def test_explicit_banner_after_last_turn_still_anchors_window():
+    # Banner arrives 10 min after the window's last assistant turn but
+    # within the window's 5h span -- must match.
+    wins = [_win(T0, T0 + 2 * H)]
+    ev = _ev(_iso(T0 + 2 * H + 10 * 60 * 1000))
+    assert _match_limit_events_to_windows([ev], wins) == {0}
+
+
+def test_event_in_dead_gap_between_windows_matches_nothing():
+    wins = [_win(T0, T0 + 2 * H), _win(T0 + 9 * H, T0 + 10 * H)]
+    ev = _ev(_iso(T0 + 6 * H))  # after A's 5h span, before B starts
+    assert _match_limit_events_to_windows([ev], wins) == set()
+
+
+def test_event_with_unparseable_timestamp_is_skipped():
+    wins = [_win(T0, T0 + 2 * H)]
+    assert _match_limit_events_to_windows([_ev("")], wins) == set()

@@ -1800,6 +1800,31 @@ def _dedupe_limit_events(events):
     return deduped + rest
 
 
+def _match_limit_events_to_windows(events, windows):
+    """Map limit events to the 5h-window that actually hit the cap.
+
+    Fingerprint events carry the resume time in `timestamp`/`gap_end`; the
+    limited window is the one containing the last activity BEFORE the gap
+    (`gap_start`). Explicit banner events fire inside the limited window
+    but AFTER its last assistant turn, so match against the full
+    [start, start+5h) span rather than [start, last-turn]. Returns the set
+    of matched window indices.
+    """
+    matched = set()
+    for ev in events:
+        if ev.get("subtype") == "5h_fingerprint":
+            ev_ms = _iso_to_ms(ev.get("gap_start"))
+        else:
+            ev_ms = _iso_to_ms(ev.get("timestamp"))
+        if ev_ms is None:
+            continue
+        for i, w in enumerate(windows):
+            if w["start_ts"] <= ev_ms < w["start_ts"] + FIVE_HOUR_MS:
+                matched.add(i)
+                break
+    return matched
+
+
 def parse_session_transcripts():
     """Parse all session JSONL transcripts from all sources."""
     sessions = {}  # session_id -> session_data
@@ -3032,24 +3057,9 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
 
     cycle_tier_by_window_idx = {i: _tier_at_ts(w["start_ts"]) for i, w in enumerate(windows_5h)}
 
-    # Match limit events to windows by timestamp (event.timestamp falls in
-    # [window.start_ts, window.end_ts]). These windows are the calibration
-    # anchors — their cost ≈ 100% of that-tier's 5h cap.
-    def _ts_to_ms(s):
-        try:
-            return int(datetime.fromisoformat(str(s).replace("Z", "+00:00")).timestamp() * 1000)
-        except (ValueError, OSError, AttributeError):
-            return None
-
-    limit_event_window_ids = set()
-    for ev in all_limit_events:
-        ev_ms = _ts_to_ms(ev.get("timestamp") or ev.get("gap_end"))
-        if ev_ms is None:
-            continue
-        for i, w in enumerate(windows_5h):
-            if w["start_ts"] <= ev_ms <= w["end_ts"]:
-                limit_event_window_ids.add(i)
-                break
+    # Match limit events to their calibration-anchor windows -- the windows
+    # whose cost ≈ 100% of the active tier's 5h cap.
+    limit_event_window_ids = _match_limit_events_to_windows(all_limit_events, windows_5h)
 
     cap_info_5h = _estimate_5h_window_cap_usd(
         windows_5h, limit_event_window_ids,

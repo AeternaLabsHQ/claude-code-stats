@@ -2017,7 +2017,8 @@ function renderLimitsEventTimeline() {
         : (ev.confidence === 'high' ? 'evt evt-heuristic-high' : 'evt evt-heuristic-med');
       const tooltip = (ev.type === 'explicit' ? T.explicit : T.heuristic) +
                       ' · ' + (ev.subtype || '') +
-                      ' · ' + (ev.timestamp || ev.gap_end || '');
+                      ' · ' + (ev.timestamp || ev.gap_end || '') +
+                      (ev.merged_count > 1 ? ' · ×' + ev.merged_count : '');
       const titleAttr = tooltip.replace(/"/g, '&quot;');
       const style = 'left:' + pct.toFixed(1) + '%';
       if (ev.session_id) {
@@ -2080,7 +2081,9 @@ function renderPlanRecommendation() {
     capPerWindow: L.capPerWindow || 'per 5h-window',
     capPerWeek:   L.capPerWeek   || 'per week',
     anchors:      L.anchors      || 'anchor windows',
-    disclaimer:   L.disclaimer   || "Hit counts use empirical caps derived from windows that contained an explicit or 5h-fingerprint limit event. Anthropic does not publish exact token limits — the 1:5:20 tier ratio is approximate. Weekly cap is estimated as 7 × the 5h cap until a dedicated weekly-limit detector is added.",
+    recBasis:     L.recBasis     || 'Basis: last {n} cycles ({w} 5h-windows) - tolerance: <={q}% of 5h-windows, <={a} weeks over cap',
+    calFloor:     L.calFloor     || 'floored at the most expensive limit-free window',
+    disclaimer:   L.disclaimer   || "Hit counts use empirical caps derived from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 tier ratio is approximate. Weekly cap is estimated as 7 x the 5h cap until a dedicated weekly-limit detector is added.",
   };
 
   const hitCell = (n) => '<td class="' + (n > 0 ? 'over' : 'under') + '">' + n + '</td>';
@@ -2115,7 +2118,8 @@ function renderPlanRecommendation() {
   const cal5Line = T.cal + ' (5h): ' + calSrc5 + ' — Pro $' + (caps5.Pro || 0).toFixed(2) +
     ' / Max 5x $' + (caps5['Max 5x'] || 0).toFixed(2) +
     ' / Max 20x $' + (caps5['Max 20x'] || 0).toFixed(2) + ' ' + T.capPerWindow +
-    ' (n=' + (cal5.anchor_window_count || 0) + ' ' + T.anchors + ')';
+    ' (n=' + (cal5.anchor_window_count || 0) + ' ' + T.anchors + ')' +
+    (cal5.floor_applied ? ' · ' + T.calFloor : '');
 
   const calW = pr.calibration_weekly || {};
   const capsW = calW.caps_per_week || {};
@@ -2129,6 +2133,14 @@ function renderPlanRecommendation() {
     ? T.rec + ': ' + pr.recommended_tier
     : T.rec + ': ' + T.none;
 
+  const basis = pr.rec_basis || null;
+  const basisLine = basis
+    ? T.recBasis.replace('{n}', basis.recent_cycles)
+                .replace('{w}', basis.recent_window_total)
+                .replace('{q}', Math.round((basis.hit_quota || 0) * 100))
+                .replace('{a}', basis.weekly_allowance)
+    : '';
+
   el.innerHTML =
     '<h3>' + T.title + ' <span class="vc-tag acc">beta</span></h3>' +
     renderTable(T.fiveHHits,  (c) => c.tier_5h_hits || {},     'tier_total_5h_hits') +
@@ -2136,6 +2148,7 @@ function renderPlanRecommendation() {
     '<div class="plan-rec-summary">' +
       '<div>' + T.current + ': ' + (pr.current_tier || '—') + '</div>' +
       '<div>' + recLine + '</div>' +
+      (basisLine ? '<div class="plan-rec-cal">' + basisLine + '</div>' : '') +
       '<div class="plan-rec-cal">' + cal5Line + '</div>' +
       '<div class="plan-rec-cal">' + calWLine + '</div>' +
     '</div>' +

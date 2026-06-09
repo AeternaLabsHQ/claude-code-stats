@@ -266,6 +266,8 @@
     "calEmpirical": "empirisch",
     "calDefault": "Default-Fallback",
     "calOverride": "Override aus config",
-    "disclaimer": "Sch\u00e4tzung basierend auf Anthropic-Faktoren (1:5:20). Anthropic publiziert keine exakten Token-Limits. Tats\u00e4chliche Limits k\u00f6nnen abweichen."
+    "recBasis": "Basis: letzte {n} Zyklen ({w} 5h-Fenster) - Toleranz: <={q}% der 5h-Fenster, <={a} Wochen \u00fcber Cap",
+    "calFloor": "Floor: teuerstes limit-freies Fenster",
+    "disclaimer": "Hit-Z\u00e4hlung nutzt empirische Caps aus Fenstern mit Limit-Event, mindestens aber das teuerste limit-freie Fenster (USD ist ein grober Proxy f\u00fcr Anthropics Limit-Einheiten). Doppelte Events paralleler Sessions werden zusammengef\u00fchrt. Anthropic publiziert keine exakten Limits - der 1:5:20-Faktor ist eine N\u00e4herung. Wochen-Cap ca. 7 x 5h-Cap."
   }
 }

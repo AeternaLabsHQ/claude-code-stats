@@ -2882,6 +2882,8 @@ def _recommend_tier(rec_cycles):
     tier_weekly = {t: sum(c.get("tier_weekly_hits", {}).get(t, 0) for c in recent)
                    for t in PLAN_TIER_FACTORS}
     recommended = None
+    # When window_total == 0, quota == 0.0 and any tier with 0 hits passes;
+    # "Pro" is the cheapest conservative fallback with no usage data.
     for tier in ("Pro", "Max 5x", "Max 20x"):
         if (tier_5h[tier] <= REC_5H_HIT_QUOTA * window_total
                 and tier_weekly[tier] <= REC_WEEKLY_HIT_ALLOWANCE):

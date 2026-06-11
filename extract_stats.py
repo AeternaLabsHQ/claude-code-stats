@@ -371,6 +371,12 @@ def _estimate_5h_window_cap_usd(windows, limit_event_window_ids,
 
 # ── Pricing (USD per 1M tokens) ───────────────────────────────────────────
 PRICING = {
+    # Fable 5 (flagship tier, above Opus)
+    "claude-fable-5": {
+        "input": 10.00, "output": 50.00,
+        "cache_read": 1.00, "cache_write_5m": 12.50, "cache_write_1h": 20.00,
+        "display": "Fable 5"
+    },
     # Claude 4.8
     "claude-opus-4-8": {
         "input": 5.00, "output": 25.00,
@@ -2900,6 +2906,47 @@ def _recommend_tier(rec_cycles):
     return recommended, basis
 
 
+_TIER_PRICE_ORDER = ("Pro", "Max 5x", "Max 20x")
+
+
+def _tier_holds_in_cycle(cycle, tier):
+    """Whether `tier` would have stayed inside tolerance for this one cycle.
+
+    Reuses the same constants as _recommend_tier (REC_5H_HIT_QUOTA,
+    REC_WEEKLY_HIT_ALLOWANCE), applied to this cycle's own window/week
+    counts. Introduces no new threshold.
+    """
+    windows = cycle.get("total_5h_windows", 0)
+    hits_5h = cycle.get("tier_5h_hits", {}).get(tier, 0)
+    hits_weekly = cycle.get("tier_weekly_hits", {}).get(tier, 0)
+    return (hits_5h <= REC_5H_HIT_QUOTA * windows
+            and hits_weekly <= REC_WEEKLY_HIT_ALLOWANCE)
+
+
+def _switch_arrow_for_cycle(cycle, recommended_tier):
+    """Per-cycle switch hint: None | "down" | "up".
+
+    Points from the cycle's active tier toward the globally recommended
+    tier, but only when a switch was actually warranted that cycle:
+      - downgrade ("down"): recommended is cheaper AND held this cycle.
+      - upgrade   ("up"):   recommended is pricier AND the active tier did
+                            NOT hold this cycle.
+    See docs/superpowers/specs/2026-06-10-limits-recommendation-redesign.md.
+    """
+    active = cycle.get("active_tier")
+    if not recommended_tier or not active or active == recommended_tier:
+        return None
+    try:
+        ai = _TIER_PRICE_ORDER.index(active)
+        ri = _TIER_PRICE_ORDER.index(recommended_tier)
+    except ValueError:
+        return None
+    if ri < ai:  # recommended cheaper -> downgrade only if it would have held
+        return "down" if _tier_holds_in_cycle(cycle, recommended_tier) else None
+    # recommended pricier -> upgrade only if the active tier did not hold
+    return "up" if not _tier_holds_in_cycle(cycle, active) else None
+
+
 def build_plan_analysis(daily_cost_series, session_list, first_session=None,
                           all_limit_events=None, windows_5h=None, weekly_buckets=None):
     """Analyze cost savings per plan period and current billing cycle.
@@ -3182,7 +3229,8 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
         rec_cycles.append({
             "cycle_start": p["start"],
             "cycle_end":   p["end"],
-            "label": p["plan"] + " · " + p["start"][:7],
+            "label": p["start"][:7] + " · " + p["plan"],
+            "active_tier": _normalize_tier_name(p["plan"]),
             "api_cost": api,
             "total_5h_windows": len(cycle_windows),
             "total_weeks":      len(cycle_weeks),
@@ -3198,6 +3246,10 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
     tier_total_weekly = {t: sum(c["tier_weekly_hits"].get(t, 0) for c in rec_cycles)
                           for t in PLAN_TIER_FACTORS}
     recommended_tier, rec_basis = _recommend_tier(rec_cycles)
+
+    # Per-cycle switch hint (None | "down" | "up") for the heatmap arrows.
+    for c in rec_cycles:
+        c["switch_arrow"] = _switch_arrow_for_cycle(c, recommended_tier)
 
     plan_recommendation = {
         "current_tier":     normalized_current,

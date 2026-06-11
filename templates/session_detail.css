@@ -270,7 +270,7 @@ html.theme-light body.vc-page {
 
 :root { --bg:#0f1117; --bg2:#1a1d27; --bg3:#242836; --border:#2d3348; --text:#e2e8f0; --text2:#94a3b8; --accent:#6366f1; --accent2:#818cf8; --green:#22c55e; --orange:#f59e0b; --red:#ef4444; --blue:#3b82f6; --purple:#a855f7; --cyan:#06b6d4; --amber:#f59e0b; }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,-apple-system,sans-serif; font-size:14px; }
+body { background:var(--bg); color:var(--text); font-size:14px; }
 a { color:var(--accent2); text-decoration:none; }
 a:hover { text-decoration:underline; }
 .header { background:var(--bg2); border-bottom:1px solid var(--border); padding:16px 24px; max-width:1400px; margin:0 auto; }

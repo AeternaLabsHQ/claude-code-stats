@@ -297,6 +297,9 @@ body.anon-mode .anon-blur {
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+  /* Match the height of the primary label (which carries the delta badge) so
+     every value row starts at the same y and the big numbers share a baseline. */
+  min-height: 19px;
 }
 .vc-kpi-delta {
   background: var(--vc-pos-soft);
@@ -314,8 +317,43 @@ body.anon-mode .anon-blur {
   letter-spacing: -0.02em;
   color: var(--vc-fg);
   line-height: 1;
+  /* Bottom-align every value into a box as tall as the primary (36px) value, so
+     all the big numbers share one baseline with API EQUIVALENT regardless of
+     their own font size. */
+  display: flex;
+  align-items: flex-end;
+  min-height: 36px;
 }
 .vc-kpi-pct { font-size: var(--vc-fs-lg); color: var(--vc-fg-3); margin-left: 2px; }
+/* TOKENS tile: Out and In side by side at the same size as the other tiles'
+   values (30px). A 2x2 grid (values row over captions row) with content-sized
+   columns keeps the pair grouped at the left with a clear gap and the out/in
+   captions under each number. The value row is 36px tall and bottom-aligned so
+   the figures share the same baseline as API EQUIVALENT. */
+.vc-kpi-dual {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: 36px auto;
+  justify-content: start;
+  align-items: end;
+  column-gap: 18px;
+  row-gap: 4px;
+}
+.vc-kpi-dual-val {
+  font-family: var(--vc-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--vc-fg);
+  line-height: 1;
+}
+.vc-kpi-dual-cap {
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--vc-fg-3);
+}
 .vc-kpi-primary .vc-kpi-value {
   font-size: 36px;
   color: var(--vc-accent);
@@ -337,6 +375,9 @@ body.anon-mode .anon-blur {
   /* Shrink the big dollar figures so they stop overflowing the 1-col cell. */
   .vc-kpi-value { font-size: 24px; }
   .vc-kpi-primary .vc-kpi-value { font-size: 28px; }
+  .vc-kpi-dual-val { font-size: 24px; }
+  .vc-kpi-value { min-height: 28px; }
+  .vc-kpi-dual { grid-template-rows: 28px auto; }
 }
 
 /* Variant-C heatmap polish */
@@ -913,6 +954,17 @@ body.vc-page > div[style*="text-align:center"] a {
   white-space: nowrap;
 }
 .vc-tab-h-rule { display: none; }
+.vc-fullrange-hint {
+  font-family: var(--vc-font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--vc-fg-3);
+  margin-left: 8px;
+  vertical-align: middle;
+  white-space: nowrap;
+  cursor: help;
+}
 .vc-tab-h-meta {
   font-family: var(--vc-font-sans);
   font-size: var(--vc-fs-2xs);
@@ -1194,6 +1246,13 @@ body.vc-page > div[style*="text-align:center"] a {
   height: 30px;
   background: var(--vc-panel);
   overflow: hidden;
+  transition: opacity .2s;
+}
+/* Plan & Billing is always full-period; the range filter has no effect there,
+   so it is greyed out and click-disabled while that tab is active. */
+.vc-range.is-muted {
+  opacity: 0.4;
+  pointer-events: none;
 }
 .vc-range-btn {
   padding: 8px 13px;
@@ -1248,7 +1307,7 @@ body.vc-page > div[style*="text-align:center"] a {
   --pink: #ec4899;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,-apple-system,sans-serif; font-size:14px; }
+body { background:var(--bg); color:var(--text); font-size:14px; }
 .header { background:var(--bg2); border-bottom:1px solid var(--border); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
 .header h1 { font-size:20px; font-weight:600; }
 .header h1 span { color:var(--accent2); }
@@ -1316,7 +1375,7 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 }
 .bulk-download-btn:hover:not(:disabled) { background:var(--vc-accent-soft); border-color:var(--vc-accent); color:var(--vc-accent); }
 .bulk-download-btn:disabled { opacity:0.5; cursor:not-allowed; }
-/* The primary "Download all" action gets the accent treatment */
+/* The primary "Download Sessions" action gets the accent treatment */
 #bulkDownloadBtn { background:var(--vc-accent); color:#fff; border-color:transparent; }
 #bulkDownloadBtn:hover:not(:disabled) { background:var(--vc-accent); color:#fff; border-color:transparent; filter:brightness(1.06); }
 .model-badge {
@@ -1344,7 +1403,9 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 .billing-progress { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:24px; }
 .billing-progress h3 { font-size:15px; font-weight:600; margin-bottom:16px; }
 .progress-bar-outer { position:relative; height:26px; border-radius:var(--vc-radius-pill); overflow:hidden; margin:6px 0 18px; background:color-mix(in srgb, var(--vc-fg-2) 12%, transparent); }
-.progress-bar-inner { position:absolute; inset:0 auto 0 0; height:100%; border-radius:var(--vc-radius-pill); background:var(--vc-accent); box-shadow:0 0 14px -2px var(--vc-accent); transition:width .5s; display:flex; align-items:center; justify-content:flex-end; padding-right:10px; min-width:38px; color:#fff; font-family:var(--vc-font-mono); font-size:11px; font-weight:700; }
+.progress-bar-fill { position:absolute; inset:0; border-radius:var(--vc-radius-pill); background:linear-gradient(90deg, var(--vc-pos) 0%, var(--vc-accent) 55%, var(--vc-neg) 100%); transition:clip-path .5s; }
+.progress-bar-marker { position:absolute; top:0; bottom:0; width:2px; transform:translateX(-1px); background:color-mix(in srgb, var(--vc-fg) 75%, transparent); box-shadow:0 0 8px 1px color-mix(in srgb, var(--vc-fg) 35%, transparent); transition:left .5s; }
+.progress-bar-label { position:absolute; top:50%; transform:translate(-50%, -50%); padding:1px 7px; border-radius:var(--vc-radius-pill); background:color-mix(in srgb, var(--vc-bg) 78%, transparent); color:var(--vc-fg); font-family:var(--vc-font-mono); font-size:11px; font-weight:700; pointer-events:none; transition:left .5s; }
 .progress-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:14px 20px; color:var(--vc-fg-2); font-size:var(--vc-fs-xs); }
 .progress-stats .stat-item { display:flex; flex-direction:column; gap:3px; }
 .progress-stats .stat-item > span:first-child { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--vc-fg-3); }
@@ -1493,5 +1554,48 @@ body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui
 #vcPlanMeta button + button { margin-left: -1px; }
 .plan-rec-cal { color: var(--vc-fg-3); font-size: 12px; }
 .plan-rec-disclaimer { margin-top: 16px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--vc-fg-2) 30%, transparent); border-radius: var(--vc-radius-sm); color: var(--vc-fg-2); font-size: 12px; background: color-mix(in srgb, var(--vc-fg-2) 6%, transparent); line-height: 1.6; }
+
+/* ── Recommendation card (promoted to top of Limits section) ──────── */
+.rec-card { position: relative; margin: 4px 0 8px; padding: 16px 18px; border-radius: var(--vc-radius-sm); font-family: var(--vc-font-mono); background: var(--vc-pos-soft); border: 1px solid color-mix(in srgb, var(--vc-pos) 30%, transparent); border-left: 3px solid var(--vc-pos); }
+.rec-card .vc-tag { position: absolute; top: 13px; right: 14px; }
+.rec-card-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--vc-fg-2); }
+.rec-card-value { font-size: 22px; font-weight: 600; color: var(--vc-pos); margin-top: 3px; }
+.rec-card-sub { font-size: 12px; color: var(--vc-fg-2); margin-top: 7px; line-height: 1.5; }
+.rec-card--none { background: color-mix(in srgb, var(--vc-fg-2) 8%, transparent); border-color: color-mix(in srgb, var(--vc-fg-2) 25%, transparent); border-left-color: var(--vc-fg-2); }
+.rec-card--none .rec-card-value { color: var(--vc-fg); font-size: 16px; }
+
+/* ── Per-cycle hit heatmap (replaces the plain hit tables) ────────── */
+/* 5h and weekly hit tables sit side by side as a compact pair (content width);
+   they wrap to a stack only on narrow viewports. */
+.ph-tables { display: flex; flex-wrap: wrap; gap: 16px 56px; align-items: flex-start; }
+.ph-block { min-width: 0; }
+.ph-tables .ph-title { margin-top: 4px; }
+.ph-title { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vc-pos); margin: 16px 0 6px; }
+/* font-size bumped vs the page's 12.5px sans tables because the mono face reads
+   visually smaller at the same px; 14px mono matches the surrounding text. */
+.ph-table { border-collapse: separate; border-spacing: 0 4px; font-family: var(--vc-font-mono); font-size: 14px; }
+.ph-table .ph-cell, .ph-table .ph-th { min-width: 56px; }
+.ph-table .ph-cyc { text-align: left; color: var(--vc-fg-2); white-space: nowrap; padding: 6px 4px 6px 4px; }
+.ph-th { text-align: right; padding: 2px 9px; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vc-fg-3); vertical-align: bottom; }
+.ph-th.rec { color: var(--vc-pos); }
+.ph-tag { display: inline-block; font-size: 9px; font-weight: 600; }
+.ph-tag.rec { color: var(--vc-pos); }
+.ph-tag.cur { color: var(--vc-fg-2); }
+.ph-gut { width: 20px; text-align: center; }
+.ph-arrow { font-weight: 700; font-size: 13px; line-height: 1; }
+.ph-arrow.down { color: var(--vc-pos); }
+.ph-arrow.up { color: var(--vc-accent); }
+.ph-cell { text-align: right; padding: 6px 9px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.ph-cell.h0 { color: color-mix(in srgb, var(--vc-fg-3) 55%, transparent); }
+.ph-cell.h1 { background: color-mix(in srgb, var(--vc-accent) 14%, transparent); color: color-mix(in srgb, var(--vc-accent) 78%, var(--vc-fg)); }
+.ph-cell.h2 { background: color-mix(in srgb, var(--vc-accent) 26%, transparent); color: color-mix(in srgb, var(--vc-accent) 92%, var(--vc-fg)); }
+.ph-cell.h3 { background: color-mix(in srgb, var(--vc-neg) 30%, transparent); color: color-mix(in srgb, var(--vc-neg) 88%, var(--vc-fg)); }
+.ph-cell.rec { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vc-pos) 30%, transparent); }
+.ph-cell.active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vc-fg-2) 24%, transparent); }
+.ph-cell.rec.active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vc-pos) 55%, transparent); }
+.ph-tot .ph-cell { background: transparent; box-shadow: none; font-weight: 600; padding-top: 9px; }
+.ph-tot .ph-cyc { text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; color: var(--vc-fg); padding-top: 9px; }
+.plan-rec-fineprint { margin-top: 16px; }
+@media (max-width: 640px) { .ph-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; } }
 .model-pricing-notice { margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--amber); border-radius: 3px; color: var(--text); font-size: 13px; background: rgba(176, 74, 47, 0.08); }
 .model-pricing-notice strong { font-weight: 600; }

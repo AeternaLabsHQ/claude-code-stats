@@ -44,6 +44,7 @@
     "toggle_tokens": "Tokens",
     "model_dist": "Modell-Verteilung (API-Wert)",
     "token_type": "API-Wert nach Token-Typ",
+    "token_type_tokens": "Tokens nach Typ",
     "model_detail": "Modell-Detail",
     "th_model": "Modell",
     "th_api_value": "API-Wert",

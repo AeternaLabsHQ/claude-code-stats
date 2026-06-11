@@ -103,10 +103,14 @@
           <div class="vc-kpi-value" id="vcKpiApiEq">$0.00</div>
           <div class="vc-kpi-sub" id="vcKpiApiEqSub">paid <b>$0.00</b> &middot; save <b>0.0%</b></div>
         </div>
-        <div class="vc-kpi">
-          <div class="vc-kpi-label">SESSIONS</div>
-          <div class="vc-kpi-value" id="vcKpiSessions">0</div>
-          <div class="vc-kpi-sub" id="vcKpiSessionsSub">avg <b>0m</b></div>
+        <div class="vc-kpi vc-kpi-tokens">
+          <div class="vc-kpi-label">TOKENS</div>
+          <div class="vc-kpi-dual">
+            <div class="vc-kpi-dual-val" id="vcKpiOutput">0</div>
+            <div class="vc-kpi-dual-val" id="vcKpiInput">0</div>
+            <div class="vc-kpi-dual-cap">out</div>
+            <div class="vc-kpi-dual-cap">in</div>
+          </div>
         </div>
         <div class="vc-kpi">
           <div class="vc-kpi-label">MESSAGES</div>
@@ -114,9 +118,9 @@
           <div class="vc-kpi-sub" id="vcKpiMessagesSub"><b>0</b>/session</div>
         </div>
         <div class="vc-kpi">
-          <div class="vc-kpi-label">OUTPUT TOKENS</div>
-          <div class="vc-kpi-value" id="vcKpiOutput">0</div>
-          <div class="vc-kpi-sub" id="vcKpiOutputSub">in <b>0</b></div>
+          <div class="vc-kpi-label">SESSIONS</div>
+          <div class="vc-kpi-value" id="vcKpiSessions">0</div>
+          <div class="vc-kpi-sub" id="vcKpiSessionsSub"><b>0</b>/day</div>
         </div>
         <div class="vc-kpi">
           <div class="vc-kpi-label">CACHE HIT</div>
@@ -133,7 +137,7 @@
       <div class="chart-box"><h3 id="chartCumCostTitle">__L_costs_cumulative__</h3><canvas id="chartCumCost"></canvas></div>
     </div>
     <div class="chart-grid">
-      <div class="chart-box"><h3>__L_costs_token_type__</h3><canvas id="chartTokenType"></canvas></div>
+      <div class="chart-box"><h3 id="chartTokenTypeTitle">__L_costs_token_type__</h3><canvas id="chartTokenType"></canvas></div>
       <div class="chart-box">
         <h3>__L_costs_model_detail__</h3>
         <div id="modelPricingNotice"></div>
@@ -217,9 +221,7 @@
         <select id="filterProject"><option value="">__L_sessions_tab_all_projects__</option></select>
         <select id="filterSource"><option value="">All Sources</option></select>
         <input type="text" id="filterSearch" placeholder="__L_sessions_tab_search_placeholder__">
-        <button id="exportXlsxBtn" class="bulk-download-btn" style="margin-left:auto" title="Export all currently filtered sessions as XLSX (Excel)">&#11015; XLSX</button>
-        <button id="exportCsvBtn" class="bulk-download-btn" title="Export all currently filtered sessions as CSV">&#11015; CSV</button>
-        <button id="bulkDownloadBtn" class="bulk-download-btn" title="Download all currently filtered sessions as a ZIP of Markdown files">&#11015; Download all (0)</button>
+        <button id="bulkDownloadBtn" class="bulk-download-btn" style="margin-left:auto" title="Download all currently filtered sessions as a ZIP of Markdown files">&#11015; Download Sessions (0)</button>
       </div>
       <div id="sessionFiltersMount"></div>
       <div id="sessionTableMount"></div>
@@ -228,7 +230,7 @@
 
   <div class="tab-content" id="tab-plan">
     <div class="vc-tab-h">
-      <div class="vc-tab-h-title">Plan &amp; Billing</div>
+      <div class="vc-tab-h-title">Plan &amp; Billing <span class="vc-fullrange-hint" title="The range filter (All / 7D / 30D …) does not apply here. Plan &amp; Billing always reflects the full tracked billing period.">&#9432; always full period</span></div>
       <div class="vc-tab-h-rule"></div>
       <div class="vc-tab-h-meta" id="vcPlanMeta"></div>
     </div>
@@ -256,6 +258,9 @@
       <div class="vc-sect-h-title">Limits &amp; Recommendation</div>
       <div class="vc-sect-h-rule"></div>
       <div class="vc-sect-h-meta" id="vcLimitsMeta"></div>
+    </div>
+    <div id="limitsRecCard" class="vc-limits-section">
+      <!-- populated by renderRecommendationCard() -->
     </div>
     <div id="limitsEventTimeline" class="vc-limits-section chart-box">
       <!-- populated by renderLimits() -->

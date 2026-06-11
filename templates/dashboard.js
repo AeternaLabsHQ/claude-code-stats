@@ -130,6 +130,7 @@ function _vcHexRgba(color, alpha) {
 // distinguishable, with three lightness steps per family for versions.
 // Unknown / unmatched models fall back to a neutral warm gray.
 const _VC_MODEL_LIGHT = {
+  'Fable 5':    '#c46786',
   'Opus 4.8':   '#c95a3a',
   'Opus 4.7':   '#b04a2f',
   'Opus 4.6':   '#8e3b25',
@@ -142,6 +143,7 @@ const _VC_MODEL_LIGHT = {
   'Unknown':    '#7a766b',
 };
 const _VC_MODEL_DARK = {
+  'Fable 5':    '#d98fa8',
   'Opus 4.8':   '#e88a66',
   'Opus 4.7':   '#d97757',
   'Opus 4.6':   '#bb5e3f',
@@ -153,8 +155,8 @@ const _VC_MODEL_DARK = {
   'Haiku 3.5':  '#b48742',
   'Unknown':    '#9e9a8c',
 };
-const _VC_FAMILY_FALLBACK_LIGHT = { opus: '#b04a2f', sonnet: '#5b8a7a', haiku: '#c89a4a' };
-const _VC_FAMILY_FALLBACK_DARK  = { opus: '#d97757', sonnet: '#7eb09e', haiku: '#d4a55c' };
+const _VC_FAMILY_FALLBACK_LIGHT = { fable: '#c46786', opus: '#b04a2f', sonnet: '#5b8a7a', haiku: '#c89a4a' };
+const _VC_FAMILY_FALLBACK_DARK  = { fable: '#d98fa8', opus: '#d97757', sonnet: '#7eb09e', haiku: '#d4a55c' };
 function vcModelColor(modelName) {
   const isDark = vcCurrentPalette() === _VC_PALETTE_DARK;
   const map = isDark ? _VC_MODEL_DARK : _VC_MODEL_LIGHT;
@@ -162,6 +164,7 @@ function vcModelColor(modelName) {
   if (!modelName) return map['Unknown'];
   if (map[modelName]) return map[modelName];
   const lower = String(modelName).toLowerCase();
+  if (lower.includes('fable'))  return fam.fable;
   if (lower.includes('opus'))   return fam.opus;
   if (lower.includes('sonnet')) return fam.sonnet;
   if (lower.includes('haiku'))  return fam.haiku;
@@ -171,7 +174,7 @@ function vcModelColor(modelName) {
 const MODEL_COLORS = {
   get _proxy() { return true; },
 };
-['Opus 4.8', 'Opus 4.7', 'Opus 4.6', 'Opus 4.5', 'Sonnet 4.6', 'Sonnet 4.5', 'Sonnet 4.0', 'Haiku 4.5', 'Haiku 3.5', 'Unknown'].forEach(m => {
+['Fable 5', 'Opus 4.8', 'Opus 4.7', 'Opus 4.6', 'Opus 4.5', 'Sonnet 4.6', 'Sonnet 4.5', 'Sonnet 4.0', 'Haiku 4.5', 'Haiku 3.5', 'Unknown'].forEach(m => {
   Object.defineProperty(MODEL_COLORS, m, { get() { return vcModelColor(m); }, enumerable: true });
 });
 
@@ -943,6 +946,15 @@ function activateTabByName(name, updateHash) {
   if (target) target.classList.add('active');
   const vc = document.querySelector('.vc-tab[data-tab="' + name + '"]');
   if (vc) vc.classList.add('active');
+  // Plan & Billing is inherently full-period (driven by D.plan, not the
+  // filtered set F), so the range filter has no effect there — grey it out and
+  // disable clicks while that tab is active.
+  const rangeEl = document.getElementById('vcRange');
+  if (rangeEl) {
+    const muted = name === 'plan';
+    rangeEl.classList.toggle('is-muted', muted);
+    rangeEl.title = muted ? 'Range filter does not apply to Plan & Billing (always full period)' : '';
+  }
   if (updateHash) {
     const newHash = '#' + name;
     if (location.hash !== newHash) {
@@ -1069,6 +1081,44 @@ function costModeFmt(v) {
   return fmtUSD(v);
 }
 
+// Dashed vertical markers at each Tuesday — the weekly API-limit resets run
+// Tue→Tue, so these line the daily/cumulative charts up with the billing weeks.
+// Reads the chart's category x labels (YYYY-MM-DD). The line is drawn on the
+// boundary *between* Monday and Tuesday so it sits at the start of the new week.
+const weekResetMarkerPlugin = {
+  id: 'weekResetMarker',
+  afterDatasetsDraw(chart) {
+    const xScale = chart.scales.x;
+    const labels = chart.data.labels;
+    if (!xScale || !labels || !labels.length) return;
+    const { ctx, chartArea } = chart;
+    const n = labels.length;
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = window.__vcFg3 || '#918a7a';
+    ctx.globalAlpha = 0.55;
+    for (let i = 0; i < n; i++) {
+      const parts = String(labels[i]).split('-');
+      if (parts.length !== 3) continue;
+      // Construct in local time (not UTC) so getDay() matches the displayed date.
+      const dt = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+      if (dt.getDay() !== 2) continue;            // 2 = Tuesday
+      const cur = xScale.getPixelForValue(i);
+      // Boundary = midpoint to the previous day; for i===0 mirror the step.
+      let x = i > 0 ? (xScale.getPixelForValue(i - 1) + cur) / 2
+                    : (n > 1 ? cur - (xScale.getPixelForValue(1) - cur) / 2 : cur);
+      x = Math.round(x) + 0.5;                     // crisp 1px line
+      if (x < chartArea.left || x > chartArea.right) continue;
+      ctx.beginPath();
+      ctx.moveTo(x, chartArea.top);
+      ctx.lineTo(x, chartArea.bottom);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+};
+
 // The two metric-switchable charts (daily by model + cumulative).
 // Separate from renderCosts() so the toggle can rebuild just these two.
 function renderCostCharts() {
@@ -1097,6 +1147,7 @@ function renderCostCharts() {
 
   charts.dailyCost = new Chart(document.getElementById('chartDailyCost'), {
     type: 'bar',
+    plugins: [weekResetMarkerPlugin],
     data: {
       labels: dates,
       datasets: models.map(m => ({
@@ -1119,6 +1170,7 @@ function renderCostCharts() {
 
   charts.cumCost = new Chart(document.getElementById('chartCumCost'), {
     type: 'line',
+    plugins: [weekResetMarkerPlugin],
     data: {
       labels: cumSrc.map(d => d.date),
       datasets: [{ label: mode === 'tokens' ? L.cumulative_tokens_label : L.cumulative_label,
@@ -1130,24 +1182,42 @@ function renderCostCharts() {
         tooltip: { callbacks: { label: ctx => costModeFmt(ctx.parsed.y) } } },
       scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, ticks: yTicks, title: { display: true, text: yTitle, color: window.__vcFg2 || '#5b6473' } } } }
   });
+
+  // API value by token type — follows the same USD|local|Tokens toggle as the
+  // two charts above. cost_by_token_type is an all-time aggregate (no per-date
+  // FX), so local mode uses the blended currentFx(); tokens mode sums the raw
+  // per-type token counts from the filtered sessions.
+  if (charts.tokenType) { charts.tokenType.destroy(); delete charts.tokenType; }
+  const ttTitle = document.getElementById('chartTokenTypeTitle');
+  if (ttTitle) ttTitle.textContent = mode === 'tokens' ? (L.token_type_tokens || L.token_type) : L.token_type;
+  const cbt = F.cost_by_token_type;
+  let ttData, ttAxisTitle;
+  if (mode === 'tokens') {
+    const sumTok = field => F.sessions.reduce((s, se) => s + (se[field] || 0), 0);
+    ttData = [sumTok('input_tokens'), sumTok('output_tokens'), sumTok('cache_read_tokens'), sumTok('cache_write_tokens')];
+    ttAxisTitle = 'Tokens';
+  } else {
+    const fx = mode === 'local' ? (currentFx() || 1) : 1;
+    ttData = [cbt.input * fx, cbt.output * fx, cbt.cache_read * fx, cbt.cache_write * fx];
+    ttAxisTitle = mode === 'local' ? ((D.plan && D.plan.currency_symbol) || 'USD') : 'USD';
+  }
+  charts.tokenType = new Chart(document.getElementById('chartTokenType'), {
+    type: 'bar',
+    data: {
+      labels: ['Input', 'Output', 'Cache Read', 'Cache Write'],
+      datasets: [{ data: ttData,
+        backgroundColor: [vcColor(0), vcRgba(0, 0.7), vcColor(1), vcColor(2)], borderRadius: 0 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => costModeFmt(ctx.parsed.x) } } },
+      scales: { x: { ...scaleDefaults.x, ticks: mode === 'tokens' ? { ...scaleDefaults.x.ticks, callback: v => fmtTokens(v) } : scaleDefaults.x.ticks, title: { display: true, text: ttAxisTitle, color: window.__vcFg2 || '#5b6473' } }, y: scaleDefaults.y } }
+  });
 }
 
 function renderCosts() {
   renderCostMetricToggle();
   renderCostCharts();
-
-  const cbt = F.cost_by_token_type;
-  charts.tokenType = new Chart(document.getElementById('chartTokenType'), {
-    type: 'bar',
-    data: {
-      labels: ['Input', 'Output', 'Cache Read', 'Cache Write'],
-      datasets: [{ data: [cbt.input, cbt.output, cbt.cache_read, cbt.cache_write],
-        backgroundColor: [vcColor(0), vcRgba(0, 0.7), vcColor(1), vcColor(2)], borderRadius: 0 }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
-      plugins: { legend: { display: false } },
-      scales: { x: { ...scaleDefaults.x, title: { display: true, text: 'USD', color: window.__vcFg2 || '#5b6473' } }, y: scaleDefaults.y } }
-  });
 
   // Pricing notice: Claude models seen in the data with no PRICING entry, so
   // their cost is only estimated. pricing_warnings is global (not filtered).
@@ -1678,7 +1748,7 @@ function renderSessions() {
       anonName: anonName,
       anonSource: anonSource,
       hideChatInAnon: true,
-      showExportButtons: false,
+      showExportButtons: true,
       onChange: updateBulkBtnLabel
     });
   } else {
@@ -1692,7 +1762,7 @@ function updateBulkBtnLabel() {
   if (!btn) return;
   const n = sessionTable ? sessionTable.getFiltered().length : getFilteredSessions().length;
   if (!btn.dataset.busy) {
-    btn.textContent = '⬇ Download all (' + n + ')';
+    btn.textContent = '⬇ Download Sessions (' + n + ')';
     btn.disabled = (n === 0);
   }
 }
@@ -1828,18 +1898,24 @@ function renderPlan() {
   const bp = document.getElementById('billingProgress');
   bp.innerHTML = '';
   const pct = Math.min(100, Math.round(cb.days_elapsed / cb.days_total * 100));
-  const barColor = cb.api_cost > cb.plan_cost_usd * 0.8 ? 'var(--green)' : 'var(--accent)';
 
   const h3 = document.createElement('h3');
   h3.textContent = D.locale.plan.billing_period + ' (' + cb.period_start + ' – ' + cb.period_end + ')';
   bp.appendChild(h3);
 
+  // Progress reveals a fixed green→amber→red scale up to the current point in
+  // the cycle. clip-path keeps the gradient sized to the full track, so the
+  // boundary color reflects how far through the period we are (green early,
+  // red late). The unrevealed right portion shows the bare track.
   const outer = document.createElement('div'); outer.className = 'progress-bar-outer';
-  const inner = document.createElement('div'); inner.className = 'progress-bar-inner';
-  inner.style.width = pct + '%';
-  inner.style.background = 'linear-gradient(90deg, var(--accent), ' + barColor + ')';
-  inner.textContent = pct + '%';
-  outer.appendChild(inner);
+  const fill = document.createElement('div'); fill.className = 'progress-bar-fill';
+  fill.style.clipPath = 'inset(0 ' + (100 - pct) + '% 0 0)';
+  const marker = document.createElement('div'); marker.className = 'progress-bar-marker';
+  marker.style.left = pct + '%';
+  const label = document.createElement('div'); label.className = 'progress-bar-label';
+  label.style.left = Math.min(92, Math.max(8, pct)) + '%';
+  label.textContent = pct + '%';
+  outer.appendChild(fill); outer.appendChild(marker); outer.appendChild(label);
   bp.appendChild(outer);
 
   const stats = document.createElement('div'); stats.className = 'progress-stats';
@@ -1982,8 +2058,57 @@ function renderPlan() {
 
 // ── Tab: Limits (Tasks 3+4) ────────────────────────────────────────
 function renderLimits() {
+  renderRecommendationCard();
   renderLimitsEventTimeline();
   renderPlanRecommendation();
+}
+
+// The recommendation headline, promoted to the top of the Limits section.
+function renderRecommendationCard() {
+  const el = document.getElementById('limitsRecCard');
+  if (!el) return;
+  const pr = D.plan_recommendation || null;
+  if (!pr) { el.innerHTML = ''; return; }
+
+  const L = (D.locale && D.locale.planRec) || {};
+  const T = {
+    rec:      L.rec      || 'Recommendation',
+    current:  L.current  || 'Current tier',
+    none:     L.none     || 'None — no tier holds without hits',
+    optimal:  L.optimal  || 'optimal — no change needed',
+    recBasis: L.recBasis || 'Basis: last {n} cycles ({w} 5h-windows) - tolerance: ≤{q}% of 5h-windows, ≤{a} weeks over cap',
+  };
+
+  const cur = pr.current_tier || '—';
+  const rec = pr.recommended_tier;
+  const basis = pr.rec_basis || null;
+  const basisLine = basis
+    ? T.recBasis.replace('{n}', basis.recent_cycles)
+                .replace('{w}', basis.recent_window_total)
+                .replace('{q}', Math.round((basis.hit_quota || 0) * 100))
+                .replace('{a}', basis.weekly_allowance)
+    : '';
+
+  let mod = '', value = '', sub = '';
+  if (!rec) {
+    mod = 'rec-card--none';
+    value = T.none;
+    sub = T.current + ': ' + cur;
+  } else if (rec === cur) {
+    value = cur;
+    sub = T.optimal + (basisLine ? ' · ' + basisLine : '');
+  } else {
+    value = rec;
+    sub = T.current + ': ' + cur + (basisLine ? ' · ' + basisLine : '');
+  }
+
+  el.innerHTML =
+    '<div class="rec-card ' + mod + '">' +
+      '<span class="vc-tag acc">beta</span>' +
+      '<div class="rec-card-label">' + T.rec + '</div>' +
+      '<div class="rec-card-value">' + value + '</div>' +
+      '<div class="rec-card-sub">' + sub + '</div>' +
+    '</div>';
 }
 
 function renderLimitsEventTimeline() {
@@ -2067,12 +2192,15 @@ function renderPlanRecommendation() {
     cycle:        L.cycle        || 'Cycle',
     windows:      L.windows      || '5h-windows',
     weeks:        L.weeks        || 'Weeks',
+    hitsTitle:    L.hitsTitle    || 'Limit Hits by Tier',
     fiveHHits:    L.fiveHHits    || '5h-limit hits',
     weeklyHits:   L.weeklyHits   || 'Weekly-limit hits',
     current:      L.current      || 'Current tier',
     rec:          L.rec          || 'Recommendation',
     none:         L.none         || 'None — no tier holds without hits',
     totals:       L.totals       || 'Total hits across all cycles',
+    recTag:       L.recTag       || 'recommended',
+    curTag:       L.curTag       || 'current',
     cal:          L.cal          || 'Calibration',
     calEmpirical: L.calEmpirical || 'empirical',
     calDefault:   L.calDefault   || 'default fallback',
@@ -2086,28 +2214,61 @@ function renderPlanRecommendation() {
     disclaimer:   L.disclaimer   || "Hit counts use empirical caps derived from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 tier ratio is approximate. Weekly cap is estimated as 7 x the 5h cap until a dedicated weekly-limit detector is added.",
   };
 
-  const hitCell = (n) => '<td class="' + (n > 0 ? 'over' : 'under') + '">' + n + '</td>';
+  const TIERS = ['Pro', 'Max 5x', 'Max 20x'];
+  const rec = pr.recommended_tier;
+  const cur = pr.current_tier;
+  // Severity bucket for the heatmap tint: 0 / 1-2 / 3-9 / 10+.
+  const sevClass = (n) => n <= 0 ? 'h0' : (n <= 2 ? 'h1' : (n <= 9 ? 'h2' : 'h3'));
 
-  // Two side-by-side tables: 5h hits and weekly hits per cycle.
-  const renderTable = (titleText, getHits, totalsField) => {
-    const head = '<tr><th>' + T.cycle + '</th><th>Pro</th><th>Max 5x</th><th>Max 20x</th></tr>';
+  // Arrow lives in the gutter (index gi, between TIERS[gi] and TIERS[gi+1])
+  // immediately adjacent to the active cell, pointing toward the recommended
+  // column. switch_arrow ('down'|'up'|null) is computed server-side.
+  const gutterArrow = (gi, active, arrow) => {
+    if (!arrow) return '';
+    const ai = TIERS.indexOf(active);
+    if (arrow === 'down' && gi === ai - 1) return '<span class="ph-arrow down">←</span>';
+    if (arrow === 'up'   && gi === ai)     return '<span class="ph-arrow up">→</span>';
+    return '';
+  };
+
+  const renderHeat = (titleText, getHits, totals) => {
+    let head = '<tr><th class="ph-cyc">' + T.cycle + '</th>';
+    TIERS.forEach((t, i) => {
+      const tags = [];
+      if (t === rec) tags.push('<span class="ph-tag rec">' + T.recTag + '</span>');
+      if (t === cur) tags.push('<span class="ph-tag cur">' + T.curTag + '</span>');
+      head += '<th class="ph-th' + (t === rec ? ' rec' : '') + '">' + t +
+              (tags.length ? '<br>' + tags.join(' ') : '') + '</th>';
+      if (i < TIERS.length - 1) head += '<th class="ph-gut"></th>';
+    });
+    head += '</tr>';
+
     const body = pr.cycles.map(c => {
-      const u = getHits(c);
-      return '<tr>' +
-        '<td class="cyc-lbl">' + (c.label || c.cycle_start) + '</td>' +
-        hitCell(u.Pro || 0) +
-        hitCell(u['Max 5x'] || 0) +
-        hitCell(u['Max 20x'] || 0) +
-      '</tr>';
+      const u = getHits(c) || {};
+      const active = c.active_tier;
+      const arrow = c.switch_arrow;
+      let row = '<tr><td class="ph-cyc">' + (c.label || c.cycle_start) + '</td>';
+      TIERS.forEach((t, i) => {
+        const n = u[t] || 0;
+        let cls = 'ph-cell ' + sevClass(n);
+        if (t === rec) cls += ' rec';
+        if (t === active) cls += ' active';
+        row += '<td class="' + cls + '">' + (n > 0 ? n : '·') + '</td>';
+        if (i < TIERS.length - 1) row += '<td class="ph-gut">' + gutterArrow(i, active, arrow) + '</td>';
+      });
+      return row + '</tr>';
     }).join('');
-    const totals = pr[totalsField] || {};
-    const totalRow = '<tr class="plan-rec-totals"><td class="cyc-lbl">' + T.totals + '</td>' +
-      hitCell(totals.Pro || 0) +
-      hitCell(totals['Max 5x'] || 0) +
-      hitCell(totals['Max 20x'] || 0) +
-    '</tr>';
-    return '<h4 style="margin:8px 0 4px;font-size:13px;text-transform:uppercase;letter-spacing:0.12em;color:var(--text2)">' + titleText + '</h4>' +
-      '<table class="plan-rec-table"><thead>' + head + '</thead><tbody>' + body + totalRow + '</tbody></table>';
+
+    let tot = '<tr class="ph-tot"><td class="ph-cyc">' + T.totals + '</td>';
+    TIERS.forEach((t, i) => {
+      const n = totals[t] || 0;
+      tot += '<td class="ph-cell ' + sevClass(n) + '">' + n + '</td>';
+      if (i < TIERS.length - 1) tot += '<td class="ph-gut"></td>';
+    });
+    tot += '</tr>';
+
+    return '<div class="ph-block"><div class="ph-title">' + titleText + '</div>' +
+           '<table class="ph-table"><thead>' + head + '</thead><tbody>' + body + tot + '</tbody></table></div>';
   };
 
   const cal5 = pr.calibration_5h || {};
@@ -2129,26 +2290,13 @@ function renderPlanRecommendation() {
     ' / Max 5x $' + (capsW['Max 5x'] || 0).toFixed(0) +
     ' / Max 20x $' + (capsW['Max 20x'] || 0).toFixed(0) + ' ' + T.capPerWeek;
 
-  const recLine = pr.recommended_tier
-    ? T.rec + ': ' + pr.recommended_tier
-    : T.rec + ': ' + T.none;
-
-  const basis = pr.rec_basis || null;
-  const basisLine = basis
-    ? T.recBasis.replace('{n}', basis.recent_cycles)
-                .replace('{w}', basis.recent_window_total)
-                .replace('{q}', Math.round((basis.hit_quota || 0) * 100))
-                .replace('{a}', basis.weekly_allowance)
-    : '';
-
   el.innerHTML =
-    '<h3>' + T.title + ' <span class="vc-tag acc">beta</span></h3>' +
-    renderTable(T.fiveHHits,  (c) => c.tier_5h_hits || {},     'tier_total_5h_hits') +
-    renderTable(T.weeklyHits, (c) => c.tier_weekly_hits || {}, 'tier_total_weekly_hits') +
-    '<div class="plan-rec-summary">' +
-      '<div>' + T.current + ': ' + (pr.current_tier || '—') + '</div>' +
-      '<div>' + recLine + '</div>' +
-      (basisLine ? '<div class="plan-rec-cal">' + basisLine + '</div>' : '') +
+    '<h3>' + T.hitsTitle + '</h3>' +
+    '<div class="ph-tables">' +
+      renderHeat(T.fiveHHits,  (c) => c.tier_5h_hits,     pr.tier_total_5h_hits || {}) +
+      renderHeat(T.weeklyHits, (c) => c.tier_weekly_hits, pr.tier_total_weekly_hits || {}) +
+    '</div>' +
+    '<div class="plan-rec-fineprint">' +
       '<div class="plan-rec-cal">' + cal5Line + '</div>' +
       '<div class="plan-rec-cal">' + calWLine + '</div>' +
     '</div>' +
@@ -2692,8 +2840,6 @@ renderActivity();
 renderProjects();
 renderSessions();
 document.getElementById('bulkDownloadBtn').addEventListener('click', bulkDownloadSessions);
-document.getElementById('exportXlsxBtn').addEventListener('click', () => sessionTable && sessionTable.exportXlsx());
-document.getElementById('exportCsvBtn').addEventListener('click', () => sessionTable && sessionTable.exportCsv());
 renderPlan();
 renderLimits();
 renderInsights();
@@ -2920,20 +3066,27 @@ function renderVcKpis() {
   }
 
   const sessions = k.total_sessions || 0;
-  // Avg duration: compute from F.sessions if available
-  let avgMin = 0;
+  // Sessions per day over the active span (first→last session date) of the
+  // filtered range. Wall-clock session "duration" was dropped here: with ~41%
+  // of sessions under a minute and ~13% spanning over a day (resumed/idle), its
+  // median swung wildly between range filters and conveyed little.
+  let perDay = 0;
   if (typeof F !== 'undefined' && F.sessions && F.sessions.length > 0) {
-    const durs = F.sessions
-      .filter(s => s.start && s.end)
-      .map(s => (new Date(s.end) - new Date(s.start)) / 60000);
-    if (durs.length > 0) {
-      avgMin = durs.reduce((a, b) => a + b, 0) / durs.length;
+    const dates = F.sessions.map(s => s.date).filter(Boolean).sort();
+    if (dates.length) {
+      const spanDays = Math.max(1, Math.round((new Date(dates[dates.length - 1]) - new Date(dates[0])) / 86400000) + 1);
+      perDay = F.sessions.length / spanDays;
     }
   }
   const sessEl = document.getElementById('vcKpiSessions');
   if (sessEl) sessEl.textContent = sessions.toLocaleString('en-US');
   const sessSub = document.getElementById('vcKpiSessionsSub');
-  if (sessSub) sessSub.innerHTML = 'avg <b>' + Math.round(avgMin) + 'm</b>';
+  if (sessSub) {
+    sessSub.innerHTML = '<b>' + perDay.toFixed(1) + '</b>/day';
+    sessSub.title = D.locale.locale_code === 'de'
+      ? 'Sitzungen pro Tag über die aktive Spanne (erste bis letzte Sitzung) des gewählten Zeitraums.'
+      : 'Sessions per day across the active span (first to last session) of the selected range.';
+  }
 
   const msgs = k.total_messages || 0;
   const perSession = sessions > 0 ? Math.round(msgs / sessions) : 0;
@@ -2948,8 +3101,8 @@ function renderVcKpis() {
   const cacheWrite = k.total_cache_write_tokens || 0;
   const outEl = document.getElementById('vcKpiOutput');
   if (outEl) outEl.textContent = fmtVcTok(output);
-  const outSub = document.getElementById('vcKpiOutputSub');
-  if (outSub) outSub.innerHTML = 'in <b>' + fmtVcTok(input) + '</b>';
+  const inEl = document.getElementById('vcKpiInput');
+  if (inEl) inEl.textContent = fmtVcTok(input);
 
   const totalIn = input + cacheRead + cacheWrite;
   const cacheHit = totalIn > 0 ? (cacheRead / totalIn * 100) : 0;

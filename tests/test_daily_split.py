@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from extract_stats import _day_from_ms, split_session_by_day
+from extract_stats import _day_from_ms, split_session_by_day, _merge_model_buckets
 
 # 2026-06-10 and 2026-06-12 (UTC) in ms
 TS_10 = 1781092800000
@@ -83,6 +83,19 @@ class SplitSessionByDayTest(unittest.TestCase):
             daily_models, model_totals, {}, 0, start_day="2026-06-10")
         self.assertNotIn("2026-06-10", per_day_models)
         self.assertEqual(list(per_day_models), ["2026-06-12"])
+
+
+class SubagentDailyMergeTest(unittest.TestCase):
+    def test_parent_daily_absorbs_subagent_day(self):
+        from collections import defaultdict
+        parent_daily = defaultdict(lambda: defaultdict(lambda: _bucket()))
+        parent_daily["2026-06-12"]["opus"] = _bucket(cost=1.0, calls=1)
+        sub_daily = {"2026-06-12": {"opus": _bucket(cost=0.5, calls=1)},
+                     "2026-06-11": {"haiku": _bucket(cost=0.2, calls=1)}}
+        for day, mdict in sub_daily.items():
+            _merge_model_buckets(parent_daily[day], mdict)
+        self.assertAlmostEqual(parent_daily["2026-06-12"]["opus"]["cost"], 1.5)
+        self.assertAlmostEqual(parent_daily["2026-06-11"]["haiku"]["cost"], 0.2)
 
 
 if __name__ == "__main__":

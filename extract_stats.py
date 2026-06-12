@@ -3433,12 +3433,6 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             session_calls += mdata["calls"]
 
             display_model = get_model_display(model)
-            daily_costs[date_str][display_model] += mdata["cost"]
-
-            daily_tokens[date_str][display_model]["input"] += mdata["input_tokens"]
-            daily_tokens[date_str][display_model]["output"] += mdata["output_tokens"]
-            daily_tokens[date_str][display_model]["cache_read"] += mdata["cache_read_input_tokens"]
-            daily_tokens[date_str][display_model]["cache_write"] += mdata["cache_creation_input_tokens"]
 
             mt = model_totals[display_model]
             mt["input_tokens"] += mdata["input_tokens"]
@@ -3455,6 +3449,32 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
                 "cache_read_tokens": mdata["cache_read_input_tokens"],
                 "calls": mdata["calls"],
             }
+
+        per_day_models, per_day_messages = split_session_by_day(
+            sess.get("daily_models", {}),
+            sess["models"],
+            sess.get("daily_message_count", {}),
+            sess["message_count"],
+            start_day=date_str,
+        )
+        for _day, _mdict in per_day_models.items():
+            _day_in = 0
+            _day_cr = 0
+            for _model, _b in _mdict.items():
+                _dm = get_model_display(_model)
+                daily_costs[_day][_dm] += _b["cost"]
+                daily_tokens[_day][_dm]["input"] += _b["input_tokens"]
+                daily_tokens[_day][_dm]["output"] += _b["output_tokens"]
+                daily_tokens[_day][_dm]["cache_read"] += _b["cache_read_input_tokens"]
+                daily_tokens[_day][_dm]["cache_write"] += _b["cache_creation_input_tokens"]
+                _day_in += _b["input_tokens"] + _b["cache_read_input_tokens"] + _b["cache_creation_input_tokens"]
+                _day_cr += _b["cache_read_input_tokens"]
+            if _day_in > 0:
+                daily_cache_eff[_day].append(_day_cr / _day_in * 100)
+        for _day, _n in per_day_messages.items():
+            daily_messages[_day] += _n
+        for _day in set(per_day_models) | set(per_day_messages):
+            daily_sessions[_day] += 1
 
         total_cost += session_cost
         total_input += session_input
@@ -3475,14 +3495,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         ps["file_size"] += sess["file_size"]
         ps["sources"].add(sess.get("source", SOURCE_LABEL))
 
-        daily_messages[date_str] += sess["message_count"]
-        daily_sessions[date_str] += 1
         hourly_messages[hour] += sess["user_message_count"]
         weekday_messages[weekday] += sess["user_message_count"]
-
-        sess_total_in = session_input + session_cache_read + session_cache_write
-        if sess_total_in > 0 and sess["message_count"] >= 3:
-            daily_cache_eff[date_str].append(session_cache_read / sess_total_in * 100)
 
         primary_model = "Unknown"
         max_output = 0
@@ -3804,6 +3818,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         sess.pop("limit_event_candidates", None)
         sess.pop("user_timestamps", None)
         sess.pop("_pending_text_tokens", None)
+        sess.pop("daily_models", None)
+        sess.pop("daily_message_count", None)
 
     all_limit_events = _dedupe_limit_events(explicit_events + fingerprint_events)
     all_limit_events.sort(key=lambda e: e.get("timestamp", ""))

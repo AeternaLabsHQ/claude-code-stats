@@ -433,7 +433,7 @@ function filterData(days, projectFilter) {
   const hideEmpty = document.getElementById('hideEmptySessions')?.checked;
   let filteredSessions = D.sessions;
   if (hideEmpty) filteredSessions = filteredSessions.filter(s => s.messages > 0 || s.output_tokens > 0);
-  if (cutoff) filteredSessions = filteredSessions.filter(s => s.date >= cutoff);
+  if (cutoff) filteredSessions = filteredSessions.filter(s => (s.end ? s.end.slice(0, 10) : s.date) >= cutoff);
   if (pf) filteredSessions = filteredSessions.filter(s => (s.project || '').toLowerCase().includes(pf));
   F.sessions = filteredSessions;
   recomputeIdleGapAggregate(F.sessions);
@@ -597,27 +597,25 @@ function filterData(days, projectFilter) {
   });
   F.projects = Object.values(projMap).map(p => { p.sources = [...p.sources].sort(); return p; }).sort((a, b) => b.cost - a.cost);
 
-  // Recalculate hourly_distribution
-  const hourly = Array.from({length:24}, (_, i) => ({hour: i, messages: 0}));
-  F.sessions.forEach(s => {
-    if (s.start) {
-      const h = new Date(s.start).getHours();
-      hourly[h].messages += s.messages || 0;
-    }
-  });
-  F.hourly_distribution = hourly;
-
-  // Recalculate weekday_distribution
-  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const weekday = [0,0,0,0,0,0,0];
-  F.sessions.forEach(s => {
-    if (s.start) {
-      const d = new Date(s.start).getDay();
-      weekday[d] += s.messages || 0;
-    }
-  });
-  // Reorder to Mon-Sun
-  F.weekday_distribution = [1,2,3,4,5,6,0].map(i => ({day: dayNames[i], messages: weekday[i]}));
+  // Hour/weekday distributions. Unfiltered: server distributions (per-message,
+  // local-time) directly. Filtered: sum per-session hour_hist/weekday_hist
+  // (same local-time buckets), reusing the server's labels/order for the
+  // weekday axis so toggling a filter never changes labels.
+  if (noFilter) {
+    F.hourly_distribution = D.hourly_distribution;
+    F.weekday_distribution = D.weekday_distribution;
+  } else {
+    const hourly = (D.hourly_distribution || []).map(r => ({hour: r.hour, messages: 0}));
+    const wsum = [0, 0, 0, 0, 0, 0, 0];
+    F.sessions.forEach(s => {
+      const hh = s.hour_hist || {};
+      for (const h in hh) { if (hourly[+h]) hourly[+h].messages += hh[h]; }
+      const wh = s.weekday_hist || {};
+      for (const w in wh) { wsum[+w] += wh[w]; }
+    });
+    F.hourly_distribution = hourly;
+    F.weekday_distribution = (D.weekday_distribution || []).map((row, i) => ({day: row.day, messages: wsum[i]}));
+  }
 
   // Recalculate tool_summary
   const toolMap = {};

@@ -2085,6 +2085,8 @@ def parse_session_transcripts():
                                         "calls": 0,
                                     })),
                                     "daily_message_count": defaultdict(int),
+                                    "hour_hist": defaultdict(int),
+                                    "weekday_hist": defaultdict(int),
                                     "tools": defaultdict(int),
                                     "tool_tokens": defaultdict(lambda: {
                                         "calls": 0,
@@ -2244,6 +2246,9 @@ def parse_session_transcripts():
                                         sess["user_timestamps"].append(ts_ms_for_msg)
                                     if ts_ms_for_msg is not None:
                                         sess["daily_message_count"][_day_from_ms(ts_ms_for_msg)] += 1
+                                        _lt = datetime.fromtimestamp(ts_ms_for_msg / 1000)
+                                        sess["hour_hist"][_lt.hour] += 1
+                                        sess["weekday_hist"][_lt.weekday()] += 1
                                 elif _ucat == "tool_result":
                                     sess["tool_result_count"] += 1
                                 elif _ucat == "command":
@@ -2339,6 +2344,9 @@ def parse_session_transcripts():
                                 sess["assistant_message_count"] += 1
                                 if ts_ms_for_msg is not None:
                                     sess["daily_message_count"][_day_from_ms(ts_ms_for_msg)] += 1
+                                    _lt = datetime.fromtimestamp(ts_ms_for_msg / 1000)
+                                    sess["hour_hist"][_lt.hour] += 1
+                                    sess["weekday_hist"][_lt.weekday()] += 1
 
                                 message = obj.get("message", {})
                                 model = message.get("model", "unknown")
@@ -3410,8 +3418,6 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         start_dt = datetime.fromtimestamp(start_ts / 1000, tz=timezone.utc)
         end_dt = datetime.fromtimestamp(end_ts / 1000, tz=timezone.utc)
         date_str = start_dt.strftime("%Y-%m-%d")
-        hour = start_dt.hour
-        weekday = start_dt.weekday()
 
         duration_s = (end_ts - start_ts) / 1000
 
@@ -3519,8 +3525,10 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         ps["file_size"] += sess["file_size"]
         ps["sources"].add(sess.get("source", SOURCE_LABEL))
 
-        hourly_messages[hour] += sess["user_message_count"]
-        weekday_messages[weekday] += sess["user_message_count"]
+        for _h, _c in sess["hour_hist"].items():
+            hourly_messages[_h] += _c
+        for _w, _c in sess["weekday_hist"].items():
+            weekday_messages[_w] += _c
 
         primary_model = "Unknown"
         max_output = 0
@@ -3556,6 +3564,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "primary_model": primary_model,
             "model_breakdown": model_breakdown,
             "per_day": session_per_day,
+            "hour_hist": dict(sess["hour_hist"]),
+            "weekday_hist": dict(sess["weekday_hist"]),
             "tools": dict(sess["tools"]),
             "tool_tokens": {
                 name: {

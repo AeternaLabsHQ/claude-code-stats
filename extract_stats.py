@@ -1396,6 +1396,62 @@ def _merge_model_buckets(dst: dict, src: dict) -> None:
                 db[key] = db.get(key, 0) + val
 
 
+_DAILY_FIELDS = (
+    "input_tokens", "output_tokens",
+    "cache_read_input_tokens", "cache_creation_input_tokens",
+    "cost", "calls",
+)
+
+
+def _day_from_ms(ms: int) -> str:
+    """UTC calendar day (YYYY-MM-DD) for an epoch-millisecond timestamp."""
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+
+
+def split_session_by_day(daily_models, model_totals,
+                         daily_message_count, total_message_count,
+                         start_day):
+    """Distribute one session's per-model spend and message count across the
+    days they actually occurred.
+
+    `daily_models[day][model]` and `daily_message_count[day]` hold the share
+    that carried a parseable per-message timestamp. Any remainder (turns/
+    messages whose timestamp could not be parsed) is dumped on `start_day`, so
+    the returned per-day values reconcile EXACTLY with the session totals
+    (`model_totals`, `total_message_count`).
+
+    Returns `(per_day_models, per_day_messages)` where
+    `per_day_models[day][model]` is a fresh bucket dict (raw model keys; the
+    caller maps to display names) and `per_day_messages[day]` is an int.
+    """
+    per_day_models = {}
+    attributed = defaultdict(lambda: {k: 0 for k in _DAILY_FIELDS})
+    for day, mdict in daily_models.items():
+        day_out = per_day_models.setdefault(day, {})
+        for model, b in mdict.items():
+            dst = day_out.setdefault(model, {k: 0 for k in _DAILY_FIELDS})
+            for k in _DAILY_FIELDS:
+                v = b.get(k, 0)
+                dst[k] += v
+                attributed[model][k] += v
+
+    for model, tb in model_totals.items():
+        remainder = {k: tb.get(k, 0) - attributed[model].get(k, 0)
+                     for k in _DAILY_FIELDS}
+        if any(remainder[k] for k in _DAILY_FIELDS):
+            dst = per_day_models.setdefault(start_day, {}).setdefault(
+                model, {k: 0 for k in _DAILY_FIELDS})
+            for k in _DAILY_FIELDS:
+                dst[k] += remainder[k]
+
+    per_day_messages = dict(daily_message_count)
+    remainder_msgs = total_message_count - sum(per_day_messages.values())
+    if remainder_msgs:
+        per_day_messages[start_day] = per_day_messages.get(start_day, 0) + remainder_msgs
+
+    return per_day_models, per_day_messages
+
+
 def _merge_streamed_assistant_entries(entries: list) -> list:
     """Collapse stream-split assistant rows back into one entry per API
     response.

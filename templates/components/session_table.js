@@ -87,8 +87,19 @@
       get: (s) => s.start || '',
       render: (s, ctx) => {
         if (!s.start) return '';
-        try { return escHtml(new Date(s.start).toLocaleString(ctx.locale)); }
-        catch (e) { return escHtml(s.start); }
+        let base;
+        try { base = escHtml(new Date(s.start).toLocaleString(ctx.locale)); }
+        catch (e) { base = escHtml(s.start); }
+        if (s.per_day) {
+          const nDays = Object.keys(s.per_day).length;
+          if (nDays > 1) {
+            let endDay = '';
+            try { endDay = s.end ? new Date(s.end).toISOString().slice(0, 10) : ''; } catch (e) {}
+            const tip = 'Multi-day session — active through ' + (endDay || '?') + ' (' + nDays + ' days)';
+            base += ' <span class="st-multiday" title="' + escHtml(tip) + '">⇴ ' + nDays + 'd</span>';
+          }
+        }
+        return base;
       }
     },
     { id: 'project', label: 'Project', group: 'identity', align: 'left', sortable: true,

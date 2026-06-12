@@ -3476,6 +3476,30 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         for _day in set(per_day_models) | set(per_day_messages):
             daily_sessions[_day] += 1
 
+        _active_days = set(per_day_models) | set(per_day_messages)
+        session_per_day = None
+        if len(_active_days) > 1:
+            session_per_day = {}
+            for _day in sorted(_active_days):
+                _models_out = {}
+                for _model, _b in per_day_models.get(_day, {}).items():
+                    _dm = get_model_display(_model)
+                    e = _models_out.setdefault(_dm, {
+                        "cost": 0.0, "input_tokens": 0, "output_tokens": 0,
+                        "cache_read_tokens": 0, "cache_write_tokens": 0,
+                    })
+                    e["cost"] += _b["cost"]
+                    e["input_tokens"] += _b["input_tokens"]
+                    e["output_tokens"] += _b["output_tokens"]
+                    e["cache_read_tokens"] += _b["cache_read_input_tokens"]
+                    e["cache_write_tokens"] += _b["cache_creation_input_tokens"]
+                for e in _models_out.values():
+                    e["cost"] = round(e["cost"], 4)
+                session_per_day[_day] = {
+                    "messages": per_day_messages.get(_day, 0),
+                    "models": _models_out,
+                }
+
         total_cost += session_cost
         total_input += session_input
         total_output += session_output
@@ -3531,6 +3555,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "api_calls": session_calls,
             "primary_model": primary_model,
             "model_breakdown": model_breakdown,
+            "per_day": session_per_day,
             "tools": dict(sess["tools"]),
             "tool_tokens": {
                 name: {
@@ -3595,6 +3620,19 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         {"date": d, "messages": daily_messages.get(d, 0), "sessions": daily_sessions.get(d, 0)}
         for d in all_dates
     ]
+
+    daily_token_series = []
+    for d in all_dates:
+        entry = {"date": d}
+        day_total = 0
+        day_tok = daily_tokens.get(d, {})
+        for m in all_models:
+            tb = day_tok.get(m)
+            val = (tb["input"] + tb["output"]) if tb else 0
+            entry[m] = val
+            day_total += val
+        entry["total"] = day_total
+        daily_token_series.append(entry)
 
     def _quantile(sorted_vals, q):
         n = len(sorted_vals)
@@ -3877,6 +3915,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         "plan": plan_analysis,
         "plan_recommendation": plan_analysis.get("plan_recommendation"),
         "daily_costs": daily_cost_series,
+        "daily_tokens": daily_token_series,
         "cumulative_costs": cumulative_series,
         "daily_messages": daily_message_series,
         "daily_cache_efficiency": daily_cache_efficiency_series,

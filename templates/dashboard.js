@@ -455,39 +455,11 @@ function filterData(days, projectFilter) {
   });
   F.insights = Object.assign({}, D.insights, { tasks: Object.assign({}, D.insights && D.insights.tasks, tcounts) });
 
-  // Rebuild daily aggregates from filtered sessions
-  const dailyCostMap = {};
-  const dailyTokenMap = {};   // input + output tokens (no cache), per model per day
-  const dailyMsgMap = {};
-  F.sessions.forEach(s => {
-    if (!s.date) return;
-    if (!dailyMsgMap[s.date]) dailyMsgMap[s.date] = {date: s.date, messages: 0, sessions: 0};
-    dailyMsgMap[s.date].messages += s.messages || 0;
-    dailyMsgMap[s.date].sessions += 1;
-    if (!dailyCostMap[s.date]) dailyCostMap[s.date] = {date: s.date, total: 0};
-    if (!dailyTokenMap[s.date]) dailyTokenMap[s.date] = {date: s.date, total: 0};
-    dailyCostMap[s.date].total += s.cost || 0;
-    Object.entries(s.model_breakdown || {}).forEach(([model, d]) => {
-      dailyCostMap[s.date][model] = (dailyCostMap[s.date][model] || 0) + (d.cost || 0);
-      const tok = (d.input_tokens || 0) + (d.output_tokens || 0);
-      dailyTokenMap[s.date][model] = (dailyTokenMap[s.date][model] || 0) + tok;
-      dailyTokenMap[s.date].total += tok;
-    });
-  });
-  const allDates = [...new Set([...Object.keys(dailyCostMap), ...Object.keys(dailyMsgMap)])].sort();
-  F.daily_costs = allDates.map(d => dailyCostMap[d] || {date: d, total: 0});
-  F.daily_tokens = allDates.map(d => dailyTokenMap[d] || {date: d, total: 0});
-  F.daily_messages = allDates.map(d => dailyMsgMap[d] || {date: d, messages: 0, sessions: 0});
-
-  const cacheEffByDate = {};
-  F.sessions.forEach(s => {
-    if (!s.date) return;
-    if ((s.messages || 0) < 3) return;
-    const tot = (s.input_tokens || 0) + (s.cache_read_tokens || 0) + (s.cache_write_tokens || 0);
-    if (tot <= 0) return;
-    const eff = (s.cache_read_tokens || 0) / tot * 100;
-    (cacheEffByDate[s.date] = cacheEffByDate[s.date] || []).push(eff);
-  });
+  // Daily aggregates. Unfiltered default view: use the server-prepared
+  // per-day series directly (no client recompute). Filtered view: rebuild
+  // from sessions, distributing each multi-day session across its actual
+  // activity days via s.per_day (single-day sessions fall back to s.date).
+  const noFilter = currentDays === 0 && !pf && !hideEmpty;
   const _q = (sv, q) => {
     const n = sv.length;
     if (n === 0) return 0;
@@ -497,7 +469,7 @@ function filterData(days, projectFilter) {
     const hi = Math.min(lo + 1, n - 1);
     return sv[lo] * (1 - (pos - lo)) + sv[hi] * (pos - lo);
   };
-  F.daily_cache_efficiency = Object.keys(cacheEffByDate).sort().map(d => {
+  const _boxplot = (cacheEffByDate) => Object.keys(cacheEffByDate).sort().map(d => {
     const sv = cacheEffByDate[d].slice().sort((a, b) => a - b);
     const n = sv.length;
     const median = _q(sv, 0.5);
@@ -512,19 +484,73 @@ function filterData(days, projectFilter) {
     const outliers = sv.filter(v => v < loFence || v > hiFence).map(v => +v.toFixed(2));
     const sum = sv.reduce((a, b) => a + b, 0);
     return {
-      date: d,
-      sessions: n,
-      mean: +(sum / n).toFixed(2),
-      median: +median.toFixed(2),
-      q1: +q1.toFixed(2),
-      q3: +q3.toFixed(2),
-      whisker_low: +whiskerLow.toFixed(2),
-      whisker_high: +whiskerHigh.toFixed(2),
-      min: +sv[0].toFixed(2),
-      max: +sv[n - 1].toFixed(2),
-      outliers,
+      date: d, sessions: n,
+      mean: +(sum / n).toFixed(2), median: +median.toFixed(2),
+      q1: +q1.toFixed(2), q3: +q3.toFixed(2),
+      whisker_low: +whiskerLow.toFixed(2), whisker_high: +whiskerHigh.toFixed(2),
+      min: +sv[0].toFixed(2), max: +sv[n - 1].toFixed(2), outliers,
     };
   });
+
+  if (noFilter) {
+    F.daily_costs = D.daily_costs;
+    F.daily_tokens = D.daily_tokens;
+    F.daily_messages = D.daily_messages;
+    F.daily_cache_efficiency = D.daily_cache_efficiency;
+  } else {
+    const dailyCostMap = {};
+    const dailyTokenMap = {};
+    const dailyMsgMap = {};
+    const cacheEffByDate = {};
+    F.sessions.forEach(s => {
+      if (s.per_day) {
+        Object.entries(s.per_day).forEach(([day, slice]) => {
+          if (cutoff && day < cutoff) return;
+          if (!dailyMsgMap[day]) dailyMsgMap[day] = {date: day, messages: 0, sessions: 0};
+          dailyMsgMap[day].messages += slice.messages || 0;
+          dailyMsgMap[day].sessions += 1;
+          if (!dailyCostMap[day]) dailyCostMap[day] = {date: day, total: 0};
+          if (!dailyTokenMap[day]) dailyTokenMap[day] = {date: day, total: 0};
+          let dIn = 0, dCr = 0, dCw = 0;
+          Object.entries(slice.models || {}).forEach(([model, d]) => {
+            dailyCostMap[day].total += d.cost || 0;
+            dailyCostMap[day][model] = (dailyCostMap[day][model] || 0) + (d.cost || 0);
+            const tok = (d.input_tokens || 0) + (d.output_tokens || 0);
+            dailyTokenMap[day][model] = (dailyTokenMap[day][model] || 0) + tok;
+            dailyTokenMap[day].total += tok;
+            dIn += d.input_tokens || 0; dCr += d.cache_read_tokens || 0; dCw += d.cache_write_tokens || 0;
+          });
+          const tot = dIn + dCr + dCw;
+          if ((slice.messages || 0) >= 3 && tot > 0) {
+            (cacheEffByDate[day] = cacheEffByDate[day] || []).push(dCr / tot * 100);
+          }
+        });
+      } else {
+        if (!s.date) return;
+        if (!dailyMsgMap[s.date]) dailyMsgMap[s.date] = {date: s.date, messages: 0, sessions: 0};
+        dailyMsgMap[s.date].messages += s.messages || 0;
+        dailyMsgMap[s.date].sessions += 1;
+        if (!dailyCostMap[s.date]) dailyCostMap[s.date] = {date: s.date, total: 0};
+        if (!dailyTokenMap[s.date]) dailyTokenMap[s.date] = {date: s.date, total: 0};
+        dailyCostMap[s.date].total += s.cost || 0;
+        Object.entries(s.model_breakdown || {}).forEach(([model, d]) => {
+          dailyCostMap[s.date][model] = (dailyCostMap[s.date][model] || 0) + (d.cost || 0);
+          const tok = (d.input_tokens || 0) + (d.output_tokens || 0);
+          dailyTokenMap[s.date][model] = (dailyTokenMap[s.date][model] || 0) + tok;
+          dailyTokenMap[s.date].total += tok;
+        });
+        if ((s.messages || 0) >= 3) {
+          const tot = (s.input_tokens || 0) + (s.cache_read_tokens || 0) + (s.cache_write_tokens || 0);
+          if (tot > 0) (cacheEffByDate[s.date] = cacheEffByDate[s.date] || []).push((s.cache_read_tokens || 0) / tot * 100);
+        }
+      }
+    });
+    const allDates = [...new Set([...Object.keys(dailyCostMap), ...Object.keys(dailyMsgMap)])].sort();
+    F.daily_costs = allDates.map(d => dailyCostMap[d] || {date: d, total: 0});
+    F.daily_tokens = allDates.map(d => dailyTokenMap[d] || {date: d, total: 0});
+    F.daily_messages = allDates.map(d => dailyMsgMap[d] || {date: d, messages: 0, sessions: 0});
+    F.daily_cache_efficiency = _boxplot(cacheEffByDate);
+  }
 
   // Recalculate cumulative costs from filtered daily costs
   let cum = 0;

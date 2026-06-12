@@ -13,6 +13,15 @@ const turnContext = t => (t ? (t.input||0) + (t.cache_read||0) + (t.cache_write|
 const ctx1mBadge = title => '<span class="ctx-1m-badge" title="'+escHtml(title)+'">1M</span>';
 function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function fmtTime(ts) { if(!ts) return ''; const d=new Date(typeof ts==='number'?ts:ts); return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function fmtDate(ts) {
+  if (!ts) return '';
+  try { return new Date(ts).toLocaleDateString(); } catch (e) { return ''; }
+}
+function fmtDateTime(ts) {
+  if (!ts) return '';
+  const d = fmtDate(ts), t = fmtTime(ts);
+  return d ? (t ? d + ' ' + t : d) : t;
+}
 function modelClass(m) { const l=(m||'').toLowerCase(); if(l.includes('opus')) return 'opus'; if(l.includes('sonnet')) return 'sonnet'; if(l.includes('haiku')) return 'haiku'; return ''; }
 function cacheEff(s) {
   const inputSum = (s.input_tokens||0) + (s.cache_read_tokens||0) + (s.cache_write_tokens||0);
@@ -132,43 +141,51 @@ function commandOutputTokens(idx) {
   return out;
 }
 let chatHtml = '';
+let _lastChatDay = null;
 msgs.forEach((m,i) => {
+  if (m.timestamp) {
+    const _d = fmtDate(m.timestamp);
+    if (_d && _d !== _lastChatDay) {
+      chatHtml += '<div class="day-divider"><span>' + escHtml(_d) + '</span></div>';
+      _lastChatDay = _d;
+    }
+  }
   if (m.role==='hook') {
-    chatHtml += '<div class="marker hook event-group" id="marker-'+i+'"><span>&#9881;</span> Hook: '+escHtml(m.hook_name)+' <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker hook event-group" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'"><span>&#9881;</span> Hook: '+escHtml(m.hook_name)+' <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='compaction') {
-    chatHtml += '<div class="marker compaction event-group" id="marker-'+i+'"><span>&#9889;</span> Context Compaction <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker compaction event-group" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'"><span>&#9889;</span> Context Compaction <span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='rate_limit') {
-    chatHtml += '<div class="marker rate-limit error-group" id="'+evtId(m.timestamp)+'">' +
+    chatHtml += '<div class="marker rate-limit error-group" data-ts="'+(m.timestamp||'')+'" id="'+evtId(m.timestamp)+'">' +
       '<span>&#9888;</span> Rate-Limit-Event: <strong>'+escHtml(m.content)+'</strong>' +
       '<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='error') {
     const elabel = (m.source==='backend'?'Backend':(m.tool||'Tool')) + ' &middot; ' + escHtml(m.category||'error');
-    chatHtml += '<div class="marker error error-group" id="marker-'+i+'"><span>&#9888;</span> Error: <strong>'+elabel+'</strong>'+
+    chatHtml += '<div class="marker error error-group" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'"><span>&#9888;</span> Error: <strong>'+elabel+'</strong>'+
       '<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span>'+
       (m.content?'<div class="marker-detail">'+escHtml(m.content)+'</div>':'')+
       '</div>';
   } else if (m.role==='rejected') {
-    chatHtml += '<div class="marker rejected event-group" id="marker-'+i+'"><span>&#9995;</span> Rejected: <strong>'+escHtml(m.tool||'tool')+'</strong> <span style="opacity:.7">(you declined)</span><span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker rejected event-group" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'"><span>&#9995;</span> Rejected: <strong>'+escHtml(m.tool||'tool')+'</strong> <span style="opacity:.7">(you declined)</span><span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='command') {
     const cmdOut = commandOutputTokens(i);
-    chatHtml += '<div class="marker command event-group" id="marker-'+i+'"><span>&#8984;</span> Command: <strong>'+escHtml(m.content)+'</strong>'+
+    chatHtml += '<div class="marker command event-group" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'"><span>&#8984;</span> Command: <strong>'+escHtml(m.content)+'</strong>'+
       (cmdOut > 0 ? '<span class="msg-tokens" style="margin-left:12px">'+fmtTokens(cmdOut)+' out</span>' : '')+
       '<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='interrupt') {
-    chatHtml += '<div class="marker interrupt event-group" id="marker-'+i+'"><span>&#9099;</span> Interrupted by user<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker interrupt event-group" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'"><span>&#9099;</span> Interrupted by user<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='attachment') {
-    chatHtml += '<div class="marker attachment event-group" id="marker-'+i+'"><span>&#128206;</span> '+escHtml(m.content)+'<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker attachment event-group" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'"><span>&#128206;</span> '+escHtml(m.content)+'<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='mode') {
-    chatHtml += '<div class="marker mode event-group" id="marker-'+i+'"><span>&#9881;</span> '+escHtml(m.content)+'<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker mode event-group" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'"><span>&#9881;</span> '+escHtml(m.content)+'<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='queue') {
-    chatHtml += '<div class="marker queue event-group" id="marker-'+i+'"><span>&#9203;</span> Queued: '+escHtml(m.content)+'<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker queue event-group" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'"><span>&#9203;</span> Queued: '+escHtml(m.content)+'<span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else if (m.role==='effort') {
-    chatHtml += '<div class="marker effort event-group" id="marker-'+i+'"><span>&#129504;</span> Effort: <strong>'+escHtml(m.content)+'</strong><span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
+    chatHtml += '<div class="marker effort event-group" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'"><span>&#129504;</span> Effort: <strong>'+escHtml(m.content)+'</strong><span style="margin-left:auto">'+fmtTime(m.timestamp)+'</span></div>';
   } else {
     // Check for Agent dispatches in tools
     const agentTools = (m.tools || []).filter(t => t.name === 'Agent');
     agentTools.forEach(at => {
-      chatHtml += '<div class="marker agent-dispatch agent-toggle" id="marker-'+i+'-a">' +
+      chatHtml += '<div class="marker agent-dispatch agent-toggle" data-ts="'+(m.timestamp||'')+'" id="marker-'+i+'-a">' +
         '<span>&#129302;</span> Agent: <strong>'+escHtml(at.detail || 'unnamed')+'</strong>' +
         '<span class="agent-type-badge">'+escHtml(at.agent_type || 'general-purpose')+'</span>' +
         '<span style="margin-left:auto;font-size:11px;opacity:0.7">'+fmtTime(m.timestamp)+' &#9660; click to expand</span>' +
@@ -190,7 +207,7 @@ msgs.forEach((m,i) => {
       '</div>' : '';
     const thoughtBadge = (m.thought && !m.thinking) ?
       '<span class="thought-badge" title="Extended thinking was used on this turn. Claude Code does not store the reasoning text for this model, only an encrypted signature.">&#128173;</span>' : '';
-    chatHtml += '<div class="msg '+m.role+(hasAgentDispatch?' has-agent-dispatch':'')+'" id="msg-'+i+'">' +
+    chatHtml += '<div class="msg '+m.role+(hasAgentDispatch?' has-agent-dispatch':'')+'" data-ts="'+(m.timestamp||'')+'" id="msg-'+i+'">' +
       '<div class="msg-header">' +
         '<div class="msg-role '+m.role+'">'+(m.role==='user'?'U':'A')+'</div>' +
         '<span class="msg-time">'+fmtTime(m.timestamp)+'</span>' +
@@ -355,7 +372,7 @@ function buildMarkdown(session, messages) {
     if (!(m.content || '').trim()) return;
     let ts = '';
     if (m.timestamp) {
-      try { ts = new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); } catch(e) {}
+      try { ts = fmtDateTime(m.timestamp); } catch(e) {}
     }
     if (m.role === 'user') {
       lines.push('## User' + (ts ? ' \u2014 ' + ts : ''));
@@ -385,12 +402,13 @@ document.getElementById('copyBtn').addEventListener('click', function() {
   const lines = [];
   document.querySelectorAll('#chatPanel > .msg, #chatPanel > .marker').forEach(el => {
     if (el.style.display === 'none') return;
+    const stamp = fmtDateTime(el.getAttribute('data-ts'));
     if (el.classList.contains('marker')) {
-      lines.push('[' + el.textContent.trim() + ']');
+      lines.push('[' + (stamp ? stamp + ' ' : '') + el.textContent.trim() + ']');
     } else {
       const role = el.classList.contains('user') ? 'User' : 'Assistant';
       const content = el.querySelector('.msg-content');
-      lines.push('--- ' + role + ' ---');
+      lines.push('--- ' + role + (stamp ? ' (' + stamp + ')' : '') + ' ---');
       lines.push(content ? content.textContent.trim() : '');
     }
     lines.push('');

@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from extract_stats import _day_from_ms, split_session_by_day
 
-# 2026-06-10T12:00:00Z and 2026-06-12T08:00:00Z in ms
+# 2026-06-10 and 2026-06-12 (UTC) in ms
 TS_10 = 1781092800000
 TS_12 = 1781251200000
 
@@ -39,6 +39,8 @@ class SplitSessionByDayTest(unittest.TestCase):
             daily_models, model_totals, {}, 0, start_day="2026-06-10")
         self.assertEqual(per_day_models["2026-06-10"]["opus"]["cost"], 2.0)
         self.assertEqual(per_day_models["2026-06-12"]["opus"]["cost"], 1.0)
+        self.assertNotIn("2026-06-11", per_day_models)
+        self.assertEqual(sorted(per_day_models), ["2026-06-10", "2026-06-12"])
 
     def test_untimestamped_remainder_goes_to_start_day(self):
         daily_models = {
@@ -69,6 +71,18 @@ class SplitSessionByDayTest(unittest.TestCase):
         self.assertEqual(per_day_messages["2026-06-12"], 3)
         self.assertEqual(per_day_messages["2026-06-10"], 2)
         self.assertEqual(sum(per_day_messages.values()), 10)
+
+    def test_float_drift_does_not_create_phantom_start_day(self):
+        # attributed cost exceeds total by a sub-micro epsilon (simulates
+        # float-summation drift); no phantom start_day bucket must appear.
+        daily_models = {
+            "2026-06-12": {"opus": _bucket(output_tokens=100, cost=2.0000001, calls=1)},
+        }
+        model_totals = {"opus": _bucket(output_tokens=100, cost=2.0, calls=1)}
+        per_day_models, _ = split_session_by_day(
+            daily_models, model_totals, {}, 0, start_day="2026-06-10")
+        self.assertNotIn("2026-06-10", per_day_models)
+        self.assertEqual(list(per_day_models), ["2026-06-12"])
 
 
 if __name__ == "__main__":

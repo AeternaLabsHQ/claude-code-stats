@@ -1438,7 +1438,13 @@ def split_session_by_day(daily_models, model_totals,
     for model, tb in model_totals.items():
         remainder = {k: tb.get(k, 0) - attributed[model].get(k, 0)
                      for k in _DAILY_FIELDS}
-        if any(remainder[k] for k in _DAILY_FIELDS):
+        if remainder["cost"] < 0:
+            remainder["cost"] = 0.0
+        _int_left = (remainder["input_tokens"] or remainder["output_tokens"]
+                     or remainder["cache_read_input_tokens"]
+                     or remainder["cache_creation_input_tokens"]
+                     or remainder["calls"])
+        if _int_left or remainder["cost"] > 1e-6:
             dst = per_day_models.setdefault(start_day, {}).setdefault(
                 model, {k: 0 for k in _DAILY_FIELDS})
             for k in _DAILY_FIELDS:

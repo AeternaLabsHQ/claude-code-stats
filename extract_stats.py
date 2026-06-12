@@ -2076,6 +2076,15 @@ def parse_session_transcripts():
                                         "cost": 0.0,
                                         "calls": 0,
                                     }),
+                                    "daily_models": defaultdict(lambda: defaultdict(lambda: {
+                                        "input_tokens": 0,
+                                        "output_tokens": 0,
+                                        "cache_read_input_tokens": 0,
+                                        "cache_creation_input_tokens": 0,
+                                        "cost": 0.0,
+                                        "calls": 0,
+                                    })),
+                                    "daily_message_count": defaultdict(int),
                                     "tools": defaultdict(int),
                                     "tool_tokens": defaultdict(lambda: {
                                         "calls": 0,
@@ -2233,6 +2242,8 @@ def parse_session_transcripts():
                                     sess["user_message_count"] += 1
                                     if ts_ms_for_msg is not None:
                                         sess["user_timestamps"].append(ts_ms_for_msg)
+                                    if ts_ms_for_msg is not None:
+                                        sess["daily_message_count"][_day_from_ms(ts_ms_for_msg)] += 1
                                 elif _ucat == "tool_result":
                                     sess["tool_result_count"] += 1
                                 elif _ucat == "command":
@@ -2326,6 +2337,8 @@ def parse_session_transcripts():
 
                                 sess["message_count"] += 1
                                 sess["assistant_message_count"] += 1
+                                if ts_ms_for_msg is not None:
+                                    sess["daily_message_count"][_day_from_ms(ts_ms_for_msg)] += 1
 
                                 message = obj.get("message", {})
                                 model = message.get("model", "unknown")
@@ -2368,6 +2381,14 @@ def parse_session_transcripts():
                                             "model": model,
                                             "cost": turn_cost,
                                         })
+                                    if turn_ts_ms is not None:
+                                        _dm = sess["daily_models"][_day_from_ms(turn_ts_ms)][model]
+                                        _dm["input_tokens"] += usage.get("input_tokens", 0)
+                                        _dm["output_tokens"] += usage.get("output_tokens", 0)
+                                        _dm["cache_read_input_tokens"] += usage.get("cache_read_input_tokens", 0)
+                                        _dm["cache_creation_input_tokens"] += usage.get("cache_creation_input_tokens", 0)
+                                        _dm["cost"] += turn_cost
+                                        _dm["calls"] += 1
 
                                     turn_tool_names = [
                                         b.get("name", "unknown")
@@ -2525,6 +2546,8 @@ def parse_session_transcripts():
             # so this adds each turn exactly once (no double count). The
             # subagents[] breakdown above stays for per-subagent display.
             _merge_model_buckets(parent["models"], sub["models"])
+            for _day, _mdict in sub.get("daily_models", {}).items():
+                _merge_model_buckets(parent["daily_models"][_day], _mdict)
         del sessions[sub_id]
 
     # Compute gap-based cache-flush count from per-turn data (Task 1).

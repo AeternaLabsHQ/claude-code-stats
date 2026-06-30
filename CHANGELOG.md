@@ -2,6 +2,49 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - v2 (Dashboard Rethink)
+
+Builds on the 1.0.0 feature set below. A full dashboard rethink that consolidates the eight v1 tabs into five focused surfaces with a "Modern SaaS" reskin, adds a currency/token metric toggle, no-gap cache-anomaly detection, and a calibrated plan-tier recommendation, and re-bases all time-series on the day work actually happened. Not yet tagged.
+
+### Added
+
+#### Dashboard rethink (8 tabs to 5)
+- Consolidated into five tabs: **Token & API Value**, **Plan & Billing**, **Activity & Projects**, **Sessions**, **Insights & System**; the former standalone Agents, Errors, Tools, Storage, and Workflows surfaces became numbered sub-sections under Insights & System
+- "Modern SaaS" visual reskin across the dashboard and the project / session detail pages, with light / dark themes
+- KPI-strip polish, a billing bar, and week markers on the time-series charts
+
+#### Metric toggle (USD / billing currency / Tokens)
+- The daily by-model chart and the cumulative chart switch between USD, your billing currency, and consumed tokens (input + output, cache excluded); the money KPI follows the selected currency
+- Currency view converts with your per-billing-cycle exchange rate
+
+#### Cache anomaly detection
+- Separates TTL / idle-gap cache flushes from no-gap invalidations (the cache was rebuilt although it cannot have expired - the pattern behind the 2026 Claude Code cache bugs); compaction rebuilds are excluded to avoid false alarms
+- Per-session `cache_nogap_flush_count` / `cache_nogap_rewrite_tokens`, a cache-anomaly card, and a "Cache Flushes per Day" early-warning chart on Insights & System
+
+#### Activity-time and per-day attribution
+- Daily costs, tokens, and messages are bucketed by the day work actually happened; a session spanning midnight is split across the real calendar days (`split_session_by_day` with a reconciliation invariant)
+- Per-session `per_day` breakdown serialized; subagent per-day spend folded into the parent session
+- New `daily_tokens` and `daily_cache_efficiency` series in `dashboard_data.json`
+- Hour-of-day and weekday distributions are attributed to each message's actual local timestamp (per-session `hour_hist` / `weekday_hist`) instead of the session start
+- Activity-based session date filter, so a multi-day session matches every day it was active
+- Multi-day sessions badged in the session-table date column
+- Chat replay inserts day-divider rows, and the date carries into the copy-to-clipboard and Markdown exports
+
+#### Limits and recommendation redesign
+- Plan-tier recommendation now uses a recent-cycle hit quota instead of all-history zero tolerance, with a calibration floor and an explicit "recommendation basis" line (shows the merged-event count)
+- 5-hour-window hit counting anchored to the pre-gap window; anchored windows always count as hits on the active and cheaper tiers; cap estimate floored at the most expensive limit-free window
+- Limit events from parallel sessions and retries are deduplicated
+
+#### Pricing and model naming
+- Added **Fable 5** and **Opus 4.8** to the pricing table and chart palette
+- Display names are derived from the raw model id (`derive_model_display`), so unseen `claude-*` ids render a sensible label and surface the estimated-pricing notice
+
+### Changed
+- In-progress billing period is framed with its real end date plus a projected end-of-cycle API value and ROI
+- Configurable `plan_capacity_override_pro_usd` to override the empirical Pro-tier capacity used by the recommendation
+
+---
+
 ## [1.0.0] - Unreleased
 
 First stable release. Brings a complete visual refresh, a new Limits / Plan-recommendation tab driven by gap analysis of session transcripts, multi-attribute session filtering, a unified session table, per-tool token attribution, and user theming via `custom.css`.

@@ -47,19 +47,21 @@ Highlights:
 - KPI band at the top of the tab: API equivalent (with savings delta), sessions, messages, output tokens, cache hit rate
 - Metric toggle **USD / billing currency / Tokens** for the daily by-model chart and the cumulative chart: the token view counts input + output (cache excluded), the currency view converts with your per-billing-cycle exchange rate, and the API-equivalent KPI follows the selected currency
 - Daily API value by model (stacked), cumulative curve, API value by token type, model detail table
+- Daily and cumulative series are bucketed by the day work actually happened: a session spanning midnight has its tokens, cost, and messages split across the real calendar days
 - Estimated-pricing notice when a model in your data is missing from the price table
 
 #### Plan & Billing
 
 - Cost savings analysis vs. your subscription plan: savings, ROI, and cost-per-day per billing cycle
 - Per-billing-cycle slicing (monthly cycles even for annual plans)
+- In-progress billing period framed with its real end date, spend so far, and a projected end-of-cycle API value / ROI
 - USD / local-currency toggle
 - Limits timeline integrated into the tab, so rate-limit events appear in billing context
 
 #### Activity & Projects
 
 - GitHub-style activity heatmap
-- Message patterns: hourly, weekday, daily messages and sessions in one dual-axis chart
+- Message patterns: hourly, weekday, daily messages and sessions in one dual-axis chart; hour-of-day and weekday are attributed to each message's actual local timestamp, so off-hours and multi-day sessions land in the right bucket
 - Top projects table with per-project detail pages including memories and workflow timeline
 
 #### Sessions
@@ -68,10 +70,11 @@ Highlights:
 - One-click presets ("long sessions", "high-cost sessions", etc.)
 - Free-text search across project / session id
 - Active-filter chip row with per-chip clear; state persists across reloads
-- Sortable, resizable session table
+- Sortable, resizable session table; sessions that span more than one calendar day are badged in the date column
 - Per-session detail pages with chat replay and Markdown / CSV / XLSX / ZIP export
 - Per-session cache-efficiency badge and flush counter
 - Chat replay marks errors, compactions, slash commands, interrupts, and rejected tool calls; multi-select event filters, a thinking indicator, and output tokens attributed to each slash command
+- Chat replay inserts day-divider rows for multi-day sessions, and the date carries into the copy-to-clipboard and Markdown exports
 
 #### Session flow visualization
 
@@ -165,6 +168,7 @@ See [`config.example.json`](config.example.json) for all options:
 | `source_label`       | `string` | `"current"` | Label for the local `~/.claude` source in session metadata                   |
 | `hide_session_flow`  | `bool`   | `false`     | Hide the Session Flow visualization (for screenshots/recordings)             |
 | `plan_history`       | `array`  | `[]`        | Your subscription plan history                                               |
+| `plan_capacity_override_pro_usd` | `number` | `null` | Manual per-window USD capacity of the Pro tier for the plan recommendation; overrides the empirical calibration (Max 5x / 20x scale ×5 / ×20) |
 | `migration.enabled`  | `bool`   | `false`     | Enable data from a migration backup                                          |
 | `migration.label`    | `string` | `""`        | Label for migrated sessions (e.g. `"archive:laptop"`)                        |
 | `migration.dir`      | `string` | `null`      | Path to migration backup directory                                           |

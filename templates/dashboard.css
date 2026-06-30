@@ -1565,9 +1565,10 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 .rec-card--none .rec-card-value { color: var(--vc-fg); font-size: 16px; }
 
 /* ── Per-cycle hit heatmap (replaces the plain hit tables) ────────── */
-/* 5h and weekly hit tables sit side by side as a compact pair (content width);
-   they wrap to a stack only on narrow viewports. */
-.ph-tables { display: flex; flex-wrap: wrap; gap: 16px 56px; align-items: flex-start; }
+/* 5h and weekly hit tables split the row into two equal halves, each table
+   centered within its half; collapses to a single centered column on narrow
+   viewports (see media query below). */
+.ph-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 56px; align-items: start; justify-items: center; }
 .ph-block { min-width: 0; }
 .ph-tables .ph-title { margin-top: 4px; }
 .ph-title { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vc-pos); margin: 16px 0 6px; }
@@ -1596,6 +1597,7 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 .ph-tot .ph-cell { background: transparent; box-shadow: none; font-weight: 600; padding-top: 9px; }
 .ph-tot .ph-cyc { text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; color: var(--vc-fg); padding-top: 9px; }
 .plan-rec-fineprint { margin-top: 16px; }
+@media (max-width: 860px) { .ph-tables { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .ph-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; } }
 .model-pricing-notice { margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--amber); border-radius: 3px; color: var(--text); font-size: 13px; background: rgba(176, 74, 47, 0.08); }
 .model-pricing-notice strong { font-weight: 600; }

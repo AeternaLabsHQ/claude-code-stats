@@ -1,3 +1,13 @@
+## 2026-06-30 — Q&A: Cache-Token-Kostenberechnung erklärt
+
+User fragte, wie Cache-Token-Kosten berechnet werden. calc_cost() in extract_stats.py erklärt: cache_read_input_tokens und cache_creation_input_tokens werden getrennt bepreist (≈0.1× bzw. ≈1.25× Input-Preis). Nicht-offensichtlicher Befund: PRICING enthält pro Modell auch einen cache_write_1h-Satz, der im aktiven Pfad nie verwendet wird — calc_cost() rechnet Cache-Creation immer mit der 5m-Rate, um Claude Codes eigene Kostenberechnung nachzubilden (JSONL liefert keine 5m/1h-Aufschlüsselung). Reine Lesesession, keine Code-Änderungen.
+→ Reference-Thought in open-brain (claude-stats-Projekt)
+
+## 2026-06-30 — Doku-Catch-up: README, CHANGELOG, DE-Technikdoku auf v2
+
+User fragte, ob README und alle Dokus aktuell sind. README war seit 2026-06-06 auf v2-Basis, aber ohne die seitdem dazugekommenen Features (Multi-Day-Badges, aktivitätsbasierter Datumsfilter, Chat-Tagestrenner, projected ROI); CHANGELOG.md hing seit 2026-05-19 noch am alten 8-Tab-Pre-v2-Design fest; docs/DOCUMENTATION_de.md (lokal, gitignored) beschrieb noch die 7-Tab-Struktur ohne Fable 5/Opus 4.8/Cache-Anomaly-Detection und mit einer falschen UTC-Zeitzonen-Aussage. Alle drei gegen den aktuellen Code verifiziert und aktualisiert; CHANGELOG bekam einen neuen `[Unreleased] - v2`-Block statt einer erfundenen Versionsnummer. README+CHANGELOG committed (93a7331).
+→ README.md, CHANGELOG.md, docs/DOCUMENTATION_de.md (lokal)
+
 ## 2026-06-30 — Plan & Billing: Limit-Tabellen-Layout zentriert
 
 User-Screenshot zeigte die zwei Heatmap-Tabellen "5h-limit hits"/"Weekly-limit hits" unschön linksbündig geklebt mit viel Leerraum rechts. 3 Mockup-Optionen per AskUserQuestion gezeigt, User wählte "in Hälften zentriert". `.ph-tables` von Flexbox (content-width) auf CSS-Grid (1fr 1fr, justify-items:center) umgestellt, Responsive-Breakpoint bei 860px ergänzt (Kollaps auf eine zentrierte Spalte).

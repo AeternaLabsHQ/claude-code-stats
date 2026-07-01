@@ -341,7 +341,8 @@ let F = {};
 const charts = {};
 let currentDays = 0;
 let anonMode = false;
-let agentTypesChartInstance, agentDescsChartInstance, errorByCatChartInstance, errorByToolChartInstance;
+let agentTypesChartInstance, agentDescsChartInstance, errorByCatChartInstance, errorByToolChartInstance,
+    errorRateChartInstance, taskDonutChartInstance;
 // Variant-C: 10-slot palette using accent + fg shades cycled.
 // Plain array rebuilt on demand to avoid Proxy-array compat issues with Chart.js.
 function buildVcChartColors(n) {
@@ -2538,26 +2539,6 @@ function renderInsights() {
       '<div class="sidebar-row"><span class="label">__L_insights_pull_requests__</span><span class="val" style="color:var(--purple)">'+(gs.prs||0)+'</span></div>';
   }
 
-  // Error rate over time chart
-  const dailyErrors = {};
-  D.sessions.forEach(s => {
-    if (!dailyErrors[s.date]) dailyErrors[s.date] = {errors:0, calls:0};
-    dailyErrors[s.date].errors += s.error_count || 0;
-    dailyErrors[s.date].calls += s.api_calls || 0;
-  });
-  const errDates = Object.keys(dailyErrors).sort();
-  const errRates = errDates.map(d => dailyErrors[d].calls > 0 ? +(dailyErrors[d].errors / dailyErrors[d].calls * 100).toFixed(1) : 0);
-  if (errDates.length > 0) {
-    const negCol = _vcLiveVar('--vc-neg', '#d24b3e');
-    new Chart(document.getElementById('errorRateChart'), {
-      type: 'line',
-      data: {
-        labels: errDates,
-        datasets: [{ label: 'Error Rate (%)', data: errRates, borderColor: negCol, backgroundColor: _vcHexRgba(negCol, 0.1), fill:true, tension:0.3 }]
-      },
-      options: { responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a',maxTicksLimit:15}}, y:{ticks:{color:window.__vcFg3||'#918a7a'}, beginAtZero:true} } }
-    });
-  }
 }
 
 // ── Tab 7: Agents ──────────────────────────────────────────────────────
@@ -2684,6 +2665,32 @@ function renderAgentsTab() {
         datasets: [{ data: ebt.map(e => e.count), backgroundColor: _vcHexRgba(_vcLiveVar('--vc-neg', '#d24b3e'), 0.7), borderRadius:4 }]
       },
       options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a'}}, y:{ticks:{color:window.__vcFg3||'#918a7a',font:{size:11}}} } }
+    });
+  }
+
+  // Error rate over time. Lives here (not renderInsights) so it re-renders on
+  // every filter change like the other charts in this errors subsection.
+  // Denominator: real tool invocations (sum of per-tool counters), matching
+  // the error_rate/total_tool_calls semantics.
+  const dailyErrors = {};
+  F.sessions.forEach(s => {
+    if (!s.date) return;
+    if (!dailyErrors[s.date]) dailyErrors[s.date] = {errors:0, calls:0};
+    dailyErrors[s.date].errors += s.error_count || 0;
+    dailyErrors[s.date].calls += Object.values(s.tools || {}).reduce((a, b) => a + (b || 0), 0);
+  });
+  const errDates = Object.keys(dailyErrors).sort();
+  const errRates = errDates.map(d => dailyErrors[d].calls > 0 ? +(dailyErrors[d].errors / dailyErrors[d].calls * 100).toFixed(1) : 0);
+  if (errorRateChartInstance) { errorRateChartInstance.destroy(); errorRateChartInstance = null; }
+  if (errDates.length > 0) {
+    const negCol = _vcLiveVar('--vc-neg', '#d24b3e');
+    errorRateChartInstance = new Chart(document.getElementById('errorRateChart'), {
+      type: 'line',
+      data: {
+        labels: errDates,
+        datasets: [{ label: 'Error Rate (%)', data: errRates, borderColor: negCol, backgroundColor: _vcHexRgba(negCol, 0.1), fill:true, tension:0.3 }]
+      },
+      options: { responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a',maxTicksLimit:15}}, y:{ticks:{color:window.__vcFg3||'#918a7a'}, beginAtZero:true} } }
     });
   }
 }

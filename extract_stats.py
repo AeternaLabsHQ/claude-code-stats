@@ -3047,6 +3047,11 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
     with no tracked Claude usage.
     """
     all_limit_events = all_limit_events or []
+    if not PLAN_HISTORY:
+        # No subscription configured (API-only user): nothing to compare
+        # against, and the current-billing block below would crash on
+        # PLAN_HISTORY[-1]. The caller treats None as "no plan section".
+        return None
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     periods = []
@@ -3902,7 +3907,12 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     )
 
     # ── Actual plan cost for KPI ─────────────────────────────────────────
-    actual_plan_cost = plan_analysis.get("total_plan_cost", 0)
+    actual_plan_cost = plan_analysis.get("total_plan_cost", 0) if plan_analysis else 0
+    # plan_recommendation is consumed by the frontend at the top level only;
+    # pop it out of the nested plan dict so it is serialized exactly once.
+    plan_recommendation = (
+        plan_analysis.pop("plan_recommendation", None) if plan_analysis else None
+    )
 
     data = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -3925,7 +3935,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "total_projects": len(project_list),
         },
         "plan": plan_analysis,
-        "plan_recommendation": plan_analysis.get("plan_recommendation"),
+        "plan_recommendation": plan_recommendation,
         "daily_costs": daily_cost_series,
         "daily_tokens": daily_token_series,
         "cumulative_costs": cumulative_series,

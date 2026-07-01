@@ -44,5 +44,28 @@ class EmptyPlanHistoryDataTest(unittest.TestCase):
         self.assertEqual(data["kpi"]["actual_plan_cost"], 0)
 
 
+class CacheEffTrivialFilterTest(unittest.TestCase):
+    def test_one_message_session_excluded_from_cache_eff_series(self):
+        tmp = Path(tempfile.mkdtemp(prefix="cs-eff1-"))
+        data = _build(tmp, [
+            assistant_line(msg_id="m1",
+                           usage_extra={"cache_read_input_tokens": 500}),
+        ])
+        days = [d["date"] for d in data["daily_cache_efficiency"]]
+        self.assertEqual(days, [])
+
+    def test_three_message_session_included(self):
+        tmp = Path(tempfile.mkdtemp(prefix="cs-eff3-"))
+        data = _build(tmp, [
+            user_line(),
+            assistant_line(msg_id="m1",
+                           usage_extra={"cache_read_input_tokens": 500}),
+            assistant_line(msg_id="m2", ts="2026-06-10T10:01:00Z",
+                           usage_extra={"cache_read_input_tokens": 500}),
+        ])
+        days = [d["date"] for d in data["daily_cache_efficiency"]]
+        self.assertEqual(days, ["2026-06-10"])
+
+
 if __name__ == "__main__":
     unittest.main()

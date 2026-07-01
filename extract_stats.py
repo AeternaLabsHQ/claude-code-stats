@@ -59,6 +59,12 @@ HISTORY_JSONL = CLAUDE_DIR / "history.jsonl"
 
 SOURCE_LABEL = CONFIG.get("source_label", "current")
 
+# Minimum messages a session-day slice needs before it enters the daily
+# cache-efficiency box-plot series. 1-2 message sessions have no realistic
+# cache-hit opportunity and only drag the distribution down. MUST match the
+# client-side rebuild filter in templates/dashboard.js (plan B contract).
+CACHE_EFF_MIN_MESSAGES = 3
+
 # ── Migration Backup (optional, configured in config.json) ───────────────
 _mig = CONFIG.get("migration", {})
 MIGRATION_ENABLED = _mig.get("enabled", False)
@@ -3527,7 +3533,9 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
                 daily_tokens[_day][_dm]["cache_write"] += _b["cache_creation_input_tokens"]
                 _day_in += _b["input_tokens"] + _b["cache_read_input_tokens"] + _b["cache_creation_input_tokens"]
                 _day_cr += _b["cache_read_input_tokens"]
-            if _day_in > 0:
+            # Skip structurally trivial slices; mirrors the frontend filter
+            # (CACHE_EFF_MIN_MESSAGES) so server series == client rebuild.
+            if _day_in > 0 and per_day_messages.get(_day, 0) >= CACHE_EFF_MIN_MESSAGES:
                 daily_cache_eff[_day].append(_day_cr / _day_in * 100)
         for _day, _n in per_day_messages.items():
             daily_messages[_day] += _n

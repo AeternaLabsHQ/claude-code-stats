@@ -1397,6 +1397,88 @@ def _merge_model_buckets(dst: dict, src: dict) -> None:
                 db[key] = db.get(key, 0) + val
 
 
+def _absorb_subagent(parent, sub, sub_type="", sub_desc=""):
+    """Fold a subagent session's API usage into its parent session.
+
+    Appends a per-subagent summary entry to parent["subagents"] and merges
+    the subagent's model buckets (session totals and per-day) into the
+    parent. The subagent's turns live only in its own transcript file, so
+    this counts each turn exactly once. The caller removes the subagent
+    from the top-level sessions dict afterwards."""
+    sub_tokens = sum(m["input_tokens"] + m["output_tokens"]
+                     for m in sub["models"].values())
+    sub_cost = sum(m["cost"] for m in sub["models"].values())
+    parent["subagents"].append({
+        "agent_id": sub["session_id"],
+        "type": sub_type,
+        "description": sub_desc,
+        "tokens": sub_tokens,
+        "cost": round(sub_cost, 4),
+        "messages": sub["message_count"],
+        "tools": dict(sub["tools"]),
+    })
+    _merge_model_buckets(parent["models"], sub["models"])
+    for day, mdict in sub.get("daily_models", {}).items():
+        _merge_model_buckets(parent["daily_models"][day], mdict)
+
+
+def _link_subagents(sessions):
+    """Attach every subagent session to its parent and absorb its usage.
+
+    Subagents whose parent transcript is missing (cleaned up by
+    cleanupPeriodDays or never parsed) are KEPT as standalone sessions:
+    deleting them would silently drop their tokens and cost from every
+    total. Returns the orphan count."""
+    subagent_ids = [sid for sid, s in sessions.items() if s.get("is_subagent")]
+    orphan_count = 0
+    for sub_id in subagent_ids:
+        sub = sessions[sub_id]
+        parent_id = sub.get("parent_session_id", "")
+        if not (parent_id and parent_id in sessions):
+            orphan_count += 1
+            continue
+        parent = sessions[parent_id]
+        sub_agent_id = sub.get("agent_id", "")
+        # Resolve subagent type: primary = meta.json on disk, secondary =
+        # matching dispatch in parent
+        sub_type = sub.get("agent_type", "")
+        sub_desc = sub.get("agent_description", "")
+        if not sub_type and sub_agent_id:
+            for ad in parent.get("agent_dispatches", []):
+                if ad.get("agent_id") == sub_agent_id:
+                    sub_type = ad.get("type", "")
+                    if not sub_desc:
+                        sub_desc = ad.get("description", "")
+                    break
+        # Still no type? Insert synthetic dispatch so aggregation counts
+        # the spawn once.
+        if not sub_type:
+            sub_type = "<unlinked>"
+            parent.setdefault("agent_dispatches", []).append({
+                "type": "<unlinked>",
+                "description": sub_desc,
+                "tool_use_id": "",
+                "agent_id": sub_agent_id,
+            })
+        elif sub_agent_id:
+            # We have a type but did the parent dispatch get linked? If not,
+            # backfill agent_id on the first matching dispatch by type that's
+            # still unlinked.
+            for ad in parent.get("agent_dispatches", []):
+                if ad.get("agent_id"):
+                    continue
+                if ad.get("type") == sub_type:
+                    ad["agent_id"] = sub_agent_id
+                    break
+        _absorb_subagent(parent, sub, sub_type, sub_desc)
+        del sessions[sub_id]
+    if orphan_count:
+        print(f"  WARNING: {orphan_count} subagent session(s) have no reachable "
+              f"parent transcript; keeping them as standalone sessions so "
+              f"their tokens and cost still count.")
+    return orphan_count
+
+
 _DAILY_FIELDS = (
     "input_tokens", "output_tokens",
     "cache_read_input_tokens", "cache_creation_input_tokens",
@@ -2501,63 +2583,9 @@ def parse_session_transcripts():
                 except Exception as e:
                     print(f"      ERROR reading {jsonl_file.name}: {e}")
 
-    # Link subagents to parent sessions and remove from top-level
-    subagent_ids = [sid for sid, s in sessions.items() if s.get("is_subagent")]
-    for sub_id in subagent_ids:
-        sub = sessions[sub_id]
-        parent_id = sub.get("parent_session_id", "")
-        if parent_id and parent_id in sessions:
-            parent = sessions[parent_id]
-            sub_agent_id = sub.get("agent_id", "")
-            # Resolve subagent type: primary = meta.json on disk, secondary = matching dispatch in parent
-            sub_type = sub.get("agent_type", "")
-            sub_desc = sub.get("agent_description", "")
-            if not sub_type and sub_agent_id:
-                for ad in parent.get("agent_dispatches", []):
-                    if ad.get("agent_id") == sub_agent_id:
-                        sub_type = ad.get("type", "")
-                        if not sub_desc:
-                            sub_desc = ad.get("description", "")
-                        break
-            # Still no type? Insert synthetic dispatch so aggregation counts the spawn once.
-            if not sub_type:
-                sub_type = "<unlinked>"
-                parent.setdefault("agent_dispatches", []).append({
-                    "type": "<unlinked>",
-                    "description": sub_desc,
-                    "tool_use_id": "",
-                    "agent_id": sub_agent_id,
-                })
-            elif sub_agent_id:
-                # We have a type but did the parent dispatch get linked? If not, backfill agent_id
-                # on the first matching dispatch by type that's still unlinked.
-                for ad in parent.get("agent_dispatches", []):
-                    if ad.get("agent_id"):
-                        continue
-                    if ad.get("type") == sub_type:
-                        ad["agent_id"] = sub_agent_id
-                        break
-            # Calculate subagent totals
-            sub_tokens = sum(m["input_tokens"] + m["output_tokens"] for m in sub["models"].values())
-            sub_cost = sum(m["cost"] for m in sub["models"].values())
-            parent["subagents"].append({
-                "agent_id": sub["session_id"],
-                "type": sub_type,
-                "description": sub_desc,
-                "tokens": sub_tokens,
-                "cost": round(sub_cost, 4),
-                "messages": sub["message_count"],
-                "tools": dict(sub["tools"]),
-            })
-            # Fold the subagent's real API usage into the parent's model
-            # buckets so headline totals (cost / tokens / per-model) include
-            # subagent spend. The subagent's turns live ONLY in its own file,
-            # so this adds each turn exactly once (no double count). The
-            # subagents[] breakdown above stays for per-subagent display.
-            _merge_model_buckets(parent["models"], sub["models"])
-            for _day, _mdict in sub.get("daily_models", {}).items():
-                _merge_model_buckets(parent["daily_models"][_day], _mdict)
-        del sessions[sub_id]
+    # Link subagents to parent sessions and remove them from the top level;
+    # orphans (parent transcript missing) stay so their spend is not lost.
+    _link_subagents(sessions)
 
     # Compute gap-based cache-flush count from per-turn data (Task 1).
     # _assistant_turns stays on the session for build_dashboard_data() to

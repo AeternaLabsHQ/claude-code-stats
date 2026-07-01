@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from extract_stats import _day_from_ms, split_session_by_day, _merge_model_buckets
+from extract_stats import _day_from_ms, split_session_by_day
 
 # 2026-06-10 and 2026-06-12 (UTC) in ms
 TS_10 = 1781092800000
@@ -85,17 +85,71 @@ class SplitSessionByDayTest(unittest.TestCase):
         self.assertEqual(list(per_day_models), ["2026-06-12"])
 
 
-class SubagentDailyMergeTest(unittest.TestCase):
-    def test_parent_daily_absorbs_subagent_day(self):
-        from collections import defaultdict
-        parent_daily = defaultdict(lambda: defaultdict(lambda: _bucket()))
-        parent_daily["2026-06-12"]["opus"] = _bucket(cost=1.0, calls=1)
-        sub_daily = {"2026-06-12": {"opus": _bucket(cost=0.5, calls=1)},
-                     "2026-06-11": {"haiku": _bucket(cost=0.2, calls=1)}}
-        for day, mdict in sub_daily.items():
-            _merge_model_buckets(parent_daily[day], mdict)
-        self.assertAlmostEqual(parent_daily["2026-06-12"]["opus"]["cost"], 1.5)
-        self.assertAlmostEqual(parent_daily["2026-06-11"]["haiku"]["cost"], 0.2)
+class SubagentAbsorbTest(unittest.TestCase):
+    """Exercises the REAL absorb/link functions instead of re-implementing
+    the merge loop inline (the old test stayed green even when the real
+    wiring regressed)."""
+
+    def _parent(self):
+        return {
+            "session_id": "parent",
+            "models": defaultdict(lambda: _bucket()),
+            "daily_models": defaultdict(lambda: defaultdict(lambda: _bucket())),
+            "subagents": [],
+            "agent_dispatches": [],
+            "message_count": 5,
+            "tools": {},
+            "is_subagent": False,
+            "parent_session_id": "",
+        }
+
+    def _sub(self, parent_id="parent"):
+        return {
+            "session_id": "agent-a1",
+            "models": {"opus": _bucket(input_tokens=10, output_tokens=40,
+                                       cost=0.5, calls=1)},
+            "daily_models": {
+                "2026-06-12": {"opus": _bucket(cost=0.5, calls=1)},
+                "2026-06-11": {"haiku": _bucket(cost=0.2, calls=1)},
+            },
+            "subagents": [],
+            "agent_dispatches": [],
+            "message_count": 3,
+            "tools": {"Read": 2},
+            "is_subagent": True,
+            "parent_session_id": parent_id,
+            "agent_id": "a1",
+            "agent_type": "explore",
+            "agent_description": "look around",
+        }
+
+    def test_absorb_merges_totals_and_daily(self):
+        from extract_stats import _absorb_subagent
+        parent = self._parent()
+        parent["models"]["opus"] = _bucket(cost=1.0, calls=1)
+        parent["daily_models"]["2026-06-12"]["opus"] = _bucket(cost=1.0, calls=1)
+        _absorb_subagent(parent, self._sub(), "explore", "look around")
+        self.assertAlmostEqual(parent["models"]["opus"]["cost"], 1.5)
+        self.assertAlmostEqual(
+            parent["daily_models"]["2026-06-12"]["opus"]["cost"], 1.5)
+        self.assertAlmostEqual(
+            parent["daily_models"]["2026-06-11"]["haiku"]["cost"], 0.2)
+        self.assertEqual(parent["subagents"][0]["tokens"], 50)
+
+    def test_link_subagents_absorbs_and_removes(self):
+        from extract_stats import _link_subagents
+        sessions = {"parent": self._parent(), "agent-a1": self._sub()}
+        orphans = _link_subagents(sessions)
+        self.assertEqual(orphans, 0)
+        self.assertNotIn("agent-a1", sessions)
+        self.assertAlmostEqual(sessions["parent"]["models"]["opus"]["cost"], 0.5)
+
+    def test_link_subagents_keeps_orphans(self):
+        from extract_stats import _link_subagents
+        sessions = {"agent-a1": self._sub(parent_id="GONE")}
+        orphans = _link_subagents(sessions)
+        self.assertEqual(orphans, 1)
+        self.assertIn("agent-a1", sessions)
 
 
 if __name__ == "__main__":

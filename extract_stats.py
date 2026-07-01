@@ -602,21 +602,29 @@ def build_pricing_warnings(model_ids):
 def calc_cost(model_id, usage):
     """Calculate cost for a single API call based on usage tokens.
 
-    Uses the standard cache write rate (1.25x input price) for all cache
-    creation tokens, matching Claude Code's own cost calculation.
-    """
+    Cache writes are priced per TTL: 5m writes at 1.25x input
+    (cache_write_5m), 1h writes at 2x input (cache_write_1h). Transcripts
+    without the usage.cache_creation breakdown fall back to pricing all
+    cache creation tokens at the 5m rate, matching Claude Code's own cost
+    calculation."""
     p = resolve_pricing(model_id)
 
     input_tokens = usage.get("input_tokens", 0)
     output_tokens = usage.get("output_tokens", 0)
     cache_read = usage.get("cache_read_input_tokens", 0)
     cache_creation = usage.get("cache_creation_input_tokens", 0)
+    cache_info = usage.get("cache_creation") or {}
+    # 1h tokens are a subset of cache_creation; clamp defensively so a
+    # malformed transcript can never yield negative 5m tokens.
+    cache_1h = min(cache_info.get("ephemeral_1h_input_tokens", 0), cache_creation)
+    cache_5m = cache_creation - cache_1h
 
     cost = (
         input_tokens * p["input"] / 1_000_000
         + output_tokens * p["output"] / 1_000_000
         + cache_read * p["cache_read"] / 1_000_000
-        + cache_creation * p["cache_write_5m"] / 1_000_000
+        + cache_5m * p["cache_write_5m"] / 1_000_000
+        + cache_1h * p["cache_write_1h"] / 1_000_000
     )
     return cost
 
@@ -3439,6 +3447,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     model_totals = defaultdict(lambda: {
         "input_tokens": 0, "output_tokens": 0,
         "cache_read_tokens": 0, "cache_write_tokens": 0,
+        "cache_1h_tokens": 0,
         "cost": 0.0, "calls": 0
     })
     total_cost = 0.0
@@ -3487,6 +3496,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             mt["output_tokens"] += mdata["output_tokens"]
             mt["cache_read_tokens"] += mdata["cache_read_input_tokens"]
             mt["cache_write_tokens"] += mdata["cache_creation_input_tokens"]
+            mt["cache_1h_tokens"] += mdata.get("cache_1h_tokens", 0)
             mt["cost"] += mdata["cost"]
             mt["calls"] += mdata["calls"]
 
@@ -3772,7 +3782,12 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         cost_by_type["input"] += mdata["input_tokens"] * p["input"] / 1_000_000
         cost_by_type["output"] += mdata["output_tokens"] * p["output"] / 1_000_000
         cost_by_type["cache_read"] += mdata["cache_read_tokens"] * p["cache_read"] / 1_000_000
-        cost_by_type["cache_write"] += mdata["cache_write_tokens"] * p["cache_write_5m"] / 1_000_000
+        # Split cache writes by TTL: 1h writes cost 2x input, 5m writes 1.25x.
+        _w1h = min(mdata.get("cache_1h_tokens", 0), mdata["cache_write_tokens"])
+        _w5m = mdata["cache_write_tokens"] - _w1h
+        cost_by_type["cache_write"] += (
+            _w5m * p["cache_write_5m"] + _w1h * p["cache_write_1h"]
+        ) / 1_000_000
 
     cost_by_type = {k: round(v, 2) for k, v in cost_by_type.items()}
 

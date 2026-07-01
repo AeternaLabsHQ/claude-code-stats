@@ -593,7 +593,7 @@ function filterData(days, projectFilter) {
     p.messages += s.messages || 0;
     p.cost += s.cost || 0;
     p.output_tokens += s.output_tokens || 0;
-    p.file_size_mb = Math.max(p.file_size_mb, s.file_size_mb || 0);
+    p.file_size_mb += s.file_size_mb || 0;
     if (s.source) p.sources.add(s.source);
   });
   F.projects = Object.values(projMap).map(p => { p.sources = [...p.sources].sort(); return p; }).sort((a, b) => b.cost - a.cost);
@@ -1627,7 +1627,7 @@ function renderProjectTable(sortKey, sortDir) {
       {val: fmt(p.messages), cls: 'num', label: 'Messages'},
       {val: fmtUSD(p.cost), cls: 'num', label: 'API Value'},
       {val: fmtTokens(p.output_tokens), cls: 'num', label: 'Output'},
-      {val: String(p.file_size_mb), cls: 'num', label: 'File Size'},
+      {val: (p.file_size_mb || 0).toFixed(1), cls: 'num', label: 'File Size'},
     ];
     cells.forEach(c => {
       const td = document.createElement('td');

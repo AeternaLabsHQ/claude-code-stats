@@ -65,6 +65,17 @@ SOURCE_LABEL = CONFIG.get("source_label", "current")
 # client-side rebuild filter in templates/dashboard.js (plan B contract).
 CACHE_EFF_MIN_MESSAGES = 3
 
+# Anthropic weekly limits reset on a per-user weekday, not on ISO weeks.
+# config.json "week_anchor" ("mon".."sun") sets that weekday for the weekly
+# bucketing AND the frontend chart markers (exported as data["week_anchor"]).
+_WEEKDAY_BY_ANCHOR = {"mon": 0, "tue": 1, "wed": 2, "thu": 3,
+                      "fri": 4, "sat": 5, "sun": 6}
+WEEK_ANCHOR = str(CONFIG.get("week_anchor", "mon")).strip().lower()[:3]
+if WEEK_ANCHOR not in _WEEKDAY_BY_ANCHOR:
+    print(f"  WARNING: invalid week_anchor {CONFIG.get('week_anchor')!r} "
+          f"in config.json; falling back to 'mon'")
+    WEEK_ANCHOR = "mon"
+
 # ── Migration Backup (optional, configured in config.json) ───────────────
 _mig = CONFIG.get("migration", {})
 MIGRATION_ENABLED = _mig.get("enabled", False)
@@ -269,12 +280,16 @@ def _compute_5h_windows(turns):
     return windows
 
 
-def _compute_weekly_buckets(turns):
-    """Group chronological per-turn data into ISO calendar weeks.
+def _compute_weekly_buckets(turns, anchor_weekday=None):
+    """Group chronological per-turn data into calendar weeks starting on
+    the configured anchor weekday (config.json "week_anchor", default
+    Monday).
 
     Returns a list of {week_key, week_start_ts, week_end_ts, cost,
-    turn_count, session_ids} dicts. week_key is "YYYY-Www" (ISO).
-    """
+    turn_count, session_ids} dicts sorted by week_start_ts. week_key is
+    the ISO date (YYYY-MM-DD, UTC) of the week's first day."""
+    if anchor_weekday is None:
+        anchor_weekday = _WEEKDAY_BY_ANCHOR[WEEK_ANCHOR]
     if not turns:
         return []
     buckets = {}
@@ -283,15 +298,15 @@ def _compute_weekly_buckets(turns):
         if ts is None:
             continue
         dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
-        iso_year, iso_week, _ = dt.isocalendar()
-        key = f"{iso_year}-W{iso_week:02d}"
+        week_start = (dt - timedelta(days=(dt.weekday() - anchor_weekday) % 7)
+                      ).replace(hour=0, minute=0, second=0, microsecond=0)
+        key = week_start.strftime("%Y-%m-%d")
         if key not in buckets:
-            # Monday 00:00 UTC of that ISO week
-            mon = datetime.fromisocalendar(iso_year, iso_week, 1).replace(tzinfo=timezone.utc)
             buckets[key] = {
                 "week_key": key,
-                "week_start_ts": int(mon.timestamp() * 1000),
-                "week_end_ts":   int(mon.timestamp() * 1000) + 7 * 24 * 3600 * 1000 - 1,
+                "week_start_ts": int(week_start.timestamp() * 1000),
+                "week_end_ts": int(week_start.timestamp() * 1000)
+                               + 7 * 24 * 3600 * 1000 - 1,
                 "cost": 0.0,
                 "turn_count": 0,
                 "session_ids": set(),
@@ -3978,6 +3993,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     data = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "locale": LOCALE,
+        "week_anchor": WEEK_ANCHOR,
         "account": {
             "name": CONFIG.get("display_name") or account.get("displayName", ""),
             "email": account.get("emailAddress", ""),

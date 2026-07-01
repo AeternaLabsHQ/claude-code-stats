@@ -425,9 +425,9 @@ def test_weekly_buckets_groups_same_iso_week():
         _wt(ms(2025, 12, 31), 2.0),  # Wed W01
         _wt(ms(2026,  1,  3), 4.0),  # Sat W01
     ]
-    b = _compute_weekly_buckets(turns)
+    b = _compute_weekly_buckets(turns, anchor_weekday=0)
     assert len(b) == 1
-    assert b[0]["week_key"] == "2026-W01"
+    assert b[0]["week_key"] == "2025-12-29"  # Monday of that week
     assert b[0]["cost"] == 7.0
 
 
@@ -439,10 +439,10 @@ def test_weekly_buckets_splits_across_weeks():
         _wt(ms(2026, 1, 4),  1.0),  # Sun W01
         _wt(ms(2026, 1, 5),  2.0),  # Mon W02
     ]
-    b = _compute_weekly_buckets(turns)
+    b = _compute_weekly_buckets(turns, anchor_weekday=0)
     assert len(b) == 2
-    assert b[0]["week_key"] == "2026-W01"
-    assert b[1]["week_key"] == "2026-W02"
+    assert b[0]["week_key"] == "2025-12-29"
+    assert b[1]["week_key"] == "2026-01-05"
 
 
 # ── Per-tier 5h-window cap estimation ───────────────────────────────

@@ -2,6 +2,7 @@
   "language": "en",
   "display_name": "",
   "source_label": "current",
+  "week_anchor": "mon",
   "hide_session_flow": false,
   "plan_history": [
     {

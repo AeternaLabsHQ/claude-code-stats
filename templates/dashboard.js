@@ -706,7 +706,11 @@ function filterData(days, projectFilter) {
 
   // Recalculate error_summary from filtered sessions
   const fErrors = F.sessions.reduce((s, x) => s + (x.error_count || 0), 0);
-  const fToolCalls = F.sessions.reduce((s, x) => s + (x.api_calls || 0), 0);
+  // Real tool invocations (sum of per-tool counters), matching the backend's
+  // total_tool_calls semantics. api_calls counts assistant responses, which
+  // undercounts parallel tool use and mislabels the "N errors / M tool calls"
+  // line in the agents section.
+  const fToolCalls = F.sessions.reduce((s, x) => s + Object.values(x.tools || {}).reduce((a, b) => a + (b || 0), 0), 0);
   const fErrByTool = {}, fErrByCat = {}, fErrBySrc = {};
   F.sessions.forEach(s => {
     (s.errors || []).forEach(e => {

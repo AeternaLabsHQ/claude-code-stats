@@ -17,13 +17,16 @@ function fmtPlanMoney(n) {
 }
 function planMoneyValue(obj, base) {
   if (!obj) return null;
+  // Local mode: no silent USD fallback. A period without a local price renders
+  // as "-" (via fmtPlanMoney(null)) instead of a USD number posing as a local
+  // amount, which made the local-mode column visibly disagree with its total.
   if (base === 'plan_cost') {
-    if (planCurrencyMode === 'local' && obj.plan_cost_local != null) return obj.plan_cost_local;
+    if (planCurrencyMode === 'local') return obj.plan_cost_local != null ? obj.plan_cost_local : null;
     return obj.plan_cost_usd;
   }
   if (planCurrencyMode === 'local') {
     const localKey = base + '_local';
-    if (obj[localKey] != null) return obj[localKey];
+    return obj[localKey] != null ? obj[localKey] : null;
   }
   return obj[base];
 }
@@ -2009,9 +2012,9 @@ function renderPlan() {
   tbody.innerHTML = '';
   plan.periods.forEach(p => {
     const tr = document.createElement('tr');
-    const apiVal = planMoneyValue(p, 'api_cost') || 0;
-    const planVal = planMoneyValue(p, 'plan_cost') || 0;
-    const savingsVal = planMoneyValue(p, 'savings') || 0;
+    const apiVal = planMoneyValue(p, 'api_cost');
+    const planVal = planMoneyValue(p, 'plan_cost');
+    const savingsVal = planMoneyValue(p, 'savings');
     // In-progress cycle: show the real period end + elapsed/total days + a
     // muted projected ROI alongside the actual (so-far) ROI.
     const cur = p.is_current;

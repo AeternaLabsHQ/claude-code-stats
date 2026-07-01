@@ -2593,6 +2593,9 @@ function renderAgentsTab() {
   // Task overview (range-filtered via F.insights, falls back to all-time)
   const taskEl = document.getElementById('taskOverview');
   const tasks = F.insights?.tasks || D.insights?.tasks || {};
+  // The canvas below is recreated via innerHTML on every render; destroy the
+  // previous Chart instance so it does not accumulate in Chart.instances.
+  if (taskDonutChartInstance) { taskDonutChartInstance.destroy(); taskDonutChartInstance = null; }
   if (tasks.total > 0) {
     const pct = Math.round((tasks.completed / tasks.total) * 100);
     taskEl.innerHTML =
@@ -2607,7 +2610,7 @@ function renderAgentsTab() {
       '</div>';
     const posCol = _vcLiveVar('--vc-pos', '#1f9d63');
     const mutedCol = _vcLiveVar('--vc-fg-3', '#918a7a');
-    new Chart(document.getElementById('taskDonut'), {
+    taskDonutChartInstance = new Chart(document.getElementById('taskDonut'), {
       type: 'doughnut',
       data: { labels:['Completed','Pending','In Progress'], datasets:[{data:[tasks.completed,tasks.pending||0,tasks.in_progress||0], backgroundColor:[posCol, mutedCol, vcColor(0)]}] },
       options: { cutout:'70%', responsive:true, plugins:{legend:{display:false}} }

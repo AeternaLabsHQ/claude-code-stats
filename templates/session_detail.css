@@ -1,4 +1,5 @@
 
+/* VC-SHARED:tokens:START */
 /* ── Variant-C tokens — Modern SaaS (light + dark) ──────────────── */
 .vc {
   --vc-bg: #f5f6f8; --vc-panel: #ffffff;
@@ -97,6 +98,7 @@ html.theme-light body.vc-page {
   --green: var(--vc-pos); --orange: var(--vc-accent); --red: var(--vc-neg);
   --blue: var(--vc-fg-2); --purple: var(--vc-fg-2); --cyan: var(--vc-fg-2); --amber: var(--vc-accent);
 }
+/* VC-SHARED:tokens:END */
 
 /* Variant-C top bar (mini, for detail page). Width matches .main-layout
    below so the page reads as one centered column on wide monitors. */

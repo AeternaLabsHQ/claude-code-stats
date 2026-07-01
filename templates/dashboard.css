@@ -1,4 +1,5 @@
 
+/* VC-SHARED:tokens:START */
 /* ================================================================
    Variant-C "Terminal" design tokens (scoped to .vc class).
    Defined here so new components can be progressively introduced
@@ -184,6 +185,7 @@ body.anon-mode .anon-blur {
   filter: blur(4px);
   user-select: none;
 }
+/* VC-SHARED:tokens:END */
 
 /* ── Variant-C top bar ─────────────────────────────────────────── */
 /* Constrained-width strip aligned with the .container max-width so the

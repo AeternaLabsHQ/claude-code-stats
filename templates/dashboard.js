@@ -552,11 +552,8 @@ function filterData(days, projectFilter) {
     F.daily_cache_efficiency = _boxplot(cacheEffByDate);
   }
 
-  // Recalculate cumulative costs from filtered daily costs
-  let cum = 0;
-  F.cumulative_costs = F.daily_costs.map(r => { cum += r.total; return {date: r.date, cost: cum}; });
-  let cumTok = 0;
-  F.cumulative_tokens = F.daily_tokens.map(r => { cumTok += r.total; return {date: r.date, tokens: cumTok}; });
+  // Cumulative series are built mode-aware inside renderCostCharts()
+  // (convert each day first, then accumulate).
 
   // Recalculate model_summary from filtered sessions
   const modelMap = {};
@@ -1159,7 +1156,10 @@ function renderCostCharts() {
   const models = D.models;
   const dates = F.daily_costs.map(d => d.date);
   const dailySrc = mode === 'tokens' ? F.daily_tokens : F.daily_costs;
-  const cumSrc = mode === 'tokens' ? F.cumulative_tokens : F.cumulative_costs;
+  // Cumulative series: convert each day at its own FX rate first, then
+  // accumulate. (Converting a running USD total with the current day's rate
+  // rescaled all prior spending whenever the rate changed between periods.)
+  const cumRows = mode === 'tokens' ? F.daily_tokens : F.daily_costs;
   const yTitle = mode === 'tokens' ? 'Tokens'
     : (mode === 'local' ? ((D.plan && D.plan.currency_symbol) || 'USD') : 'USD');
   // fxForDate() can't return null here: the local-mode button is gated on currentFx().
@@ -1200,9 +1200,9 @@ function renderCostCharts() {
     type: 'line',
     plugins: [weekResetMarkerPlugin],
     data: {
-      labels: cumSrc.map(d => d.date),
+      labels: cumRows.map(r => r.date),
       datasets: [{ label: mode === 'tokens' ? L.cumulative_tokens_label : L.cumulative_label,
-        data: cumSrc.map(d => conv(mode === 'tokens' ? d.tokens : d.cost, d.date)),
+        data: (() => { let acc = 0; return cumRows.map(r => { acc += conv(r.total || 0, r.date); return acc; }); })(),
         borderColor: vcColor(1), backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false,

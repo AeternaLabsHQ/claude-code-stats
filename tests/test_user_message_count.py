@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from extract_stats import _is_real_user_prompt, _classify_user_entry
+from extract_stats import _classify_user_entry
 
 
 def _user(content, **extra):
@@ -13,73 +13,69 @@ def _user(content, **extra):
     return obj
 
 
-class IsRealUserPromptTest(unittest.TestCase):
-    def test_plain_string_prompt_counts(self):
-        self.assertTrue(_is_real_user_prompt(_user("Fix the bug please")))
-
-    def test_text_block_prompt_counts(self):
-        self.assertTrue(_is_real_user_prompt(
-            _user([{"type": "text", "text": "do the thing"}])))
-
-    def test_tool_result_does_not_count(self):
-        # Claude Code records tool results on the user channel.
-        self.assertFalse(_is_real_user_prompt(
-            _user([{"type": "tool_result", "tool_use_id": "abc",
-                    "content": "file contents"}])))
-
-    def test_tool_result_mixed_with_text_does_not_count(self):
-        self.assertFalse(_is_real_user_prompt(
-            _user([{"type": "tool_result", "tool_use_id": "x", "content": "y"},
-                   {"type": "text", "text": "trailing"}])))
-
-    def test_slash_command_wrapper_does_not_count(self):
-        self.assertFalse(_is_real_user_prompt(
-            _user("<command-name>close</command-name>")))
-
-    def test_local_command_wrapper_does_not_count(self):
-        self.assertFalse(_is_real_user_prompt(
-            _user("<local-command-stdout>output</local-command-stdout>")))
-
-    def test_interrupt_marker_does_not_count(self):
-        self.assertFalse(_is_real_user_prompt(
-            _user("[Request interrupted by user]")))
-
-    def test_meta_entry_does_not_count(self):
-        self.assertFalse(_is_real_user_prompt(
-            _user("some system note", isMeta=True)))
-
-    def test_empty_content_does_not_count(self):
-        self.assertFalse(_is_real_user_prompt(_user("")))
-        self.assertFalse(_is_real_user_prompt(_user([])))
-
-
 class ClassifyUserEntryTest(unittest.TestCase):
-    def test_categories(self):
-        cases = {
-            "prompt": _user("real message"),
-            "tool_result": _user([{"type": "tool_result", "tool_use_id": "a", "content": "x"}]),
-            "command": _user("<command-name>close</command-name>"),
-            "interrupt": _user("[Request interrupted by user]"),
-            "meta": _user("note", isMeta=True),
-        }
-        for expected, obj in cases.items():
-            self.assertEqual(_classify_user_entry(obj), expected, expected)
+    def test_plain_string_prompt_is_prompt(self):
+        self.assertEqual(_classify_user_entry(_user("Fix the bug please")),
+                         "prompt")
+
+    def test_text_block_prompt_is_prompt(self):
+        self.assertEqual(
+            _classify_user_entry(_user([{"type": "text",
+                                         "text": "do the thing"}])),
+            "prompt")
+
+    def test_tool_result_is_not_a_prompt(self):
+        # Claude Code records tool results on the user channel.
+        self.assertEqual(
+            _classify_user_entry(_user([{"type": "tool_result",
+                                         "tool_use_id": "abc",
+                                         "content": "file contents"}])),
+            "tool_result")
+
+    def test_tool_result_mixed_with_text_is_tool_result(self):
+        self.assertEqual(
+            _classify_user_entry(_user([
+                {"type": "tool_result", "tool_use_id": "x", "content": "y"},
+                {"type": "text", "text": "trailing"}])),
+            "tool_result")
+
+    def test_slash_command_wrapper_is_command(self):
+        self.assertEqual(
+            _classify_user_entry(_user("<command-name>close</command-name>")),
+            "command")
+
+    def test_local_command_wrapper_is_command(self):
+        self.assertEqual(
+            _classify_user_entry(
+                _user("<local-command-stdout>output</local-command-stdout>")),
+            "command")
+
+    def test_interrupt_marker_is_interrupt(self):
+        self.assertEqual(
+            _classify_user_entry(_user("[Request interrupted by user]")),
+            "interrupt")
+
+    def test_meta_entry_is_meta(self):
+        self.assertEqual(
+            _classify_user_entry(_user("some system note", isMeta=True)),
+            "meta")
+
+    def test_empty_content_is_meta(self):
+        self.assertEqual(_classify_user_entry(_user("")), "meta")
+        self.assertEqual(_classify_user_entry(_user([])), "meta")
 
     def test_precedence_tool_result_over_meta(self):
-        obj = _user([{"type": "tool_result", "tool_use_id": "a", "content": "x"}], isMeta=True)
+        obj = _user([{"type": "tool_result", "tool_use_id": "a",
+                      "content": "x"}], isMeta=True)
         self.assertEqual(_classify_user_entry(obj), "tool_result")
 
-    def test_empty_buckets_as_meta(self):
-        self.assertEqual(_classify_user_entry(_user("")), "meta")
-
-    def test_compact_summary_is_not_a_prompt(self):
-        # Compaction is recorded as type:"user" + isCompactSummary:true with a
-        # plain-string content; it must not count as a typed prompt.
+    def test_compact_summary_is_meta_not_prompt(self):
+        # Compaction is recorded as type:"user" + isCompactSummary:true with
+        # a plain-string content; it must not count as a typed prompt.
         obj = _user("This session is being continued from a previous "
                     "conversation that ran out of context...",
                     isCompactSummary=True)
         self.assertEqual(_classify_user_entry(obj), "meta")
-        self.assertFalse(_is_real_user_prompt(obj))
 
 
 if __name__ == "__main__":

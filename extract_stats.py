@@ -1409,11 +1409,6 @@ def _classify_user_entry(obj: dict) -> str:
     return "prompt"
 
 
-def _is_real_user_prompt(obj: dict) -> bool:
-    """True iff a type:"user" entry is a genuine human-typed prompt."""
-    return _classify_user_entry(obj) == "prompt"
-
-
 def _merge_model_buckets(dst: dict, src: dict) -> None:
     """Add every per-model token/cost/call bucket in `src` into `dst`
     (summing numeric fields). Used to fold a subagent session's usage into
@@ -2337,9 +2332,7 @@ def parse_session_transcripts():
                                 sess["_pending_text_tokens"] = 0
 
                                 # Compaction: Claude Code records it as a
-                                # type:"user" entry flagged isCompactSummary
-                                # (there is no type:"summary" entry — that path
-                                # below is dead for current transcripts).
+                                # type:"user" entry flagged isCompactSummary.
                                 if obj.get("isCompactSummary"):
                                     sess["compactions"] += 1
                                     _cts = ""
@@ -2602,19 +2595,6 @@ def parse_session_transcripts():
                                     hook_name = data_obj.get("hookName", "")
                                     if hook_name:
                                         sess["hooks"][hook_name] += 1
-
-                            elif msg_type == "summary":
-                                sess["compactions"] += 1
-                                ts_str = ""
-                                if timestamp:
-                                    if isinstance(timestamp, str):
-                                        ts_str = timestamp
-                                    elif isinstance(timestamp, (int, float)):
-                                        try:
-                                            ts_str = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc).isoformat()
-                                        except (ValueError, OSError):
-                                            ts_str = str(timestamp)
-                                sess["compaction_events"].append({"timestamp": ts_str})
 
                 except Exception as e:
                     print(f"      ERROR reading {jsonl_file.name}: {e}")

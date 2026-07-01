@@ -658,8 +658,12 @@ function filterData(days, projectFilter) {
     share: +(wcAgg[k] / wcTotal).toFixed(4),
   }));
 
-  // Recalculate KPI
-  const totalCost = filteredTotalCost;
+  // Recalculate KPI. total_cost uses the day-slice basis (sum over F.daily_costs):
+  // multi-day sessions count only their slices inside the selected range, so this
+  // KPI, the daily chart and the local-currency conversion share one attribution
+  // basis. (Summing whole sessions whose end falls in range overcounted at the
+  // range edge by up to the full pre-range spend of a long-running session.)
+  const totalCost = F.daily_costs.reduce((s, r) => s + (r.total || 0), 0);
   const totalSessions = F.sessions.length;
   const totalMessages = F.sessions.reduce((s, x) => s + (x.messages || 0), 0);
   const totalOutputTokens = F.sessions.reduce((s, x) => s + (x.output_tokens || 0), 0);
@@ -669,7 +673,7 @@ function filterData(days, projectFilter) {
   const dates = F.sessions.map(s => s.date).filter(Boolean).sort();
   F.kpi = {
     total_cost: totalCost,
-    actual_plan_cost: calcFilteredPlanCost(dates),
+    actual_plan_cost: calcFilteredPlanCost(F.daily_costs.map(r => r.date)),
     total_sessions: totalSessions,
     total_messages: totalMessages,
     total_output_tokens: totalOutputTokens,
@@ -3064,9 +3068,9 @@ function renderVcKpis() {
   const k = (typeof F !== 'undefined' && F.kpi) ? F.kpi : (D && D.kpi) || {};
   if (!k) return;
 
-  // In local-currency mode the money KPI follows the costs-tab toggle:
-  // API equivalent converts per-day (matches the daily chart), paid uses the
-  // actual local plan costs per period. Tokens mode keeps the USD display.
+  // Both currency modes share the day-slice basis (F.kpi.total_cost is the sum
+  // of F.daily_costs): local mode converts per-day at each day's FX rate, USD
+  // mode shows the same sum unconverted. Tokens mode keeps the USD display.
   const localMode = costMetricMode === 'local' && typeof F !== 'undefined' && !!currentFx();
   const fmtMoney = localMode ? costModeFmt : fmtVcUsd;
   const apiEq = localMode

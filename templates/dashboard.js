@@ -1109,10 +1109,16 @@ function costModeFmt(v) {
   return fmtUSD(v);
 }
 
-// Dashed vertical markers at each Tuesday — the weekly API-limit resets run
-// Tue→Tue, so these line the daily/cumulative charts up with the billing weeks.
-// Reads the chart's category x labels (YYYY-MM-DD). The line is drawn on the
-// boundary *between* Monday and Tuesday so it sits at the start of the new week.
+// Dashed vertical markers at each weekly-limit reset. The anchor weekday is
+// config-driven via D.week_anchor ("mon".."sun", default "mon") so the chart
+// markers and the backend weekly-hit analysis share one week boundary. Reads
+// the chart's category x labels (YYYY-MM-DD). The line is drawn on the
+// boundary between the previous day and the anchor day, at the week start.
+const _WEEK_ANCHOR_NUM = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+function weekAnchorDayNum() {
+  const a = String(D.week_anchor || 'mon').slice(0, 3).toLowerCase();
+  return _WEEK_ANCHOR_NUM[a] !== undefined ? _WEEK_ANCHOR_NUM[a] : 1;
+}
 const weekResetMarkerPlugin = {
   id: 'weekResetMarker',
   afterDatasetsDraw(chart) {
@@ -1121,6 +1127,7 @@ const weekResetMarkerPlugin = {
     if (!xScale || !labels || !labels.length) return;
     const { ctx, chartArea } = chart;
     const n = labels.length;
+    const anchorDay = weekAnchorDayNum();
     ctx.save();
     ctx.setLineDash([4, 4]);
     ctx.lineWidth = 1;
@@ -1131,7 +1138,7 @@ const weekResetMarkerPlugin = {
       if (parts.length !== 3) continue;
       // Construct in local time (not UTC) so getDay() matches the displayed date.
       const dt = new Date(+parts[0], +parts[1] - 1, +parts[2]);
-      if (dt.getDay() !== 2) continue;            // 2 = Tuesday
+      if (dt.getDay() !== anchorDay) continue;    // config-driven weekly reset anchor
       const cur = xScale.getPixelForValue(i);
       // Boundary = midpoint to the previous day; for i===0 mirror the step.
       let x = i > 0 ? (xScale.getPixelForValue(i - 1) + cur) / 2

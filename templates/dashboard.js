@@ -54,19 +54,6 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
-// Cache efficiency: cache_read / (input + cache_read + cache_write).
-// Returns null when the session has no input-side tokens recorded.
-function sessionCacheEff(s) {
-  const inputSum = (s.input_tokens||0) + (s.cache_read_tokens||0) + (s.cache_write_tokens||0);
-  if (inputSum === 0) return null;
-  return (s.cache_read_tokens||0) / inputSum * 100;
-}
-function effStyle(pct) {
-  if (pct == null) return {color:'var(--text2)', emoji:'—', label:'—'};
-  if (pct >= 80) return {color:'var(--green)', emoji:'✅', label:pct.toFixed(1)+'%'};
-  if (pct >= 50) return {color:'var(--amber)', emoji:'⚠️', label:pct.toFixed(1)+'%'};
-  return {color:'var(--red)', emoji:'❌', label:pct.toFixed(1)+'%'};
-}
 
 // Variant-C single-accent palette. Values mirror the CSS custom
 // properties on .vc and are kept in sync with the dark/light theme
@@ -128,7 +115,7 @@ function _vcHexRgba(color, alpha) {
   return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
 }
 
-// MODEL_COLORS: explicit per-model palette built around three on-brand
+// Per-model chart palette built around three on-brand
 // earth-tone hues (terracotta / sage / ochre) so families are clearly
 // distinguishable, with three lightness steps per family for versions.
 // Unknown / unmatched models fall back to a neutral warm gray.
@@ -173,13 +160,6 @@ function vcModelColor(modelName) {
   if (lower.includes('haiku'))  return fam.haiku;
   return map['Unknown'];
 }
-// Backwards-compat shim: MODEL_COLORS[m] still works for existing code.
-const MODEL_COLORS = {
-  get _proxy() { return true; },
-};
-['Fable 5', 'Opus 4.8', 'Opus 4.7', 'Opus 4.6', 'Opus 4.5', 'Sonnet 4.6', 'Sonnet 4.5', 'Sonnet 4.0', 'Haiku 4.5', 'Haiku 3.5', 'Unknown'].forEach(m => {
-  Object.defineProperty(MODEL_COLORS, m, { get() { return vcModelColor(m); }, enumerable: true });
-});
 
 const SOURCE_COLORS = [
   {bg:vcRgba(1, 0.15), fg:vcColor(1)},
@@ -197,14 +177,6 @@ function sourceColor(label) {
     _sourceColorMap[label] = SOURCE_COLORS[Math.abs(h) % SOURCE_COLORS.length];
   }
   return _sourceColorMap[label];
-}
-function makeSourceBadge(label) {
-  const c = sourceColor(label);
-  const span = document.createElement('span');
-  span.className = 'source-badge';
-  span.style.background = c.bg; span.style.color = c.fg;
-  span.textContent = label;
-  return span;
 }
 
 // Initial placeholders; setupVcChartDefaults() (called below) immediately
@@ -343,15 +315,6 @@ let currentDays = 0;
 let anonMode = false;
 let agentTypesChartInstance, agentDescsChartInstance, errorByCatChartInstance, errorByToolChartInstance,
     errorRateChartInstance, taskDonutChartInstance;
-// Variant-C: 10-slot palette using accent + fg shades cycled.
-// Plain array rebuilt on demand to avoid Proxy-array compat issues with Chart.js.
-function buildVcChartColors(n) {
-  n = n || 10;
-  const out = [vcColor(0), vcColor(1), vcColor(2)];
-  for (let i = 3; i < n; i++) out.push(vcRgba(0, Math.max(0.15, 1 - i * 0.1)));
-  return out;
-}
-const chartColors = buildVcChartColors(13);
 let currentProjectFilter = '';
 
 function calcFilteredPlanCost(filteredDates, local) {
@@ -960,12 +923,6 @@ function initTabs() {
   });
 }
 
-function switchTab(name, btn) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('tab-' + name).classList.add('active');
-}
 
 // Central tab activator + hash router. Activates the named tab across
 // both UIs (legacy .tab-btn + Variant-C .vc-tab) and keeps location.hash
@@ -2424,26 +2381,6 @@ function renderInsights() {
     tbody.appendChild(tr);
   });
 
-  // Config info
-  // Storage rows intentionally omitted here — the chartStorage doughnut above is
-  // the single source for the storage breakdown, so we don't duplicate it.
-  const configDiv = document.getElementById('configInfo');
-  const settings = plugins.settings || {};
-  const configItems = [
-    {label: D.locale.insights.permission_mode, value: settings.permission_mode || '-'},
-    {label: D.locale.insights.auto_updates, value: settings.auto_updates || '-'},
-    {label: D.locale.insights.plugins_installed, value: String(installed.length)},
-    {label: D.locale.insights.plugins_active, value: String(Object.values(enabled).filter(v => v).length)},
-  ];
-  const grid = document.createElement('div'); grid.className = 'config-grid';
-  configItems.forEach(c => {
-    const item = document.createElement('div'); item.className = 'config-item';
-    const lbl = document.createElement('div'); lbl.className = 'ci-label'; lbl.textContent = c.label;
-    const val = document.createElement('div'); val.className = 'ci-value'; val.textContent = c.value;
-    item.appendChild(lbl); item.appendChild(val);
-    grid.appendChild(item);
-  });
-  if (configDiv) configDiv.appendChild(grid);   // Environment section was removed; guard the (now absent) target
 
   // Plans table
   const plans = ins.plans || [];
@@ -2524,17 +2461,6 @@ function renderInsights() {
     hooksEl.innerHTML = '<p style="color:var(--text2);font-size:13px;padding:12px">No hooks fired yet</p>';
   }
 
-  // System info
-  const envInfo = D.insights?.telemetry?.env_info || {};
-  const sysEl = document.getElementById('systemInfo');
-  if (sysEl) {
-    sysEl.innerHTML =
-      '<div class="sidebar-row"><span class="label">Platform</span><span class="val">'+(envInfo.platform||'\u2014')+'</span></div>' +
-      '<div class="sidebar-row"><span class="label">Node</span><span class="val">'+(envInfo.node_version||'\u2014')+'</span></div>' +
-      '<div class="sidebar-row"><span class="label">Claude Code</span><span class="val">'+(envInfo.claude_version||'\u2014')+'</span></div>' +
-      '<div class="sidebar-row"><span class="label">Terminal</span><span class="val">'+(envInfo.terminal||'\u2014')+'</span></div>' +
-      '<div class="sidebar-row"><span class="label">Arch</span><span class="val">'+(envInfo.arch||'\u2014')+'</span></div>';
-  }
 
   // Git ops
   const gs = D.git_summary || {};
@@ -3189,75 +3115,6 @@ if (typeof applyFilter === 'function') {
   };
 }
 
-// ── Variant-C shared render helpers ───────────────────────────────
-function vcSection(title, meta) {
-  const h = document.createElement('div');
-  h.className = 'vc-tab-h';
-  const t = document.createElement('div'); t.className = 'vc-tab-h-title';
-  t.textContent = title;
-  const r = document.createElement('div'); r.className = 'vc-tab-h-rule';
-  const m = document.createElement('div'); m.className = 'vc-tab-h-meta'; m.textContent = meta || '';
-  h.appendChild(t); h.appendChild(r); h.appendChild(m);
-  return h;
-}
-
-function vcDistbar(rows, opts) {
-  opts = opts || {};
-  const max = opts.max || Math.max.apply(null, rows.map(function(r){return r.value||0}).concat([1]));
-  const series = opts.series || 1;
-  const seriesClass = series === 2 ? 's2' : (series === 3 ? 's3' : '');
-  const c = document.createElement('div'); c.className = 'vc-distbar';
-  rows.forEach(function(r){
-    const row = document.createElement('div'); row.className = 'vc-distbar-row';
-    const n = document.createElement('div'); n.className = 'vc-distbar-name'; n.textContent = r.name;
-    if (opts.anonName) n.classList.add('anon-blur');
-    const t = document.createElement('div'); t.className = 'vc-distbar-track';
-    const f = document.createElement('div'); f.className = 'vc-distbar-fill ' + seriesClass;
-    const v = (r.value || 0);
-    f.style.width = (max > 0 ? (v / max * 100) : 0).toFixed(1) + '%';
-    t.appendChild(f);
-    const val = document.createElement('div'); val.className = 'vc-distbar-val';
-    val.textContent = r.label != null ? r.label : v.toLocaleString('en-US');
-    row.appendChild(n); row.appendChild(t); row.appendChild(val);
-    c.appendChild(row);
-  });
-  return c;
-}
-
-function vcStatRows(rows) {
-  const c = document.createDocumentFragment();
-  rows.forEach(function(r){
-    const row = document.createElement('div'); row.className = 'vc-stat-row';
-    const k = document.createElement('div'); k.className = 'k'; k.textContent = r.k;
-    const v = document.createElement('div'); v.className = 'v' + (r.acc ? ' acc' : '');
-    if (r.html) { v.innerHTML = r.html; } else { v.textContent = r.v; }
-    if (r.title) row.title = r.title;
-    row.appendChild(k); row.appendChild(v);
-    c.appendChild(row);
-  });
-  return c;
-}
-
-function vcMiscGrid(items) {
-  const c = document.createElement('div'); c.className = 'vc-misc-grid';
-  items.forEach(function(it){
-    const m = document.createElement('div'); m.className = 'vc-misc';
-    const v = document.createElement('div'); v.className = 'v' + (it.acc ? ' acc' : '');
-    v.textContent = it.v;
-    const l = document.createElement('div'); l.className = 'l'; l.textContent = it.l;
-    m.appendChild(v); m.appendChild(l);
-    c.appendChild(m);
-  });
-  return c;
-}
-
-// Wrap unpredictable text content (for anon-mode CSS blur)
-function vcAnonWrap(text) {
-  const s = document.createElement('span');
-  s.className = 'anon-blur';
-  s.textContent = text;
-  return s;
-}
 
 // ── Variant-C tab section meta wiring ─────────────────────────────
 function _vcMeta(id, text) {

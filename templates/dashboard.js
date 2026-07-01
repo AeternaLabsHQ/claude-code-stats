@@ -459,11 +459,14 @@ function filterData(days, projectFilter) {
   });
   F.insights = Object.assign({}, D.insights, { tasks: Object.assign({}, D.insights && D.insights.tasks, tcounts) });
 
-  // Daily aggregates. Unfiltered default view: use the server-prepared
-  // per-day series directly (no client recompute). Filtered view: rebuild
-  // from sessions, distributing each multi-day session across its actual
-  // activity days via s.per_day (single-day sessions fall back to s.date).
-  const noFilter = currentDays === 0 && !pf && !hideEmpty;
+  // Daily aggregates. Default view (all time, no project filter, empty
+  // sessions hidden - the checkbox's initial state): use the server-prepared
+  // per-day series directly, which are built with the same semantics (empty
+  // sessions excluded, cache-eff boxplot only counts entries with
+  // messages >= 3). Any other combination: rebuild from sessions,
+  // distributing each multi-day session across its actual activity days via
+  // s.per_day (single-day sessions fall back to s.date).
+  const noFilter = currentDays === 0 && !pf && !!hideEmpty;
   const _q = (sv, q) => {
     const n = sv.length;
     if (n === 0) return 0;

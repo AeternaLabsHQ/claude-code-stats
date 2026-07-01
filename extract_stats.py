@@ -2105,9 +2105,16 @@ def parse_session_transcripts():
                     except (OSError, json.JSONDecodeError):
                         pass
 
-                # Skip if this session was already fully parsed from migration
-                if file_session_id in sessions and source_label == SOURCE_LABEL:
-                    # Same session file in both sources — skip duplicate
+                # Skip if this session was already parsed from an earlier
+                # source pass (migration, another additional source, or the
+                # primary dir). First seen wins: parsing the same transcript
+                # again would double count every token and cost.
+                if file_session_id in sessions:
+                    _prev_src = sessions[file_session_id].get("source", SOURCE_LABEL)
+                    if _prev_src != source_label:
+                        print(f"      NOTE: {file_session_id} already parsed from "
+                              f"source '{_prev_src}'; skipping duplicate in "
+                              f"'{source_label}'")
                     continue
 
                 try:

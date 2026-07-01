@@ -2064,6 +2064,7 @@ function renderPlan() {
 
   // Total row
   const trTotal = document.createElement('tr');
+  trTotal.setAttribute('data-nosort', '1');
   trTotal.style.fontWeight = '700';
   trTotal.style.borderTop = '2px solid var(--border)';
   const totalCells = [
@@ -2705,7 +2706,11 @@ function cellSortKey(td) {
 function sortTableByColumn(table, idx, dir) {
   const tbody = table.tBodies[0];
   if (!tbody) return;
-  const keyed = Array.from(tbody.rows).map(r => ({ r, k: cellSortKey(r.cells[idx]) }));
+  const rows = Array.from(tbody.rows);
+  // Rows marked data-nosort (e.g. the plan table's total row) are pinned to
+  // the bottom instead of being sorted in with the data rows.
+  const pinned = rows.filter(r => r.hasAttribute('data-nosort'));
+  const keyed = rows.filter(r => !r.hasAttribute('data-nosort')).map(r => ({ r, k: cellSortKey(r.cells[idx]) }));
   keyed.sort((a, b) => {
     const cmp = (a.k.num && b.k.num)
       ? a.k.v - b.k.v
@@ -2713,6 +2718,7 @@ function sortTableByColumn(table, idx, dir) {
     return dir === 'asc' ? cmp : -cmp;
   });
   keyed.forEach(x => tbody.appendChild(x.r));
+  pinned.forEach(r => tbody.appendChild(r));
 }
 function attachTableSorting(table) {
   if (!table.tHead || table._sortWired) return;

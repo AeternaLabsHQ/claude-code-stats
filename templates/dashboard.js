@@ -351,10 +351,10 @@ const chartColors = buildVcChartColors(13);
 let currentProjectFilter = '';
 
 function calcFilteredPlanCost(filteredDates, local) {
-  if (!filteredDates.length || !D.plan) {
-    const base = D.kpi.actual_plan_cost;
-    return local ? base * (currentFx() || 0) : base;
-  }
+  // An empty range (or no configured plan) means nothing was paid in this
+  // range. Falling back to the all-time plan total here made a filtered view
+  // with zero usage show "API equivalent $0.00 / paid <all-time total>".
+  if (!D.plan || !filteredDates.length) return 0;
   const minDate = filteredDates[0];
   const maxDate = filteredDates[filteredDates.length - 1];
   let cost = 0;

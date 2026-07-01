@@ -8,6 +8,7 @@ data only. No external/untrusted input is rendered as HTML. All user-provided
 text (prompts) is escaped via textContent before display.
 """
 
+import calendar
 import json
 import os
 import re
@@ -2898,6 +2899,14 @@ def extract_session_messages(session_id, project_dir_name):
     return messages
 
 
+def _month_day_clamped(year, month, day):
+    """Naive datetime for (year, month, day) with the day clamped to the
+    month's last day. Billing anchors like 31 survive short months this
+    way: callers pass the anchor day each time (never the clamped result),
+    so Jan 31 -> Feb 28 -> Mar 31."""
+    return datetime(year, month, min(day, calendar.monthrange(year, month)[1]))
+
+
 def _expand_billing_cycles(ph, start_str, end_str):
     """Expand a plan period into per-month accounting cycles with per-cycle cost.
 
@@ -2930,23 +2939,12 @@ def _expand_billing_cycles(ph, start_str, end_str):
     cycles = []
     cycle_start = start_dt
     while cycle_start <= end_dt:
-        if cycle_start.month == 12:
-            next_billing = cycle_start.replace(
-                year=cycle_start.year + 1, month=1, day=billing_day
-            )
-        else:
-            try:
-                next_billing = cycle_start.replace(
-                    month=cycle_start.month + 1, day=billing_day
-                )
-            except ValueError:
-                # billing_day doesn't exist in target month (e.g. day 31 in Feb)
-                m = cycle_start.month + 1
-                first_of_next = cycle_start.replace(month=m, day=1)
-                if m == 12:
-                    next_billing = first_of_next.replace(year=first_of_next.year + 1, month=1, day=1) - timedelta(days=0)
-                else:
-                    next_billing = first_of_next.replace(month=m + 1, day=1) - timedelta(days=0)
+        ny = cycle_start.year + (1 if cycle_start.month == 12 else 0)
+        nm = 1 if cycle_start.month == 12 else cycle_start.month + 1
+        # Clamp to the target month's length so day 29-31 anchors neither
+        # raise ValueError nor skip whole months; passing billing_day (not
+        # the clamped previous start) keeps the anchor across short months.
+        next_billing = _month_day_clamped(ny, nm, billing_day)
         cycle_end = min(next_billing - timedelta(days=1), end_dt)
         cycles.append({
             "start": cycle_start.strftime("%Y-%m-%d"),
@@ -3157,21 +3155,25 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
             billing_start = anniversary.replace(year=anniversary.year - 1)
             billing_end = anniversary
     else:
-        # Find current monthly billing period start
-        if today_dt.day >= billing_day:
-            billing_start = today_dt.replace(day=billing_day)
+        # Find current monthly billing period start. billing_day is clamped
+        # to each month's length so day 29-31 anchors cannot raise ValueError
+        # in short months.
+        candidate = _month_day_clamped(
+            today_dt.year, today_dt.month, billing_day
+        ).replace(tzinfo=timezone.utc)
+        if candidate <= today_dt:
+            billing_start = candidate
         else:
-            # Previous month
-            if today_dt.month == 1:
-                billing_start = today_dt.replace(year=today_dt.year - 1, month=12, day=billing_day)
-            else:
-                billing_start = today_dt.replace(month=today_dt.month - 1, day=billing_day)
+            py = today_dt.year - 1 if today_dt.month == 1 else today_dt.year
+            pm = 12 if today_dt.month == 1 else today_dt.month - 1
+            billing_start = _month_day_clamped(py, pm, billing_day).replace(
+                tzinfo=timezone.utc)
 
-        # Find next billing date
-        if today_dt.month == 12:
-            billing_end = billing_start.replace(year=billing_start.year + 1, month=1)
-        else:
-            billing_end = billing_start.replace(month=billing_start.month + 1)
+        # Find next billing date (same clamped anchor logic)
+        ny = billing_start.year + (1 if billing_start.month == 12 else 0)
+        nm = 1 if billing_start.month == 12 else billing_start.month + 1
+        billing_end = _month_day_clamped(ny, nm, billing_day).replace(
+            tzinfo=timezone.utc)
 
     billing_start_str = billing_start.strftime("%Y-%m-%d")
     billing_end_str = billing_end.strftime("%Y-%m-%d")

@@ -11,7 +11,7 @@ tokenises them with a real tokenizer (Anthropic count_tokens or tiktoken),
 computes the mean chars-per-token ratio per category, and prints multiplicative
 correction factors you can apply to the heuristic.
 
-Two backends:
+Backends:
   - anthropic   exact (Claude tokenizer); free API; needs ANTHROPIC_API_KEY;
                 ~ N*5 API calls (default 250); slow.
   - tiktoken    local proxy (GPT-4 cl100k_base); no network; fast; close but
@@ -245,71 +245,94 @@ def make_tiktoken_counter():
     import tiktoken
     enc = tiktoken.get_encoding("cl100k_base")
 
-    def count(text: str, model: str = "") -> int:  # model ignored
-        return len(enc.encode(text or ""))
+    def count(text: str, model: str = ""):  # model ignored, never degraded
+        return len(enc.encode(text or "")), False
 
     return count
 
 
-def make_anthropic_counter(default_model: str):
+def _is_model_rejection(exc) -> bool:
+    """True for permanent per-model API failures (unknown/retired model id,
+    no access): only these justify degrading a model to the fallback
+    tokenizer. Transient failures (429 rate limit, 5xx overload, network)
+    must be retried on the SAME model - a single hiccup must never
+    permanently poison a healthy model's calibration. Checks status_code
+    instead of anthropic exception classes so test fakes work too."""
+    return getattr(exc, "status_code", None) in (400, 403, 404)
+
+
+def make_anthropic_counter(default_model: str, client=None, sleep=time.sleep):
     """Build a counter that tokenises with each block's own model when present.
 
-    Caches per-model baselines (overhead of an "empty" message) and tracks
-    models that fail (e.g., retired versions), falling back to default_model
-    for those — a single warning is printed per failed model.
-    """
-    import anthropic
-    client = anthropic.Anthropic()
+    Protocol: count(text, model) -> (tokens, degraded). degraded is True
+    when the requested model was permanently rejected by the API and the
+    fallback default_model tokenizer was used instead; calibrate() excludes
+    those blocks from the per-model table (a fallback ratio says nothing
+    about the requested model's tokenizer).
+
+    Caches per-model baselines (the fixed message overhead measured with a
+    one-token "." message) and remembers permanently rejected models.
+    `client` and `sleep` are injectable for tests."""
+    if client is None:
+        import anthropic
+        client = anthropic.Anthropic()
 
     baselines: dict = {}
     bad_models: set = set()
 
-    def _baseline(model: str) -> int:
-        if model not in baselines:
+    def _count_via_api(model: str, content: str) -> int:
+        """count_tokens with retry + exponential backoff for transient
+        errors. Raises immediately on permanent model rejection (caller
+        degrades) and after exhausting retries."""
+        last = None
+        for attempt in range(4):
             try:
-                baselines[model] = client.messages.count_tokens(
-                    model=model, messages=[{"role": "user", "content": "."}]
+                return client.messages.count_tokens(
+                    model=model,
+                    messages=[{"role": "user", "content": content}],
                 ).input_tokens
-            except Exception:
-                bad_models.add(model)
-                # Fall back to default model's baseline
-                if default_model not in baselines:
-                    baselines[default_model] = client.messages.count_tokens(
-                        model=default_model, messages=[{"role": "user", "content": "."}]
-                    ).input_tokens
-                baselines[model] = baselines[default_model]
-        return baselines[model]
+            except Exception as e:
+                if _is_model_rejection(e):
+                    raise
+                last = e
+                if attempt < 3:
+                    sleep(2 ** attempt)
+        raise last
 
-    def count(text: str, model: str = "") -> int:
-        if not text:
-            return 0
+    def _resolve(model: str) -> str:
+        """Map a requested model to the model actually used, learning
+        permanent rejections exactly once (with a warning). Guarantees a
+        baseline exists for the returned model."""
         m = model or default_model
         if m in bad_models:
             m = default_model
-        base = _baseline(m)
-        # _baseline() may have just discovered m is bad — re-check before counting.
-        if m in bad_models:
-            m = default_model
-            base = _baseline(m)
-        for attempt in range(3):
+        if m not in baselines:
             try:
-                resp = client.messages.count_tokens(
-                    model=m,
-                    messages=[{"role": "user", "content": text}],
-                )
-                return max(0, resp.input_tokens - base)
+                baselines[m] = _count_via_api(m, ".")
             except Exception as e:
-                # Model-not-found / retired: degrade to default and warn once
-                if m != default_model and m not in bad_models:
-                    bad_models.add(m)
-                    print(f"  warn: count_tokens rejected model={m!r} ({e.__class__.__name__}); falling back to {default_model}", file=sys.stderr)
-                    m = default_model
-                    base = _baseline(m)
-                    continue
-                if attempt == 2:
+                if not _is_model_rejection(e) or m == default_model:
+                    # transient failure after retries, or the fallback model
+                    # itself is unusable: abort loudly instead of measuring
+                    # garbage.
                     raise
-                time.sleep(2 ** attempt)
-        return 0
+                bad_models.add(m)
+                print(f"  warn: count_tokens rejected model={m!r} "
+                      f"({e.__class__.__name__}); falling back to "
+                      f"{default_model}", file=sys.stderr)
+                return _resolve(default_model)
+        return m
+
+    def count(text: str, model: str = ""):
+        if not text:
+            return 0, False
+        requested = model or default_model
+        m = _resolve(requested)
+        toks = _count_via_api(m, text)
+        # The baseline message content "." itself tokenises to 1 token on
+        # top of the fixed per-message overhead; add it back so the
+        # subtraction removes only the overhead (otherwise every block is
+        # undercounted by exactly 1 token).
+        return max(0, toks - baselines[m] + 1), (m != requested)
 
     return count
 
@@ -323,6 +346,7 @@ def calibrate(samples: dict, counter, label: str):
     """
     results = {}
     per_model_totals: dict = {}  # model -> {"chars": int, "tokens": int, "n": int}
+    total_degraded = 0
 
     for cat in CATEGORIES:
         entries = samples.get(cat, [])
@@ -331,10 +355,15 @@ def calibrate(samples: dict, counter, label: str):
             payload = entry["payload"]
             model = entry.get("model") or ""
             chars = len(payload)
-            toks = counter(payload, model)
+            toks, degraded = counter(payload, model)
             if toks <= 0:
                 continue
             per_block.append((chars, toks))
+            if degraded:
+                # Counted with the fallback tokenizer: fine for the category
+                # stats, meaningless for the per-model table.
+                total_degraded += 1
+                continue
             agg = per_model_totals.setdefault(model or "(unknown)",
                                               {"chars": 0, "tokens": 0, "n": 0})
             agg["chars"] += chars
@@ -369,7 +398,8 @@ def calibrate(samples: dict, counter, label: str):
             "chars_per_token_weighted": v["chars"] / v["tokens"],
         })
 
-    return {"backend": label, "categories": results, "per_model": per_model}
+    return {"backend": label, "categories": results, "per_model": per_model,
+            "degraded_blocks": total_degraded}
 
 
 def print_table(calib):
@@ -406,6 +436,11 @@ def print_table(calib):
             tag = "" if abs(rel - 1) < 0.02 else (f"  ({(rel-1)*100:+.1f}% vs anchor)" if rel != 0 else "")
             print(f"  {pm['model']:<36} {pm['n']:>5} {pm['total_chars']:>10,} "
                   f"{pm['total_tokens']:>10,} {pm['chars_per_token_weighted']:>10.2f}{tag}")
+
+    if calib.get("degraded_blocks"):
+        print(f"\n  note: {calib['degraded_blocks']} block(s) tokenised with "
+              f"the fallback model (their model was rejected by the API); "
+              f"included in category stats, excluded from the per-model table.")
 
 
 def main():

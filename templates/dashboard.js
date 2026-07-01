@@ -1492,13 +1492,18 @@ function renderHeatmap() {
   const accentRgb = _vcAccentRgb();
   const msgMap = {};
   F.daily_messages.forEach(d => { msgMap[d.date] = d.messages; });
-  const today = new Date();
+  // Backend day keys are UTC dates. Iterate the grid in UTC as well so a
+  // cell's toISOString() key always names the same calendar day as the cell's
+  // grid position (local-time iteration shifted every key by one day whenever
+  // the local date differed from the UTC date at render time).
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() - (24 * 7) + 1);
-  while (startDate.getDay() !== 1) startDate.setDate(startDate.getDate() - 1);
+  startDate.setUTCDate(startDate.getUTCDate() - (24 * 7) + 1);
+  while (startDate.getUTCDay() !== 1) startDate.setUTCDate(startDate.getUTCDate() - 1);
   let maxMsg = 0;
   const td = new Date(startDate);
-  while (td <= today) { const k = td.toISOString().slice(0,10); maxMsg = Math.max(maxMsg, msgMap[k]||0); td.setDate(td.getDate()+1); }
+  while (td <= today) { const k = td.toISOString().slice(0,10); maxMsg = Math.max(maxMsg, msgMap[k]||0); td.setUTCDate(td.getUTCDate()+1); }
   let html = '';
   const weeks = [];
   const d = new Date(startDate);
@@ -1516,8 +1521,8 @@ function renderHeatmap() {
       bg = 'color-mix(in srgb, var(--vc-fg-2) 9%, transparent)';
     }
     cw.push('<div class="heatmap-cell" style="background:'+bg+'" data-tip="'+k+': '+m+' messages" data-intensity="'+(maxMsg>0?(m/maxMsg).toFixed(2):0)+'"></div>');
-    if (d.getDay()===0) { while(cw.length<7) cw.push('<div class="heatmap-cell" style="background:transparent"></div>'); weeks.push(cw); cw=[]; }
-    d.setDate(d.getDate()+1);
+    if (d.getUTCDay()===0) { while(cw.length<7) cw.push('<div class="heatmap-cell" style="background:transparent"></div>'); weeks.push(cw); cw=[]; }
+    d.setUTCDate(d.getUTCDate()+1);
   }
   if (cw.length>0) { while(cw.length<7) cw.push('<div class="heatmap-cell" style="background:transparent"></div>'); weeks.push(cw); }
   weeks.forEach(w => { html += '<div class="heatmap-col">'+w.join('')+'</div>'; });
@@ -1527,8 +1532,8 @@ function renderHeatmap() {
     const md = new Date(startDate);
     let lastMonth = -1, weekIdx = 0;
     while (md <= today) {
-      if (md.getDay()===1) { if(md.getMonth()!==lastMonth) { months.push({idx:weekIdx,label:md.toLocaleString('default',{month:'short'})}); lastMonth=md.getMonth(); } weekIdx++; }
-      md.setDate(md.getDate()+1);
+      if (md.getUTCDay()===1) { if(md.getUTCMonth()!==lastMonth) { months.push({idx:weekIdx,label:md.toLocaleString('default',{month:'short',timeZone:'UTC'})}); lastMonth=md.getUTCMonth(); } weekIdx++; }
+      md.setUTCDate(md.getUTCDate()+1);
     }
     monthsEl.innerHTML = '';
     monthsEl.style.paddingLeft = '20px';

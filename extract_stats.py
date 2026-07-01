@@ -3889,7 +3889,10 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             errors_by_tool[e.get("tool", "unknown")] += 1
             errors_by_category[e.get("category", "other")] += 1
             errors_by_source[e.get("source", "tool")] += 1
-    total_tool_calls = sum(s.get("api_calls", 0) for s in session_list)
+    # True tool-call count (every tool_use across all sessions), NOT the
+    # number of assistant API calls: one API call can carry several parallel
+    # tool_use blocks, and the UI labels this number "tool calls".
+    total_tool_calls = sum(global_tools.values())
 
     # Global Git Ops
     total_commits = sum(len([g for g in s.get("git_ops", []) if g.get("type") == "commit"]) for s in session_list)

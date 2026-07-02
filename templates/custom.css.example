@@ -27,8 +27,11 @@
 
    ACCENT NOTE: charts and the activity heatmap read the LIVE
    `--vc-accent` value, so overriding just `--vc-accent` (+ the
-   legacy `--accent`) recolors the accent-driven charts too — no
-   rebuild needed. See the accent presets at the bottom.
+   legacy `--accent`) recolors the accent-driven charts too - no
+   rebuild needed. The heatmap (cells + legend) additionally uses
+   `--vc-accent-rgb` (the same color as a bare `R,G,B` triple for
+   rgba() composition), so set it alongside `--vc-accent` when you
+   change the accent. See the accent presets at the bottom.
    ============================================================ */
 
 
@@ -44,6 +47,7 @@ html.theme-light .vc {
   --vc-fg-2:         #5b6473;
   --vc-fg-3:         #99a1af;
   --vc-accent:       #c2562f;
+  --vc-accent-rgb:   194,86,47;
   --vc-accent-soft:  rgba(194,86,47,.10);
 }
 html.theme-light body.vc-page {
@@ -78,6 +82,7 @@ html.theme-dark .vc {
   --vc-fg-2:         #a8afbb;
   --vc-fg-3:         #6b7380;
   --vc-accent:       #e27a51;
+  --vc-accent-rgb:   226,122,81;
   --vc-accent-soft:  rgba(226,122,81,.16);
 }
 html.theme-dark body.vc-page {
@@ -106,6 +111,7 @@ html.theme-dark body.vc-page {
 @media (prefers-color-scheme: dark) {
   html:not(.theme-light) .vc {
     --vc-accent:      #e27a51;
+    --vc-accent-rgb:  226,122,81;
     --vc-accent-soft: rgba(226,122,81,.16);
   }
   html:not(.theme-light) body.vc-page {
@@ -120,18 +126,19 @@ html.theme-dark body.vc-page {
    The default accent is terracotta. To switch the whole UI
    (nav, KPIs, links, charts, heatmap) to a different accent,
    uncomment ONE of the blocks below. Each recolors light +
-   dark in one go and sets both the --vc-accent token and the
+   dark in one go and sets the --vc-accent token, its
+   --vc-accent-rgb triple (heatmap cells + legend) and the
    legacy --accent so charts follow along.
    ============================================================ */
 
 /* === Accent: Indigo === */
 /*
-html.theme-light .vc, html.theme-light body.vc-page { --vc-accent:#4f46e5; --vc-accent-soft:rgba(79,70,229,.10); --accent:#4f46e5; }
-html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#818cf8; --vc-accent-soft:rgba(129,140,248,.18); --accent:#818cf8; }
+html.theme-light .vc, html.theme-light body.vc-page { --vc-accent:#4f46e5; --vc-accent-rgb:79,70,229; --vc-accent-soft:rgba(79,70,229,.10); --accent:#4f46e5; }
+html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#818cf8; --vc-accent-rgb:129,140,248; --vc-accent-soft:rgba(129,140,248,.18); --accent:#818cf8; }
 */
 
 /* === Accent: Emerald === */
 /*
-html.theme-light .vc, html.theme-light body.vc-page { --vc-accent:#0e9f6e; --vc-accent-soft:rgba(14,159,110,.10); --accent:#0e9f6e; }
-html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#34d399; --vc-accent-soft:rgba(52,211,153,.18); --accent:#34d399; }
+html.theme-light .vc, html.theme-light body.vc-page { --vc-accent:#0e9f6e; --vc-accent-rgb:14,159,110; --vc-accent-soft:rgba(14,159,110,.10); --accent:#0e9f6e; }
+html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#34d399; --vc-accent-rgb:52,211,153; --vc-accent-soft:rgba(52,211,153,.18); --accent:#34d399; }
 */

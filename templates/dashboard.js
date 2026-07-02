@@ -1431,7 +1431,12 @@ function renderCosts() {
 }
 
 function _vcAccentRgb() {
-  // Live accent (custom.css overrides win), theme-aware palette as fallback.
+  // Token first: read the live --vc-accent-rgb (the same variable the CSS
+  // legend consumes via rgba(var(--vc-accent-rgb), ...)) so overriding it
+  // in custom.css drives cells and legend consistently.
+  const tokenRgb = _vcLiveVar('--vc-accent-rgb', '').trim();
+  if (/^\d+\s*,\s*\d+\s*,\s*\d+$/.test(tokenRgb)) return tokenRgb;
+  // Fallback: live accent hex (custom.css overrides win), theme-aware palette last.
   let hex = vcAccentLive().replace('#', '');
   if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
   if (hex.length !== 6) return '176,74,47';

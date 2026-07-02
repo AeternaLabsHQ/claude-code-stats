@@ -4122,6 +4122,14 @@ def _provision_custom_css(out_dir):
         )
 
 
+def _locale_script_tag():
+    """Inline the locale as window.__LOCALE__ so bundled page/component JS
+    can resolve UI strings at runtime. Must be emitted BEFORE the JS bundle.
+    "</" is escaped so no embedded string can close the script tag early."""
+    locale_json = json.dumps(LOCALE, ensure_ascii=False).replace("</", "<\\/")
+    return f"<script>window.__LOCALE__ = {locale_json};</script>"
+
+
 def _get_html_template():
     """Return the HTML template string with placeholders for data, styles, scripts."""
     base_dir = Path(__file__).parent
@@ -4132,10 +4140,11 @@ def _get_html_template():
     table_js = (base_dir / "templates" / "components" / "session_table.js").read_text(encoding="utf-8")
     filters_css = (base_dir / "templates" / "components" / "session_filters.css").read_text(encoding="utf-8")
     filters_js = (base_dir / "templates" / "components" / "session_filters.js").read_text(encoding="utf-8")
+    shared_js = (base_dir / "templates" / "components" / "shared_helpers.js").read_text(encoding="utf-8")
     css = filters_css + "\n" + table_css + "\n" + css
-    js = filters_js + "\n" + table_js + "\n" + js
+    js = shared_js + "\n" + filters_js + "\n" + table_js + "\n" + js
     html = html.replace("<!-- STYLES -->", f"<style>{css}</style>")
-    html = html.replace("<!-- SCRIPTS -->", f"<script>{js}</script>")
+    html = html.replace("<!-- SCRIPTS -->", f"{_locale_script_tag()}\n<script>{js}</script>")
     return html
 
 
@@ -4343,8 +4352,13 @@ def _get_session_html_template():
     html = (base_dir / "templates" / "session_detail.html").read_text(encoding="utf-8")
     css = (base_dir / "templates" / "session_detail.css").read_text(encoding="utf-8")
     js = (base_dir / "templates" / "session_detail.js").read_text(encoding="utf-8")
+    shared_js = (base_dir / "templates" / "components" / "shared_helpers.js").read_text(encoding="utf-8")
+    js = shared_js + "\n" + js
     html = html.replace("<!-- STYLES -->", f"<style>{css}</style>")
-    html = html.replace("<!-- SCRIPTS -->", f"<script>{js}</script>")
+    html = html.replace("<!-- SCRIPTS -->", f"{_locale_script_tag()}\n<script>{js}</script>")
+    # Locale tokens are resolved at template stage, BEFORE any session data
+    # is inserted, so user text containing "__L_..." can never be rewritten.
+    html = _inject_locale(html, LOCALE)
     return html
 
 
@@ -4480,10 +4494,13 @@ def _get_project_html_template():
     table_js = (base_dir / "templates" / "components" / "session_table.js").read_text(encoding="utf-8")
     filters_css = (base_dir / "templates" / "components" / "session_filters.css").read_text(encoding="utf-8")
     filters_js = (base_dir / "templates" / "components" / "session_filters.js").read_text(encoding="utf-8")
+    shared_js = (base_dir / "templates" / "components" / "shared_helpers.js").read_text(encoding="utf-8")
     css = filters_css + "\n" + table_css + "\n" + css
-    js = filters_js + "\n" + table_js + "\n" + js
+    js = shared_js + "\n" + filters_js + "\n" + table_js + "\n" + js
     html = html.replace("<!-- STYLES -->", f"<style>{css}</style>")
-    html = html.replace("<!-- SCRIPTS -->", f"<script>{js}</script>")
+    html = html.replace("<!-- SCRIPTS -->", f"{_locale_script_tag()}\n<script>{js}</script>")
+    # Same ordering rule as the session template: tokens before data.
+    html = _inject_locale(html, LOCALE)
     return html
 
 

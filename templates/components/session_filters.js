@@ -6,6 +6,11 @@
 (function() {
   'use strict';
 
+  function sfL(key, fallback) {
+    const sec = (typeof window !== 'undefined' && window.__LOCALE__ && window.__LOCALE__.sessions_tab) || {};
+    return sec[key] != null ? sec[key] : fallback;
+  }
+
   // ── Attribute spec ─────────────────────────────────────────
   // scale: 'linear' | 'log'
   // get(s): returns a finite number, never null
@@ -50,11 +55,16 @@
   ];
   const ATTRIBUTES_BY_ID = {};
   ATTRIBUTES.forEach(a => { ATTRIBUTES_BY_ID[a.id] = a; });
+  ATTRIBUTES.forEach(a => { a.label = sfL('f_' + a.id, a.label); });
 
   const GROUP_ORDER = ['volume','tokens','cost','cache','activity','errors'];
   const GROUP_LABELS = {
-    volume: 'Volume', tokens: 'Tokens', cost: 'Cost',
-    cache: 'Cache Health', activity: 'Activity', errors: 'Errors',
+    volume: sfL('group_volume', 'Volume'),
+    tokens: sfL('group_tokens', 'Tokens'),
+    cost: sfL('group_cost', 'Cost'),
+    cache: sfL('group_cache', 'Cache Health'),
+    activity: sfL('group_activity', 'Activity'),
+    errors: sfL('group_errors', 'Errors'),
   };
 
   // ── Range computation ──────────────────────────────────────
@@ -246,11 +256,11 @@
 
     // Preset configs.
     const PRESETS = [
-      { id: 'real',     label: 'Real sessions only',
+      { id: 'real',     label: sfL('preset_real', 'Real sessions only'),
         apply:  () => { state.user_messages.min = 2; persist(); },
         clear:  () => { state.user_messages.min = null; persist(); },
         isOn:   () => state.user_messages.min === 2 },
-      { id: 'expensive', label: 'Costly sessions only',
+      { id: 'expensive', label: sfL('preset_costly', 'Costly sessions only'),
         apply:  () => { state.cost.min = 1.00; persist(); },
         clear:  () => { state.cost.min = null; persist(); },
         isOn:   () => state.cost.min === 1.00 },
@@ -275,7 +285,7 @@
       toggle.type = 'button';
       toggle.className = 'sf-toggle' + (state.panelOpen ? ' is-open' : '');
       const n = activeCount();
-      toggle.innerHTML = '&#9881; More filters'
+      toggle.innerHTML = '&#9881; ' + sfL('more_filters', 'More filters')
         + (n > 0 ? ' (' + n + ')' : '')
         + ' <span class="sf-caret">' + (state.panelOpen ? '▴' : '▾') + '</span>';
       toggle.addEventListener('click', () => {
@@ -311,7 +321,7 @@
         x.type = 'button';
         x.className = 'sf-chip-x';
         x.innerHTML = '&times;';
-        x.setAttribute('aria-label', 'Clear ' + a.label);
+        x.setAttribute('aria-label', sfL('clear_aria_prefix', 'Clear ') + a.label);
         x.addEventListener('click', () => {
           clearAttr(a.id);
           renderAll();
@@ -323,7 +333,7 @@
       const ca = document.createElement('button');
       ca.type = 'button';
       ca.className = 'sf-clear-all';
-      ca.textContent = 'Clear all';
+      ca.textContent = sfL('clear_all', 'Clear all');
       ca.addEventListener('click', () => {
         clearAll();
         renderAll();
@@ -357,7 +367,7 @@
       const reset = document.createElement('button');
       reset.type = 'button';
       reset.className = 'sf-action';
-      reset.textContent = 'Reset';
+      reset.textContent = sfL('reset', 'Reset');
       reset.addEventListener('click', () => {
         clearAll();
         renderAll();
@@ -366,7 +376,7 @@
       const closeBtn = document.createElement('button');
       closeBtn.type = 'button';
       closeBtn.className = 'sf-action';
-      closeBtn.textContent = 'Close';
+      closeBtn.textContent = sfL('close', 'Close');
       closeBtn.addEventListener('click', () => {
         state.panelOpen = false;
         persist();
@@ -398,13 +408,13 @@
       sMin.min = 0; sMin.max = SLIDER_RES; sMin.step = 1;
       sMin.className = 'sf-slider sf-slider-min';
       sMin.value = valueToPos(attr, r, v.min != null ? v.min : r.min);
-      sMin.setAttribute('aria-label', attr.label + ' minimum');
+      sMin.setAttribute('aria-label', attr.label + sfL('min_aria_suffix', ' minimum'));
       const sMax = document.createElement('input');
       sMax.type = 'range';
       sMax.min = 0; sMax.max = SLIDER_RES; sMax.step = 1;
       sMax.className = 'sf-slider sf-slider-max';
       sMax.value = valueToPos(attr, r, v.max != null ? v.max : r.max);
-      sMax.setAttribute('aria-label', attr.label + ' maximum');
+      sMax.setAttribute('aria-label', attr.label + sfL('max_aria_suffix', ' maximum'));
       track.appendChild(sMin);
       track.appendChild(sMax);
       row.appendChild(track);
@@ -412,13 +422,13 @@
       const iMin = document.createElement('input');
       iMin.type = 'number';
       iMin.className = 'sf-num sf-num-min';
-      iMin.placeholder = 'min';
+      iMin.placeholder = sfL('min_placeholder', 'min');
       iMin.step = attr.step;
       if (v.min != null) iMin.value = v.min;
       const iMax = document.createElement('input');
       iMax.type = 'number';
       iMax.className = 'sf-num sf-num-max';
-      iMax.placeholder = 'max';
+      iMax.placeholder = sfL('max_placeholder', 'max');
       iMax.step = attr.step;
       if (v.max != null) iMax.value = v.max;
       row.appendChild(iMin);

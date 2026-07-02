@@ -38,6 +38,14 @@
     if (s.length <= n) return s;
     return s.slice(0, n - 1) + '…';
   }
+  function stL(key, fallback) {
+    const sec = (typeof window !== 'undefined' && window.__LOCALE__ && window.__LOCALE__.sessions_tab) || {};
+    return sec[key] != null ? sec[key] : fallback;
+  }
+  function dlgL(key, fallback) {
+    const sec = (typeof window !== 'undefined' && window.__LOCALE__ && window.__LOCALE__.dialogs) || {};
+    return sec[key] != null ? sec[key] : fallback;
+  }
 
   // ── Column definitions ────────────────────────────────────────
   // group: identity | volume | tokens | cost | cache | activity | errors | action
@@ -68,7 +76,8 @@
           if (nDays > 1) {
             let endDay = '';
             try { endDay = s.end ? new Date(s.end).toISOString().slice(0, 10) : ''; } catch (e) {}
-            const tip = 'Multi-day session — active through ' + (endDay || '?') + ' (' + nDays + ' days)';
+            const tip = stL('multiday_tip', 'Multi-day session - active through {end} ({n} days)')
+              .replace('{end}', endDay || '?').replace('{n}', nDays);
             base += ' <span class="st-multiday" title="' + escHtml(tip) + '">⇴ ' + nDays + 'd</span>';
           }
         }
@@ -100,7 +109,7 @@
         if (s.has_chat === false) return '<span class="st-muted">—</span>';
         if (ctx.anonMode && ctx.hideChatInAnon) return '<span class="st-muted">—</span>';
         const href = (ctx.context === 'projectDetail' ? '../' : '') + 'sessions/' + s.session_id + '.html';
-        return '<a href="' + href + '" class="st-chat-btn" title="Open chat">›</a>';
+        return '<a href="' + href + '" class="st-chat-btn" title="' + escHtml(stL('open_chat', 'Open chat')) + '">›</a>';
       }
     },
     { id: 'first_prompt', label: 'First Prompt', group: 'identity', align: 'left', sortable: false,
@@ -311,6 +320,10 @@
 
   const COLUMNS_BY_ID = Object.fromEntries(COLUMNS.map(c => [c.id, c]));
 
+  // Localize column + group labels in place; built-in English acts as fallback.
+  COLUMNS.forEach(c => { c.label = stL('col_' + c.id, c.label); });
+  Object.keys(GROUP_LABELS).forEach(g => { GROUP_LABELS[g] = stL('group_' + g, GROUP_LABELS[g]); });
+
   // ── Settings persistence ──────────────────────────────────────
   function storageKey(context, suffix) {
     return 'sessionTable.' + context + '.' + suffix;
@@ -411,22 +424,22 @@
     const xlsxBtn = document.createElement('button');
     xlsxBtn.type = 'button';
     xlsxBtn.className = 'st-xlsx';
-    xlsxBtn.title = 'Export visible filter as XLSX (Excel)';
+    xlsxBtn.title = stL('export_xlsx_title', 'Export visible filter as XLSX (Excel)');
     xlsxBtn.innerHTML = '&#11015; XLSX';
     const csvBtn = document.createElement('button');
     csvBtn.type = 'button';
     csvBtn.className = 'st-csv';
-    csvBtn.title = 'Export visible filter as CSV';
+    csvBtn.title = stL('export_csv_title', 'Export visible filter as CSV');
     csvBtn.innerHTML = '&#11015; CSV';
     const fsBtn = document.createElement('button');
     fsBtn.type = 'button';
     fsBtn.className = 'st-fs';
-    fsBtn.title = 'Fullscreen';
+    fsBtn.title = stL('fullscreen_title', 'Fullscreen');
     fsBtn.innerHTML = '&#9974;'; // ⛶
     const gear = document.createElement('button');
     gear.type = 'button';
     gear.className = 'st-gear';
-    gear.title = 'Choose columns';
+    gear.title = stL('choose_columns', 'Choose columns');
     gear.innerHTML = '&#9881;';
     toolbar.appendChild(meta);
     if (showExportButtons) {
@@ -511,7 +524,7 @@
       const reset = document.createElement('button');
       reset.type = 'button';
       reset.className = 'st-picker-btn';
-      reset.textContent = 'Reset to default';
+      reset.textContent = stL('reset_default', 'Reset to default');
       reset.addEventListener('click', () => {
         visibleColumnIds = options.defaultColumns || defaultColumnsFor(ctx.context);
         saveSetting(ctx.context, 'columns', visibleColumnIds);
@@ -522,7 +535,7 @@
       const minimal = document.createElement('button');
       minimal.type = 'button';
       minimal.className = 'st-picker-btn';
-      minimal.textContent = 'Hide all optional';
+      minimal.textContent = stL('hide_optional', 'Hide all optional');
       minimal.addEventListener('click', () => {
         visibleColumnIds = defaultColumnsFor(ctx.context);
         saveSetting(ctx.context, 'columns', visibleColumnIds);
@@ -664,7 +677,7 @@
         const handle = document.createElement('span');
         handle.className = 'st-resize';
         handle.dataset.colId = c.id;
-        handle.title = 'Drag to resize, double-click to fit, right-click to reset';
+        handle.title = stL('resize_tip', 'Drag to resize, double-click to fit, right-click to reset');
         attachResizeHandlers(handle, c.id);
         th.appendChild(handle);
 
@@ -686,7 +699,7 @@
         const td = document.createElement('td');
         td.colSpan = cols.length || 1;
         td.className = 'st-empty';
-        td.textContent = 'No sessions match the current filter.';
+        td.textContent = stL('no_match', 'No sessions match the current filter.');
         trEmpty.appendChild(td);
         tbody.appendChild(trEmpty);
       } else {
@@ -703,7 +716,7 @@
         });
       }
 
-      meta.textContent = total + ' session' + (total === 1 ? '' : 's');
+      meta.textContent = total + (total === 1 ? stL('session_suffix_one', ' session') : stL('sessions_count_suffix', ' sessions'));
 
       // If the user has any explicit widths, transition the table to fixed
       // layout. Other columns get their natural widths captured (frozen) so
@@ -952,7 +965,7 @@
         xlsxBtn.innerHTML = 'Loading…';
         try { await loadSheetJS(); }
         catch (e) {
-          alert('XLSX-Bibliothek konnte nicht geladen werden (offline?).');
+          alert(dlgL('xlsx_lib_error', 'Could not load the XLSX library (offline?).'));
           return;
         }
         xlsxBtn.innerHTML = 'Building…';
@@ -1009,7 +1022,7 @@
       wrapper.classList.toggle('st-fullscreen', on);
       document.body.classList.toggle('st-lightbox-open', on);
       fsBtn.innerHTML = on ? '&#10005;' : '&#9974;';
-      fsBtn.title = on ? 'Exit fullscreen (Esc)' : 'Fullscreen';
+      fsBtn.title = on ? stL('exit_fullscreen_title', 'Exit fullscreen (Esc)') : stL('fullscreen_title', 'Fullscreen');
     }
     fsBtn.addEventListener('click', () => setFullscreen(!isFullscreen));
     function onFullscreenEsc(e) {
@@ -1030,7 +1043,7 @@
       const sizeWrap = document.createElement('span');
       sizeWrap.className = 'st-page-size';
       const sizeLbl = document.createElement('span');
-      sizeLbl.textContent = 'Rows: ';
+      sizeLbl.textContent = stL('rows_label', 'Rows: ');
       sizeLbl.className = 'st-muted';
       sizeWrap.appendChild(sizeLbl);
       [25, 50, 100].forEach(n => {

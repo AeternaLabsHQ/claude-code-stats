@@ -219,9 +219,9 @@
     <div class="chart-box sessions-box">
       <div class="session-filters">
         <select id="filterProject"><option value="">__L_sessions_tab_all_projects__</option></select>
-        <select id="filterSource"><option value="">All Sources</option></select>
+        <select id="filterSource"><option value="">__L_sessions_tab_all_sources__</option></select>
         <input type="text" id="filterSearch" placeholder="__L_sessions_tab_search_placeholder__">
-        <button id="bulkDownloadBtn" class="bulk-download-btn" style="margin-left:auto" title="Download all currently filtered sessions as a ZIP of Markdown files">&#11015; Download Sessions (0)</button>
+        <button id="bulkDownloadBtn" class="bulk-download-btn" style="margin-left:auto" title="__L_sessions_tab_bulk_download_title__">&#11015; Download Sessions (0)</button>
       </div>
       <div id="sessionFiltersMount"></div>
       <div id="sessionTableMount"></div>
@@ -230,7 +230,7 @@
 
   <div class="tab-content" id="tab-plan">
     <div class="vc-tab-h">
-      <div class="vc-tab-h-title">Plan &amp; Billing <span class="vc-fullrange-hint" title="The range filter (All / 7D / 30D …) does not apply here. Plan &amp; Billing always reflects the full tracked billing period.">&#9432; always full period</span></div>
+      <div class="vc-tab-h-title">Plan &amp; Billing <span class="vc-fullrange-hint" title="__L_plan_full_period_hint__">&#9432; __L_plan_full_period_label__</span></div>
       <div class="vc-tab-h-rule"></div>
       <div class="vc-tab-h-meta" id="vcPlanMeta"></div>
     </div>
@@ -294,13 +294,13 @@
         <div class="kpi-grid" id="cacheKpi"></div>
       </div>
       <div class="chart-box tall">
-        <h3>Output-Token Share by Tool</h3>
-        <p style="font-size:12px;opacity:0.7;margin:0 0 8px 0">Output-token share. "Reasoning" = turns with no tool calls (pure model thinking).</p>
+        <h3>__L_costs_tool_share_title__</h3>
+        <p style="font-size:12px;opacity:0.7;margin:0 0 8px 0">__L_costs_tool_share_expl__</p>
         <canvas id="chartToolTokens"></canvas>
       </div>
       <div class="chart-box tall">
-        <h3>Output Tokens by Activity</h3>
-        <p style="font-size:12px;opacity:0.7;margin:0 0 8px 0">Where the model's output tokens go. "Pre-Tool Narration" = text emitted right before a tool call (separate assistant message); "Final Answers" = pure-text turns ending the response.</p>
+        <h3>__L_costs_wc_title__</h3>
+        <p style="font-size:12px;opacity:0.7;margin:0 0 8px 0">__L_costs_wc_expl__</p>
         <canvas id="chartWriteCategories"></canvas>
       </div>
     </div>

@@ -1,17 +1,18 @@
 
 const P = "__PROJECT_DATA__";
-const fmt = n => n.toLocaleString();
-const fmtUSD = n => '$'+n.toFixed(2);
-const fmtTokens = n => { if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return n.toString(); };
-function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
-function modelClass(m) { const l=(m||'').toLowerCase(); if(l.includes('opus')) return 'opus'; if(l.includes('sonnet')) return 'sonnet'; if(l.includes('haiku')) return 'haiku'; return ''; }
+const PD_L = (window.__LOCALE__ && window.__LOCALE__.project_detail) || {};
+const pdl = (key, fallback) => PD_L[key] != null ? PD_L[key] : fallback;
+const fmt = n => (Number(n) || 0).toLocaleString(VCShared.localeCode());
+const fmtUSD = n => VCShared.fmtUSD(n);
+const fmtTokens = VCShared.fmtTokens;
+const escHtml = VCShared.escHtml;
 
 document.getElementById('projectTitle').textContent = P.name;
 document.getElementById('kpiGrid').innerHTML =
-  '<div class="kpi-card"><div class="label">Sessions</div><div class="value" style="color:var(--blue)">'+P.stats.total_sessions+'</div></div>' +
-  '<div class="kpi-card"><div class="label">Messages</div><div class="value" style="color:var(--green)">'+fmt(P.stats.total_messages)+'</div></div>' +
-  '<div class="kpi-card"><div class="label">Tokens</div><div class="value" style="color:var(--purple)">'+fmtTokens(P.stats.total_tokens)+'</div></div>' +
-  '<div class="kpi-card"><div class="label">Est. Cost</div><div class="value" style="color:var(--orange)">'+fmtUSD(P.stats.total_cost)+'</div></div>';
+  '<div class="kpi-card"><div class="label">'+pdl('kpi_sessions','Sessions')+'</div><div class="value" style="color:var(--blue)">'+P.stats.total_sessions+'</div></div>' +
+  '<div class="kpi-card"><div class="label">'+pdl('kpi_messages','Messages')+'</div><div class="value" style="color:var(--green)">'+fmt(P.stats.total_messages)+'</div></div>' +
+  '<div class="kpi-card"><div class="label">'+pdl('kpi_tokens','Tokens')+'</div><div class="value" style="color:var(--purple)">'+fmtTokens(P.stats.total_tokens)+'</div></div>' +
+  '<div class="kpi-card"><div class="label">'+pdl('kpi_est_cost','Est. Cost')+'</div><div class="value" style="color:var(--orange)">'+fmtUSD(P.stats.total_cost)+'</div></div>';
 
 document.getElementById('toolPills').innerHTML = Object.entries(P.tools).slice(0,20).map(([n,c]) =>
   '<div class="tool-pill"><span>'+escHtml(n)+'</span><span class="count">'+c+'x</span></div>'
@@ -19,7 +20,7 @@ document.getElementById('toolPills').innerHTML = Object.entries(P.tools).slice(0
 
 if (Object.keys(P.skills).length>0) {
   document.getElementById('skillsSection').innerHTML =
-    '<div class="tools-section"><h3>Skills</h3><div class="tool-pills">' +
+    '<div class="tools-section"><h3>'+pdl('skills','Skills')+'</h3><div class="tool-pills">' +
     Object.entries(P.skills).map(([n,c]) =>
       '<div class="tool-pill"><span>'+escHtml(n)+'</span><span class="count">'+c+'x</span></div>'
     ).join('') + '</div></div>';
@@ -38,29 +39,29 @@ document.querySelectorAll('.proj-tab').forEach(tab => {
 // Memory
 if (P.memory) {
   document.getElementById('memorySection').innerHTML =
-    '<div class="memory-card" id="memCard"><h3 onclick="document.getElementById(\'memCard\').classList.toggle(\'expanded\')">Project Memory</h3><div class="memory-content anon-blur">'+escHtml(P.memory)+'</div></div>';
+    '<div class="memory-card" id="memCard"><h3 onclick="document.getElementById(\'memCard\').classList.toggle(\'expanded\')">'+pdl('memory','Project Memory')+'</h3><div class="memory-content anon-blur">'+escHtml(P.memory)+'</div></div>';
 }
 
 // Info grid (subagents, git ops, errors)
 let infoHtml = '';
 const agentTypes = Object.entries(P.agent_types || {});
 if (agentTypes.length > 0) {
-  infoHtml += '<div class="info-card"><h4>Subagents</h4>' +
+  infoHtml += '<div class="info-card"><h4>'+pdl('subagents','Subagents')+'</h4>' +
     agentTypes.map(([t,c]) => '<span class="tag" style="background:var(--vc-accent-soft);color:var(--vc-accent)">'+escHtml(t)+' '+c+'x</span>').join('') +
     '</div>';
 }
 const go = P.git_ops || {};
 if ((go.commits||0) + (go.pushes||0) + (go.prs||0) > 0) {
-  infoHtml += '<div class="info-card"><h4>Git Operations</h4>' +
-    '<div class="info-row"><span class="lbl">Commits</span><span class="val" style="color:var(--green)">'+(go.commits||0)+'</span></div>' +
-    '<div class="info-row"><span class="lbl">Pushes</span><span class="val" style="color:var(--blue)">'+(go.pushes||0)+'</span></div>' +
-    '<div class="info-row"><span class="lbl">PRs</span><span class="val" style="color:var(--purple)">'+(go.prs||0)+'</span></div>' +
+  infoHtml += '<div class="info-card"><h4>'+pdl('git_operations','Git Operations')+'</h4>' +
+    '<div class="info-row"><span class="lbl">'+pdl('commits','Commits')+'</span><span class="val" style="color:var(--green)">'+(go.commits||0)+'</span></div>' +
+    '<div class="info-row"><span class="lbl">'+pdl('pushes','Pushes')+'</span><span class="val" style="color:var(--blue)">'+(go.pushes||0)+'</span></div>' +
+    '<div class="info-row"><span class="lbl">'+pdl('prs','PRs')+'</span><span class="val" style="color:var(--purple)">'+(go.prs||0)+'</span></div>' +
     '</div>';
 }
 if (P.error_count > 0) {
-  infoHtml += '<div class="info-card"><h4>Errors</h4>' +
+  infoHtml += '<div class="info-card"><h4>'+pdl('errors_label','Errors')+'</h4>' +
     '<div style="font-size:24px;font-weight:700;color:var(--red)">'+P.error_count+'</div>' +
-    '<div style="color:var(--text2);font-size:12px">tool errors in this project</div></div>';
+    '<div style="color:var(--text2);font-size:12px">'+pdl('tool_errors_note','tool errors in this project')+'</div></div>';
 }
 document.getElementById('infoGrid').innerHTML = infoHtml;
 
@@ -68,8 +69,8 @@ document.getElementById('infoGrid').innerHTML = infoHtml;
 const tf = P.top_files || [];
 if (tf.length > 0) {
   document.getElementById('topFilesSection').innerHTML =
-    '<div class="tools-section"><h3>Top Files</h3>' +
-    '<table class="file-table"><thead><tr><th>File</th><th>Reads</th><th>Edits</th><th>Writes</th></tr></thead><tbody>' +
+    '<div class="tools-section"><h3>'+pdl('top_files','Top Files')+'</h3>' +
+    '<table class="file-table"><thead><tr><th>'+pdl('th_file','File')+'</th><th>'+pdl('th_reads','Reads')+'</th><th>'+pdl('th_edits','Edits')+'</th><th>'+pdl('th_writes','Writes')+'</th></tr></thead><tbody>' +
     tf.map(f => {
       const short = f.path.split('/').slice(-2).join('/');
       return '<tr><td title="'+escHtml(f.path)+'"><code style="font-size:11px">'+escHtml(short)+'</code></td>' +
@@ -130,13 +131,17 @@ pdRender();
 // Workflow timeline
 const wf = P.workflow || [];
 const wfTypes = ['read','edit','write','git_commit','git_push','git_pr','agent'];
-const wfLabels = {read:'Read',edit:'Edit',write:'Write',git_commit:'Commit',git_push:'Push',git_pr:'PR',agent:'Agent'};
+const wfLabels = {
+  read: pdl('wf_read','Read'), edit: pdl('wf_edit','Edit'), write: pdl('wf_write','Write'),
+  git_commit: pdl('wf_commit','Commit'), git_push: pdl('wf_push','Push'),
+  git_pr: pdl('wf_pr','PR'), agent: pdl('wf_agent','Agent'),
+};
 let activeWfFilters = new Set(wfTypes);
 
 function renderWorkflow() {
   const filtered = wf.filter(e => activeWfFilters.has(e.type));
   const el = document.getElementById('workflowTimeline');
-  if (filtered.length === 0) { el.innerHTML = '<div style="color:var(--text2);padding:20px">No workflow events</div>'; return; }
+  if (filtered.length === 0) { el.innerHTML = '<div style="color:var(--text2);padding:20px">'+pdl('no_workflow','No workflow events')+'</div>'; return; }
   const shown = filtered.slice(0, 200);
   el.innerHTML = shown.map(e => {
     let label = '';
@@ -150,7 +155,7 @@ function renderWorkflow() {
     }
     const ts = e.timestamp ? '<span class="ts">'+new Date(e.timestamp).toLocaleTimeString()+'</span>' : '';
     return '<div class="wf-entry '+e.type+'">'+label+ts+'</div>';
-  }).join('') + (filtered.length > 200 ? '<div style="color:var(--text2);padding:8px;font-size:12px">...and '+(filtered.length-200)+' more</div>' : '');
+  }).join('') + (filtered.length > 200 ? '<div style="color:var(--text2);padding:8px;font-size:12px">'+pdl('more_suffix','...and {n} more').replace('{n}', filtered.length-200)+'</div>' : '');
 }
 
 document.getElementById('wfFilters').innerHTML = wfTypes.map(t =>
@@ -173,49 +178,16 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'F2') {
     e.preventDefault();
     document.body.classList.toggle('anon-mode');
-    let note = document.getElementById('anonNote');
-    if (!note) {
-      note = document.createElement('div');
-      note.id = 'anonNote';
-      note.className = 'vc';
-      note.style.cssText = 'position:fixed;top:14px;right:14px;padding:8px 14px;border-radius:var(--vc-radius-pill,999px);border:1px solid var(--vc-accent,#c2562f);background:var(--vc-accent-soft,rgba(194,86,47,.10));font-family:Manrope,system-ui,sans-serif;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;z-index:9999;transition:opacity 0.3s;color:var(--vc-accent,#c2562f);box-shadow:var(--vc-shadow,0 8px 20px -12px rgba(20,22,28,.14));';
-      document.body.appendChild(note);
-    }
-    note.textContent = document.body.classList.contains('anon-mode') ? '> ANONYMIZATION ON' : '> ANONYMIZATION OFF';
-    note.style.opacity = '1';
-    setTimeout(() => { note.style.opacity = '0'; }, 2000);
+    // F19: re-render immediately so the table picks up anon-mode
+    // (renderTable reads body class + applies anonSource substitution).
+    pdRender();
+    VCShared.vcAnonNote(document.body.classList.contains('anon-mode'));
   }
 });
 
 
 (function() {
-  function v(name, fb) { return getComputedStyle(document.querySelector('.vc') || document.documentElement).getPropertyValue(name).trim() || fb; }
-  function vcSystemPrefersDark() {
-    try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
-    catch (e) { return false; }
-  }
-  function applyTheme(t) {
-    document.documentElement.classList.remove('theme-light','theme-dark');
-    document.documentElement.classList.add('theme-' + t);
-    const btn = document.getElementById('vcThemeToggle');
-    if (btn) btn.innerHTML = t === 'dark' ? '&#9790;' : '&#9737;';
-  }
-  const saved = localStorage.getItem('vc-theme');
-  const initial = (saved === 'light' || saved === 'dark') ? saved : (vcSystemPrefersDark() ? 'dark' : 'light');
-  applyTheme(initial);
-  document.getElementById('vcThemeToggle')?.addEventListener('click', () => {
-    const cur = document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light';
-    const n = cur === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('vc-theme', n);
-    applyTheme(n);
-  });
-  function utc() {
-    const el = document.getElementById('vcUtcTime');
-    if (!el) return;
-    el.textContent = new Date().toISOString().slice(11,19) + ' UTC';
-  }
-  utc();
-  setInterval(utc, 1000);
+  VCShared.vcInitThemePage();
 
   // Project name + meta
   const nameEl = document.getElementById('vcProjectName');

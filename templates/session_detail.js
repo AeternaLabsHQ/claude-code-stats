@@ -3,16 +3,15 @@ const S = "__SESSION_DATA__";
 const FLOW = "__FLOW_DATA__";
 const sess = S.session;
 const msgs = S.messages;
-const fmt = n => n.toLocaleString();
-const fmtUSD = n => '$' + n.toFixed(4);
-const fmtTokens = n => { if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return n.toString(); };
+const fmtUSD = n => VCShared.fmtUSD(n, 4); // 4dp: per-session costs are small
+const fmtTokens = VCShared.fmtTokens;
 // Standard context window caps the prompt near 200k; a turn over this ran with
 // the 1M-context window enabled. Keep in sync with CONTEXT_1M_THRESHOLD (extract_stats.py).
 const CONTEXT_1M_THRESHOLD = 200000;
 const turnContext = t => (t ? (t.input||0) + (t.cache_read||0) + (t.cache_write||0) : 0);
 const ctx1mBadge = title => '<span class="ctx-1m-badge" title="'+escHtml(title)+'">1M</span>';
-function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
-function fmtTime(ts) { if(!ts) return ''; const d=new Date(typeof ts==='number'?ts:ts); return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+const escHtml = VCShared.escHtml;
+function fmtTime(ts) { if(!ts) return ''; const d=new Date(ts); return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 function fmtDate(ts) {
   if (!ts) return '';
   try { return new Date(ts).toLocaleDateString(); } catch (e) { return ''; }
@@ -22,35 +21,25 @@ function fmtDateTime(ts) {
   const d = fmtDate(ts), t = fmtTime(ts);
   return d ? (t ? d + ' ' + t : d) : t;
 }
-function modelClass(m) { const l=(m||'').toLowerCase(); if(l.includes('opus')) return 'opus'; if(l.includes('sonnet')) return 'sonnet'; if(l.includes('haiku')) return 'haiku'; return ''; }
-function cacheEff(s) {
-  const inputSum = (s.input_tokens||0) + (s.cache_read_tokens||0) + (s.cache_write_tokens||0);
-  if (inputSum === 0) return null;
-  return (s.cache_read_tokens||0) / inputSum * 100;
-}
-function effStyle(pct) {
-  if (pct == null) return {color:'var(--text2)', emoji:'—', label:'—'};
-  if (pct >= 80) return {color:'var(--green)', emoji:'✅', label:pct.toFixed(1)+'%'};
-  if (pct >= 50) return {color:'var(--amber)', emoji:'⚠️', label:pct.toFixed(1)+'%'};
-  return {color:'var(--red)', emoji:'❌', label:pct.toFixed(1)+'%'};
-}
+const modelClass = VCShared.modelClass;
+const cacheEff = VCShared.calcCacheEff;
+const effStyle = VCShared.effStyle;
 
 function renderIdleGapPanel(sess) {
   const igs = sess.idle_gap_summary;
   if (!igs) return '';
   if (((igs.mid && igs.mid.count) || 0) === 0 && ((igs.long && igs.long.count) || 0) === 0) return '';
 
-  // session_detail has no locale injection (matches existing convention:
-  // 'Duration', 'Messages', 'Tool Calls' etc. are hardcoded English).
+  const IG_L = (window.__LOCALE__ && window.__LOCALE__.idleGap) || {};
   const T = {
-    title:     'Idle Gaps',
-    short:     '<5 min',
-    mid:       '5–60 min',
-    long:      '>1 h',
-    turns:     'turns',
-    overspend: 'extra tokens spent on cache rebuild after pauses',
-    pctOf:     'of this session',
-    tip:       "Don't leave sessions open during longer breaks.",
+    title:     IG_L.title     || 'Idle Gaps',
+    short:     IG_L.short     || '<5 min',
+    mid:       IG_L.mid       || '5-60 min',
+    long:      IG_L.long      || '>1 h',
+    turns:     IG_L.turns     || 'turns',
+    overspend: IG_L.overspend || 'extra tokens spent on cache rebuild after pauses',
+    pctOf:     IG_L.pctOf     || 'of this session',
+    tip:       IG_L.tip       || "Don't leave sessions open during longer breaks.",
   };
 
   const fmtNum = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n));
@@ -93,7 +82,7 @@ document.getElementById('sessionMeta').innerHTML =
   '<span>Session: <code>'+sess.session_id.slice(0,8)+'</code></span>' +
   '<span>'+new Date(sess.start).toLocaleDateString()+' '+new Date(sess.start).toLocaleTimeString()+'</span>' +
   '<span class="model-badge '+modelClass(sess.primary_model)+'">'+escHtml(sess.primary_model)+'</span>' +
-  (sess.used_1m_context ? ctx1mBadge('1M context window used — peak '+fmtTokens(sess.peak_context_tokens||0)+(sess.first_1m_at?', since '+fmtTime(sess.first_1m_at):'')) : '');
+  (sess.used_1m_context ? ctx1mBadge('1M context window used - peak '+fmtTokens(sess.peak_context_tokens||0)+(sess.first_1m_at?', since '+fmtTime(sess.first_1m_at):'')) : '');
 
 const toolCount = Object.values(sess.tools||{}).reduce((s,v)=>s+v,0);
 const sessEff = cacheEff(sess);
@@ -214,7 +203,7 @@ msgs.forEach((m,i) => {
         (m.model ? '<span class="msg-model"><span class="model-badge '+modelClass(m.model)+'">'+escHtml(m.model)+'</span></span>' : '') +
         thoughtBadge +
         (m.tokens ? '<span class="msg-tokens">'+fmtTokens(m.tokens.input)+'in / '+fmtTokens(m.tokens.output)+'out</span>' : '') +
-        (m.tokens && turnContext(m.tokens) > CONTEXT_1M_THRESHOLD ? ctx1mBadge('Prompt context '+fmtTokens(turnContext(m.tokens))+' — exceeds the 200k standard window (1M enabled)') : '') +
+        (m.tokens && turnContext(m.tokens) > CONTEXT_1M_THRESHOLD ? ctx1mBadge('Prompt context '+fmtTokens(turnContext(m.tokens))+' - exceeds the 200k standard window (1M enabled)') : '') +
       '</div>' +
       thinkingHtml +
       '<div class="msg-content" id="mc'+i+'">'+renderMd(display)+'</div>' +
@@ -450,8 +439,9 @@ const toolTokens = sess.tool_tokens || {};
 const tools = Object.entries(sess.tools||{}).sort((a,b)=>b[1]-a[1]);
 const hasTokenAttribution = Object.keys(toolTokens).length > 0 || (sess.reasoning_output_tokens||0) > 0;
 if (hasTokenAttribution) {
-  sideHtml += '<div class="sidebar-card"><h4>Output-Token Share by Tool</h4>' +
-    '<p style="font-size:11px;opacity:0.6;margin:0 0 8px 0">"Reasoning" = Turns ohne Tool-Call.</p>' +
+  const TS_L = (window.__LOCALE__ && window.__LOCALE__.costs) || {};
+  sideHtml += '<div class="sidebar-card"><h4>' + (TS_L.tool_share_title || 'Output-Token Share by Tool') + '</h4>' +
+    '<p style="font-size:11px;opacity:0.6;margin:0 0 8px 0">' + (TS_L.tool_share_expl_short || '"Reasoning" = turns with no tool calls.') + '</p>' +
     '<canvas id="chartSessionTokens" style="max-height:220px"></canvas>' +
     '</div>';
 }
@@ -459,13 +449,16 @@ if (hasTokenAttribution) {
 // Output by activity (stacked bar) — char-heuristic attribution of output_tokens
 // across visible text / narration / thinking / file writes / bash / other tools.
 const wc = sess.write_categories || {};
+// Colors = _VC_CAT[0..5] from dashboard.js in WC_CAT_ORDER (keep in sync),
+// so the same category renders identically on dashboard and session page.
+const WC_L = (window.__LOCALE__ && window.__LOCALE__.costs) || {};
 const WC_DEF = [
-  ['screen_text',           'Final Answers',     '#10b981'],
-  ['screen_text_narration', 'Pre-Tool Narration','#06b6d4'],
-  ['thinking',              'Thinking',          '#94a3b8'],
-  ['file_writes',           'File Writes',       '#6366f1'],
-  ['bash_commands',         'Bash Commands',     '#f59e0b'],
-  ['tool_inputs',           'Other Tool Inputs', '#a855f7'],
+  ['screen_text',           WC_L.wc_screen_text           || 'Final Answers',      '#c4623f'],
+  ['screen_text_narration', WC_L.wc_screen_text_narration || 'Pre-Tool Narration', '#7aa589'],
+  ['thinking',              WC_L.wc_thinking              || 'Thinking',           '#cda43f'],
+  ['file_writes',           WC_L.wc_file_writes           || 'File Writes',        '#a8442a'],
+  ['bash_commands',         WC_L.wc_bash_commands         || 'Bash Commands',      '#6f8f9e'],
+  ['tool_inputs',           WC_L.wc_tool_inputs           || 'Other Tool Inputs',  '#9b7bb0'],
 ];
 const wcTotal = WC_DEF.reduce((s, [k]) => s + (wc[k] || 0), 0);
 if (wcTotal > 0) {
@@ -1882,74 +1875,15 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'F2') {
     e.preventDefault();
     document.body.classList.toggle('anon-mode');
-    let note = document.getElementById('anonNote');
-    if (!note) {
-      note = document.createElement('div');
-      note.id = 'anonNote';
-      note.className = 'vc';
-      note.style.cssText = 'position:fixed;top:14px;right:14px;padding:8px 14px;border-radius:var(--vc-radius-sm,10px);border:1px solid var(--vc-accent,#c2562f);background:var(--vc-panel,#ffffff);box-shadow:var(--vc-shadow);font-family:var(--vc-font-mono,JetBrains Mono,ui-monospace,monospace);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;z-index:9999;transition:opacity 0.3s;color:var(--vc-accent,#c2562f);';
-      document.body.appendChild(note);
-    }
-    note.textContent = document.body.classList.contains('anon-mode') ? '> ANONYMIZATION ON' : '> ANONYMIZATION OFF';
-    note.style.opacity = '1';
-    setTimeout(() => { note.style.opacity = '0'; }, 2000);
+    VCShared.vcAnonNote(document.body.classList.contains('anon-mode'));
   }
 });
 
 (function() {
-  function vcSystemPrefersDark() {
-    try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
-    catch (e) { return false; }
-  }
-  function applyTheme(t) {
-    document.documentElement.classList.remove('theme-light','theme-dark');
-    document.documentElement.classList.add('theme-' + t);
-    const btn = document.getElementById('vcThemeToggle');
-    if (btn) btn.innerHTML = t === 'dark' ? '&#9790;' : '&#9737;';
-  }
-  const saved = localStorage.getItem('vc-theme');
-  const initial = (saved === 'light' || saved === 'dark') ? saved : (vcSystemPrefersDark() ? 'dark' : 'light');
-  applyTheme(initial);
-  document.getElementById('vcThemeToggle')?.addEventListener('click', () => {
-    const cur = document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light';
-    const n = cur === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('vc-theme', n);
-    applyTheme(n);
-  });
-  function utc() {
-    const el = document.getElementById('vcUtcTime');
-    if (!el) return;
-    el.textContent = new Date().toISOString().slice(11,19) + ' UTC';
-  }
-  utc();
-  setInterval(utc, 1000);
+  VCShared.vcInitThemePage();
 
   // Anon-blur the session title (it's typically a project-derived title with potentially unpredictable text)
   const titleEl = document.getElementById('sessionTitle');
   if (titleEl) titleEl.classList.add('anon-blur');
 
-  // Anon-blur message content (user prompts and assistant outputs are unpredictable)
-  function blurMessages() {
-    document.querySelectorAll('.message-content, .message-text, .chat-messages .message').forEach(el => {
-      if (!el.classList.contains('anon-blur') && !el.querySelector('.anon-blur')) {
-        // Only wrap text-containing nodes, not whole message wrappers
-        if (el.classList.contains('message')) {
-          el.querySelectorAll('p, pre, code, span, div').forEach(child => {
-            if (child.children.length === 0 && child.textContent.trim() && !child.classList.contains('anon-blur')) {
-              child.classList.add('anon-blur');
-            }
-          });
-        } else {
-          el.classList.add('anon-blur');
-        }
-      }
-    });
-  }
-  // Run after chat panel initializes (give it a moment)
-  setTimeout(blurMessages, 500);
-  // Re-run when chat content changes (filter switch)
-  const chat = document.getElementById('chatPanel');
-  if (chat) {
-    new MutationObserver(() => setTimeout(blurMessages, 100)).observe(chat, {childList: true, subtree: true});
-  }
 })();

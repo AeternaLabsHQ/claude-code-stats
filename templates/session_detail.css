@@ -117,6 +117,16 @@ html.theme-light body.vc-page {
 body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 /* VC-SHARED:tokens:END */
 
+/* F2 anon mode: blur chat content directly (survives chat re-renders;
+   replaces the old blurMessages() JS whose selectors never matched).
+   Page-local (like the Flow-Canvas tokens below), not inside VC-SHARED:
+   .msg-content/.msg-thinking/.msg-tools only exist on this page, and
+   putting them inside the shared block would break the cross-page byte
+   parity enforced by tools/check_css_tokens.py. */
+body.anon-mode .msg-content,
+body.anon-mode .msg-thinking,
+body.anon-mode .msg-tools { filter: blur(4px); user-select: none; }
+
 /* Session-detail page-local tokens (Flow-Canvas). Bewusst ausserhalb
    des VC-SHARED-Blocks: nur diese Seite kennt sie. */
 .vc {

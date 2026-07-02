@@ -260,58 +260,105 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 .vc .info-row .val { color: var(--vc-fg) !important; }
 .vc .memory-content { color: var(--vc-fg-2) !important; font-family: var(--vc-font-sans); font-size: var(--vc-fs-sm); }
 
-/* Variant-C top bar (mini) for detail pages. Width matches .container
-   below so the page reads as one centered column on wide monitors. */
+/* VC-SHARED:topbar:START */
+/* Variant-C top bar - byte-identisch auf allen drei Seiten
+   (tools/check_css_tokens.py). Markup ueberall:
+   div.vc.vc-top > div.vc-top-inner > (left | center oder spacer | right).
+   Dashboard-Look ist der Kanon; .vc-back/.vc-kv/.vc-checkbox existieren
+   nicht auf jeder Seite, die Regeln sind dort schlicht unbenutzt. */
 .vc-top {
+  background: var(--vc-panel);
+  border-bottom: 1px solid var(--vc-grid);
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  color: var(--vc-fg-2);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.vc-top-inner {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 16px;
   padding: 10px 20px;
-  background: var(--vc-panel);
-  border-bottom: 1px solid var(--vc-grid);
-  font-family: var(--vc-font-mono);
-  font-size: var(--vc-fs-xs);
-  color: var(--vc-fg);
-  max-width: 1400px;
-  margin: 0 auto;
 }
 .vc-top-left { display: flex; align-items: center; gap: 10px; }
-.vc-brand-mark { display: inline-block; width: 8px; height: 8px; background: var(--vc-accent); }
-.vc-brand-name { font-weight: 600; letter-spacing: 0.02em; }
-.vc-top-right { display: flex; align-items: center; gap: 12px; }
+.vc-brand-mark {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  background: var(--vc-accent);
+  border-radius: var(--vc-radius-pill);
+}
+.vc-brand-name { font-weight: 700; letter-spacing: 0.08em; color: var(--vc-fg); }
+.vc-version { color: var(--vc-fg-3); font-size: var(--vc-fs-2xs); }
+.vc-back { color: var(--vc-accent); text-decoration: none; letter-spacing: 0.14em; text-transform: uppercase; font-size: var(--vc-fs-2xs); }
+.vc-back:hover { text-decoration: underline; }
+.vc-top-center { display: flex; gap: 24px; justify-self: center; }
+.vc-kv { display: inline-flex; gap: 6px; align-items: baseline; }
+.vc-k { color: var(--vc-fg-3); letter-spacing: 0.08em; font-size: 10px; text-transform: uppercase; }
+.vc-v { color: var(--vc-fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+.vc-top-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vc-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--vc-font-sans);
+  font-size: 10px;
+  color: var(--vc-fg-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+.vc-checkbox input { accent-color: var(--vc-accent); cursor: pointer; }
 .vc-icon-btn {
   background: var(--vc-panel);
   border: 1px solid var(--vc-grid);
-  color: var(--vc-fg);
-  border-radius: var(--vc-radius-ctl);
+  border-radius: var(--vc-radius-pill);
+  color: var(--vc-fg-2);
   font-family: var(--vc-font-sans);
-  font-size: var(--vc-fs-xs);
-  padding: 3px 8px;
+  font-size: 11.5px;
+  padding: 5px 11px;
   cursor: pointer;
-  height: 24px;
-  transition: background-color .12s, border-color .12s, color .12s;
+  line-height: 1;
 }
-.vc-icon-btn:hover { background: var(--vc-accent-soft); border-color: var(--vc-accent); }
-.vc-back {
-  color: var(--vc-accent);
-  text-decoration: none;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-size: var(--vc-fs-2xs);
+.vc-icon-btn:hover { color: var(--vc-fg); }
+.vc-f2-hint { font-family: var(--vc-font-sans); color: var(--vc-fg-3); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.vc-utc { color: var(--vc-fg-3); font-variant-numeric: tabular-nums; }
+@media (max-width: 960px) {
+  .vc-top-inner { grid-template-columns: 1fr; gap: 8px; }
+  .vc-top-center, .vc-top-right { justify-self: stretch; flex-wrap: wrap; }
 }
-.vc-back:hover { text-decoration: underline; }
-.vc-utc { color: var(--vc-fg-3); font-feature-settings: 'tnum' 1; }
+/* VC-SHARED:topbar:END */
+
+/* Tab header (page-local: padding folgt dem .container-Innenabstand,
+   Typografie folgt dem Dashboard-Kanon aus dashboard.css .vc-tab-h-title) */
 .vc-tab-h {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
   padding: 16px 0 8px;
+  font-family: var(--vc-font-mono);
 }
-.vc-tab-h-title { font-size: var(--vc-fs-xs); text-transform: uppercase; letter-spacing: 0.16em; color: var(--vc-fg-3); }
+.vc-tab-h-title {
+  font-family: var(--vc-font-sans);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--vc-fg);
+  white-space: nowrap;
+}
 .vc-tab-h-rule { display: none; }
-.vc-tab-h-meta { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); }
+.vc-tab-h-meta {
+  font-family: var(--vc-font-sans);
+  font-size: var(--vc-fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vc-fg-3);
+  white-space: nowrap;
+}
 
 :root { --bg:#0f1117; --bg2:#1a1d27; --bg3:#242836; --border:#2d3348; --text:#e2e8f0; --text2:#94a3b8; --accent:#6366f1; --accent2:#818cf8; --green:#22c55e; --orange:#f59e0b; --red:#ef4444; --blue:#3b82f6; --purple:#a855f7; --cyan:#06b6d4; --amber:#f59e0b; }
 * { margin:0; padding:0; box-sizing:border-box; }

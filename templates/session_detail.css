@@ -126,36 +126,77 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   --vc-grid-line: var(--vc-grid);
 }
 
-/* Variant-C top bar (mini, for detail page). Width matches .main-layout
-   below so the page reads as one centered column on wide monitors. */
+/* VC-SHARED:topbar:START */
+/* Variant-C top bar - byte-identisch auf allen drei Seiten
+   (tools/check_css_tokens.py). Markup ueberall:
+   div.vc.vc-top > div.vc-top-inner > (left | center oder spacer | right).
+   Dashboard-Look ist der Kanon; .vc-back/.vc-kv/.vc-checkbox existieren
+   nicht auf jeder Seite, die Regeln sind dort schlicht unbenutzt. */
 .vc-top {
-  display: grid; grid-template-columns: auto 1fr auto;
-  align-items: center; gap: 16px; padding: 10px 20px;
-  background: var(--vc-panel); border-bottom: 1px solid var(--vc-grid);
-  font-family: var(--vc-font-mono); font-size: var(--vc-fs-xs); color: var(--vc-fg);
-  max-width: 1400px; margin: 0 auto;
+  background: var(--vc-panel);
+  border-bottom: 1px solid var(--vc-grid);
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  color: var(--vc-fg-2);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.vc-top-inner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
 }
 .vc-top-left { display: flex; align-items: center; gap: 10px; }
-.vc-brand-mark { display: inline-block; width: 8px; height: 8px; background: var(--vc-accent); }
-.vc-brand-name { font-weight: 600; letter-spacing: 0.02em; }
+.vc-brand-mark {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  background: var(--vc-accent);
+  border-radius: var(--vc-radius-pill);
+}
+.vc-brand-name { font-weight: 700; letter-spacing: 0.08em; color: var(--vc-fg); }
+.vc-version { color: var(--vc-fg-3); font-size: var(--vc-fs-2xs); }
 .vc-back { color: var(--vc-accent); text-decoration: none; letter-spacing: 0.14em; text-transform: uppercase; font-size: var(--vc-fs-2xs); }
 .vc-back:hover { text-decoration: underline; }
-.vc-top-right { display: flex; align-items: center; gap: 12px; }
+.vc-top-center { display: flex; gap: 24px; justify-self: center; }
+.vc-kv { display: inline-flex; gap: 6px; align-items: baseline; }
+.vc-k { color: var(--vc-fg-3); letter-spacing: 0.08em; font-size: 10px; text-transform: uppercase; }
+.vc-v { color: var(--vc-fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+.vc-top-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vc-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--vc-font-sans);
+  font-size: 10px;
+  color: var(--vc-fg-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+.vc-checkbox input { accent-color: var(--vc-accent); cursor: pointer; }
 .vc-icon-btn {
-  background: var(--vc-panel); border: 1px solid var(--vc-grid); color: var(--vc-fg);
-  border-radius: var(--vc-radius-ctl); font-family: var(--vc-font-sans); font-size: var(--vc-fs-xs);
-  padding: 3px 8px; cursor: pointer; height: 24px; transition: background-color .12s, border-color .12s, color .12s;
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius-pill);
+  color: var(--vc-fg-2);
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  padding: 5px 11px;
+  cursor: pointer;
+  line-height: 1;
 }
-.vc-icon-btn:hover { background: var(--vc-accent-soft); border-color: var(--vc-accent); }
-.vc-utc { color: var(--vc-fg-3); font-feature-settings: 'tnum' 1; }
-.vc-tab-h {
-  display: grid; grid-template-columns: auto 1fr auto;
-  align-items: center; gap: 12px; padding: 16px 24px 8px;
-  font-family: var(--vc-font-mono);
+.vc-icon-btn:hover { color: var(--vc-fg); }
+.vc-f2-hint { font-family: var(--vc-font-sans); color: var(--vc-fg-3); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.vc-utc { color: var(--vc-fg-3); font-variant-numeric: tabular-nums; }
+@media (max-width: 960px) {
+  .vc-top-inner { grid-template-columns: 1fr; gap: 8px; }
+  .vc-top-center, .vc-top-right { justify-self: stretch; flex-wrap: wrap; }
 }
-.vc-tab-h-title { font-size: var(--vc-fs-xs); text-transform: uppercase; letter-spacing: 0.16em; color: var(--vc-fg-3); }
-.vc-tab-h-rule { display: none; }
-.vc-tab-h-meta { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); }
+/* VC-SHARED:topbar:END */
 
 /* Re-skin legacy session detail components — Modern SaaS */
 .vc.header, .vc .header {

@@ -66,9 +66,6 @@ class CompareTest(unittest.TestCase):
 
 
 class RealFilesParityTest(unittest.TestCase):
-    # TODO(Task 2): expectedFailure entfernen, sobald der tokens-Block
-    # in allen drei Dateien kanonisiert ist.
-    @unittest.expectedFailure
     def test_shared_blocks_identical(self):
         per_file = {}
         for rel in cct.FILES:

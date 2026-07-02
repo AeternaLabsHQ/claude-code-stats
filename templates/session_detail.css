@@ -1,19 +1,30 @@
 
 /* VC-SHARED:tokens:START */
-/* ── Variant-C tokens — Modern SaaS (light + dark) ──────────────── */
-.vc {
+/* ================================================================
+   Variant-C tokens - Modern SaaS (light + dark).
+   Dieser VC-SHARED:tokens-Block ist byte-identisch in dashboard.css,
+   project_detail.css und session_detail.css; tools/check_css_tokens.py
+   erzwingt die Paritaet als pytest. Aenderungen IMMER in allen drei
+   Dateien gleichzeitig machen.
+   Die Tokens liegen bewusst auf .vc UND body.vc-page, NICHT auf :root:
+   - .vc bleibt der Scope fuer Komponenten und custom.css-Overrides
+     (Overrides weiter auf .vc-Ebene ansetzen; sie gewinnen, weil der
+     Legacy-Remap unten var(--vc-*)-Referenzen speichert, die erst am
+     Nutzungsort aufgeloest werden).
+   - body.vc-page braucht die Tokens, damit der Legacy-Var-Remap
+     (--green/--red/--amber/... -> var(--vc-*)) nicht guaranteed-invalid
+     aufloest; ohne sie rendert z.B. style="color:var(--green)" in
+     normaler Textfarbe.
+================================================================ */
+.vc, body.vc-page {
   --vc-bg: #f5f6f8; --vc-panel: #ffffff;
   --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #6b7280;
   --vc-grid: #e7e9ee; --vc-grid-2: #e7e9ee;
-  --vc-accent: #c2562f; --vc-accent-soft: rgba(194,86,47,.10);
+  --vc-accent: #c2562f; --vc-accent-rgb: 194,86,47; --vc-accent-soft: rgba(194,86,47,.10);
   --vc-pos: #1f9d63; --vc-pos-soft: rgba(31,157,99,.12);
   --vc-neg: #d24b3e; --vc-neg-soft: rgba(210,75,62,.12);
   --vc-radius: 14px; --vc-radius-sm: 10px; --vc-radius-pill: 999px; --vc-radius-ctl: 9px;
   --vc-shadow: 0 1px 2px rgba(20,22,28,.04), 0 8px 20px -12px rgba(20,22,28,.14);
-  --vc-flow-bg: var(--vc-bg);
-  --vc-btn-flow-bg: var(--vc-panel);
-  --vc-node-icon: var(--vc-fg-2);
-  --vc-grid-line: var(--vc-grid);
   --vc-font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --vc-font-sans: 'Manrope', system-ui, sans-serif;
   --vc-fs-2xs: 13px;
@@ -24,35 +35,36 @@
   --vc-fs-lg:  21px;
   --vc-fs-xl:  25px;
   --vc-fs-2xl: 30px;
-  font-family: var(--vc-font-sans);
 }
+.vc { font-family: var(--vc-font-sans); }
 @media (prefers-color-scheme: dark) {
-  html:not(.theme-light) .vc {
+  html:not(.theme-light) .vc, html:not(.theme-light) body.vc-page {
     --vc-bg: #0e1014; --vc-panel: #181b21; --vc-grid: #262b33; --vc-grid-2: #262b33;
     --vc-fg: #eef0f4; --vc-fg-2: #a8afbb; --vc-fg-3: #6b7380;
-    --vc-accent: #e27a51; --vc-accent-soft: rgba(226,122,81,.16);
+    --vc-accent: #e27a51; --vc-accent-rgb: 226,122,81; --vc-accent-soft: rgba(226,122,81,.16);
     --vc-pos: #34c77f; --vc-pos-soft: rgba(52,199,127,.16);
     --vc-neg: #f0786b; --vc-neg-soft: rgba(240,120,107,.16);
     --vc-shadow: 0 1px 2px rgba(0,0,0,.30), 0 10px 26px -14px rgba(0,0,0,.55);
   }
 }
-html.theme-dark .vc {
+html.theme-dark .vc, html.theme-dark body.vc-page {
   --vc-bg: #0e1014; --vc-panel: #181b21; --vc-grid: #262b33; --vc-grid-2: #262b33;
   --vc-fg: #eef0f4; --vc-fg-2: #a8afbb; --vc-fg-3: #6b7380;
-  --vc-accent: #e27a51; --vc-accent-soft: rgba(226,122,81,.16);
+  --vc-accent: #e27a51; --vc-accent-rgb: 226,122,81; --vc-accent-soft: rgba(226,122,81,.16);
   --vc-pos: #34c77f; --vc-pos-soft: rgba(52,199,127,.16);
   --vc-neg: #f0786b; --vc-neg-soft: rgba(240,120,107,.16);
   --vc-shadow: 0 1px 2px rgba(0,0,0,.30), 0 10px 26px -14px rgba(0,0,0,.55);
 }
-html.theme-light .vc {
+html.theme-light .vc, html.theme-light body.vc-page {
   --vc-bg: #f5f6f8; --vc-panel: #ffffff; --vc-grid: #e7e9ee; --vc-grid-2: #e7e9ee;
   --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #6b7280;
-  --vc-accent: #c2562f; --vc-accent-soft: rgba(194,86,47,.10);
+  --vc-accent: #c2562f; --vc-accent-rgb: 194,86,47; --vc-accent-soft: rgba(194,86,47,.10);
   --vc-pos: #1f9d63; --vc-pos-soft: rgba(31,157,99,.12);
   --vc-neg: #d24b3e; --vc-neg-soft: rgba(210,75,62,.12);
   --vc-shadow: 0 1px 2px rgba(20,22,28,.04), 0 8px 20px -12px rgba(20,22,28,.14);
 }
 .vc *, .vc *::before, .vc *::after { box-sizing: border-box; }
+body.vc-page * { box-sizing: border-box; }
 body.vc-page {
   background: var(--vc-bg, #f5f6f8) !important;
   color: var(--vc-fg, #14161c) !important;
@@ -64,10 +76,12 @@ body.vc-page.theme-dark, html.theme-dark body.vc-page { background: #0e1014 !imp
   html:not(.theme-light) body.vc-page { background: #0e1014 !important; color: #eef0f4 !important; }
 }
 html.theme-light body.vc-page { background: #f5f6f8 !important; color: #14161c !important; }
-body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 
-/* Remap legacy vars on .vc-page so dynamically rendered legacy markup
-   (var(--bg), var(--text), var(--accent), etc.) follows light/dark theme. */
+/* Legacy-Var-Remap: dynamisch gerendertes Markup nutzt inline var(--bg),
+   var(--text), var(--accent), var(--green) usw.; hier werden die alten
+   Namen auf die Variant-C-Tokens gemappt, damit light/dark ueberall
+   greift. Referenz-Werte (var(--vc-*)) statt Literale, wo ein Token
+   existiert - so gewinnen custom.css-Overrides am Nutzungsort. */
 body.vc-page {
   --bg: #f5f6f8; --bg2: #ffffff; --bg3: #eef0f3; --border: #e7e9ee;
   --text: #14161c; --text2: #5b6473;
@@ -98,7 +112,19 @@ html.theme-light body.vc-page {
   --green: var(--vc-pos); --orange: var(--vc-accent); --red: var(--vc-neg);
   --blue: var(--vc-fg-2); --purple: var(--vc-fg-2); --cyan: var(--vc-fg-2); --amber: var(--vc-accent);
 }
+
+/* Anonymization blur */
+body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 /* VC-SHARED:tokens:END */
+
+/* Session-detail page-local tokens (Flow-Canvas). Bewusst ausserhalb
+   des VC-SHARED-Blocks: nur diese Seite kennt sie. */
+.vc {
+  --vc-flow-bg: var(--vc-bg);
+  --vc-btn-flow-bg: var(--vc-panel);
+  --vc-node-icon: var(--vc-fg-2);
+  --vc-grid-line: var(--vc-grid);
+}
 
 /* Variant-C top bar (mini, for detail page). Width matches .main-layout
    below so the page reads as one centered column on wide monitors. */

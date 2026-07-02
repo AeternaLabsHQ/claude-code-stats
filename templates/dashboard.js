@@ -2,8 +2,8 @@
 const D = "__DATA_PLACEHOLDER__";
 
 // ── Helpers ────────────────────────────────────────────────────────────
-const fmt = n => n.toLocaleString(D.locale.locale_code);
-const fmtUSD = n => '$' + n.toLocaleString(D.locale.locale_code, {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmt = n => (Number(n) || 0).toLocaleString(VCShared.localeCode());
+const fmtUSD = n => VCShared.fmtUSD(n);
 let planCurrencyMode = (D.plan && D.plan.currency_symbol) ? 'local' : 'usd';
 let costMetricMode = 'usd'; // 'usd' | 'local' | 'tokens' — Costs tab metric toggle
 function planCurrencySymbol() {
@@ -41,18 +41,9 @@ function planTotal(base) {
 function planMoneyUnitLabel() {
   return planCurrencyMode === 'local' ? planCurrencySymbol() : 'USD';
 }
-const fmtTokens = n => {
-  if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
-  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
-  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
-  return n.toString();
-};
+const fmtTokens = VCShared.fmtTokens;
 
-function escHtml(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
+const escHtml = VCShared.escHtml;
 
 
 // Variant-C single-accent palette. Values mirror the CSS custom
@@ -2153,7 +2144,9 @@ function renderLimitsEventTimeline() {
                       ' · ' + (ev.subtype || '') +
                       ' · ' + (ev.timestamp || ev.gap_end || '') +
                       (ev.merged_count > 1 ? ' · ×' + ev.merged_count : '');
-      const titleAttr = tooltip.replace(/"/g, '&quot;');
+      // escHtml escapes quotes since the VCShared migration, and additionally
+      // covers & < > which the old manual replace left unescaped.
+      const titleAttr = escHtml(tooltip);
       const style = 'left:' + pct.toFixed(1) + '%';
       if (ev.session_id) {
         // Anchor to the in-chat rate-limit marker (only meaningful for
@@ -2875,17 +2868,7 @@ document.addEventListener('keydown', function(e) {
     const topUser = document.getElementById('vcTopUser');
     if (topUser) topUser.textContent = anonMode ? 'Anonymous' : ((D.account && D.account.name) || '-');
     // Show/hide notification
-    let note = document.getElementById('anonNote');
-    if (!note) {
-      note = document.createElement('div');
-      note.id = 'anonNote';
-      note.className = 'vc';
-      note.style.cssText = 'position:fixed;top:14px;right:14px;padding:8px 14px;border:1px solid var(--vc-accent,#b04a2f);background:var(--vc-panel,#fbfaf6);font-family:\'Geist Mono\',\'JetBrains Mono\',ui-monospace,monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;z-index:9999;transition:opacity 0.3s;color:var(--vc-accent,#b04a2f);';
-      document.body.appendChild(note);
-    }
-    note.textContent = anonMode ? '> ANONYMIZATION ON' : '> ANONYMIZATION OFF';
-    note.style.opacity = '1';
-    setTimeout(() => { note.style.opacity = '0'; }, 2000);
+    VCShared.vcAnonNote(anonMode);
   }
 });
 

@@ -334,7 +334,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   width: 12px; height: 12px;
   border: 1px solid var(--vc-grid);
   border-radius: 3px !important;
-  background: rgba(176, 74, 47, var(--legend-opacity, 0.5));
+  background: rgba(var(--vc-accent-rgb), var(--legend-opacity, 0.5));
 }
 .vc .vc-heatmap-legend .cell[data-i="0.10"] { --legend-opacity: 0.10; }
 .vc .vc-heatmap-legend .cell[data-i="0.30"] { --legend-opacity: 0.30; }

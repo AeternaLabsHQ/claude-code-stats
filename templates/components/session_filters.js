@@ -220,14 +220,10 @@
 
     function refreshRanges() {
       ranges = computeRanges(getPool());
-      // Clamp current bounds into the new range
-      ATTRIBUTES.forEach(a => {
-        const v = state[a.id];
-        const r = ranges[a.id];
-        if (v.min != null) v.min = Math.min(Math.max(v.min, r.min), r.max);
-        if (v.max != null) v.max = Math.min(Math.max(v.max, r.min), r.max);
-      });
-      persist();
+      // Stored bounds stay exactly as the user set them. Sliders clamp
+      // visually via valueToPos and predicates use the raw values, so a
+      // pool change (range switch, empty pool) must never rewrite or
+      // persist user filters.
     }
 
     // ── DOM scaffold ────────────────────────────────────────
@@ -431,7 +427,7 @@
       function commit(side, raw) {
         const num = (raw === '' || raw == null) ? null : Number(raw);
         if (num == null || isNaN(num)) { setBound(attr.id, side, null); }
-        else { setBound(attr.id, side, Math.min(Math.max(num, r.min), r.max)); }
+        else { setBound(attr.id, side, num); }
         // Keep slider thumbs in sync with input values
         sMin.value = valueToPos(attr, r, state[attr.id].min != null ? state[attr.id].min : r.min);
         sMax.value = valueToPos(attr, r, state[attr.id].max != null ? state[attr.id].max : r.max);

@@ -2,50 +2,23 @@
 // Reusable dense data table for session lists. Used by both the
 // dashboard Sessions tab and the project detail page bottom section.
 // State (visible columns, sort, page size) persists per context in
-// localStorage. Self-contained: defines its own helpers so it works
-// inside both dashboard.js and project_detail.js without conflicts.
+// localStorage. Depends on shared_helpers.js (VCShared), which
+// extract_stats.py bundles before this file on every page.
 (function() {
   'use strict';
 
   // ── Helpers ───────────────────────────────────────────────────
-  function escHtml(s) {
-    if (s == null) return '';
-    const d = document.createElement('div');
-    d.textContent = String(s);
-    return d.innerHTML;
-  }
-  function fmtUSD(n) {
-    n = Number(n) || 0;
-    return '$' + n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-  }
+  const escHtml = VCShared.escHtml;
+  // Note: fmtUSD now formats with the configured locale (was: browser locale).
+  const fmtUSD = n => VCShared.fmtUSD(n);
   function fmtNum(n, locale) {
     n = Number(n) || 0;
     return n.toLocaleString(locale);
   }
-  function fmtTokens(n) {
-    n = Number(n) || 0;
-    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-    return String(n);
-  }
-  function modelClass(m) {
-    const l = String(m || '').toLowerCase();
-    if (l.includes('opus')) return 'opus';
-    if (l.includes('sonnet')) return 'sonnet';
-    if (l.includes('haiku')) return 'haiku';
-    return '';
-  }
-  function calcCacheEff(s) {
-    const inputSum = (s.input_tokens||0) + (s.cache_read_tokens||0) + (s.cache_write_tokens||0);
-    if (inputSum === 0) return null;
-    return (s.cache_read_tokens||0) / inputSum * 100;
-  }
-  function effStyle(pct) {
-    if (pct == null) return {color:'var(--text2)', emoji:'—', label:'—'};
-    if (pct >= 80) return {color:'var(--green)', emoji:'✅', label:pct.toFixed(1)+'%'};
-    if (pct >= 50) return {color:'var(--amber)', emoji:'⚠️', label:pct.toFixed(1)+'%'};
-    return {color:'var(--red)', emoji:'❌', label:pct.toFixed(1)+'%'};
-  }
+  const fmtTokens = VCShared.fmtTokens;
+  const modelClass = VCShared.modelClass;
+  const calcCacheEff = VCShared.calcCacheEff;
+  const effStyle = VCShared.effStyle;
   // Mirrors Python: re.sub(r'[^a-zA-Z0-9_-]', '_', proj_name.replace('/', '_'))
   function projectSlug(name) {
     if (!name) return '';

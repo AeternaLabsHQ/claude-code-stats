@@ -552,44 +552,6 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   .vc table.responsive td.primary::before { content: ""; }
 }
 
-/* ── Table badges / cell affordances (ported from saas.css) ──────────
-   Real JS-emitted class in these tables is .source-badge (recolored to
-   the muted tag look below); .badge-model/.tag-source/.badge-ctx/.cell-*
-   /.chat-btn added for parity with the design handoff + any future use. */
-.vc .badge-model {
-  font-family: var(--vc-font-mono);
-  font-size: 11px; font-weight: 600;
-  padding: 2px 8px; border-radius: 6px;
-  background: var(--vc-accent-soft); color: var(--vc-accent);
-  white-space: nowrap;
-}
-.vc .tag-source {
-  font-family: var(--vc-font-mono);
-  font-size: 10px; color: var(--vc-fg-3);
-  background: color-mix(in srgb, var(--vc-fg-2) 10%, transparent);
-  padding: 2px 7px; border-radius: 5px; white-space: nowrap;
-}
-.vc .badge-ctx {
-  font-family: var(--vc-font-mono);
-  font-size: 10px; font-weight: 700;
-  padding: 1px 5px; border-radius: 5px;
-  background: color-mix(in srgb, #7c5cff 16%, transparent);
-  color: #8a6dff; margin-left: 5px;
-}
-.vc .cell-cost { color: var(--vc-fg); font-weight: 600; }
-.vc .cell-err { color: var(--vc-neg); font-weight: 600; }
-.vc .cell-link { color: var(--vc-accent); cursor: pointer; }
-.vc .cell-link:hover { text-decoration: underline; }
-.vc .chat-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 24px; height: 22px;
-  border: 1px solid var(--vc-grid); border-radius: 6px;
-  color: var(--vc-accent); cursor: pointer; font-size: 11px;
-}
-.vc .chat-btn:hover { background: var(--vc-accent-soft); }
-/* Estimated-pricing marker (mock .est) recolored to accent. */
-.vc .data-table .est { color: var(--vc-accent); font-size: 10px; }
-
 /* Horizontally-scrollable, resizable table (project table on Activity).
    Wrapper scrolls when columns exceed its width; fixed layout lets each
    column carry an explicit width and clip its content (Excel-style). */
@@ -686,76 +648,14 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 .vc .plan-highlight .plan-delta.pos { background: var(--vc-pos-soft); color: var(--vc-pos); }
 .vc .plan-highlight .plan-delta.accent { background: var(--vc-accent-soft); color: var(--vc-accent); }
 
-/* Progress / cycle bar */
-.vc .progress-bar,
-.vc .progress-track {
-  height: 28px !important;
-  border: 1px solid var(--vc-grid);
-  background: var(--vc-bg);
-  border-radius: 0 !important;
-  overflow: hidden;
-}
-.vc .progress-fill,
-.vc .progress-bar > div,
-.vc .progress-track > div {
-  height: 100%;
-  background: var(--vc-accent) !important;
-  border-radius: 0 !important;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: 8px;
-  color: var(--vc-bg);
-  font-size: var(--vc-fs-2xs);
-  letter-spacing: 0.1em;
-}
-
-/* Plan comparison bars */
-.vc .plan-comparison .bar {
-  background: var(--vc-bg);
-  border: 1px solid var(--vc-grid);
-  height: 12px;
-  border-radius: 0;
-}
-.vc .plan-comparison .bar > div {
-  background: var(--vc-accent) !important;
-  border-radius: 0 !important;
-  height: 100%;
-}
-.vc .plan-comparison .bar-label { color: var(--vc-fg); font-size: var(--vc-fs-xs); font-family: var(--vc-font-mono); }
-.vc .plan-comparison .bar-val { color: var(--vc-fg-2); font-size: var(--vc-fs-xs); font-family: var(--vc-font-mono); font-feature-settings: 'tnum' 1; }
-
 /* Misc / config / list / etc legacy */
 .vc .misc-stat-grid,
 .vc .config-grid {
   font-family: var(--vc-font-mono);
 }
-.vc .stat-card,
-.vc .insight-card,
-.vc .config-card {
-  background: var(--vc-panel);
-  border: 1px solid var(--vc-grid);
-  border-radius: var(--vc-radius);
-  box-shadow: var(--vc-shadow);
-  padding: 20px 22px 22px;
-  font-family: var(--vc-font-mono);
-}
-.vc .stat-card .value,
-.vc .insight-card .value {
-  color: var(--vc-fg);
-  font-weight: 500;
-  font-feature-settings: 'tnum' 1;
-}
-.vc .stat-card .label,
-.vc .insight-card .label {
-  color: var(--vc-fg-3);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: var(--vc-fs-2xs);
-}
 
 /* Buttons */
-.vc button:not(.vc-tab):not(.vc-range-btn):not(.vc-icon-btn):not(.vc-page-tab):not([data-sub]) {
+.vc button:not(.vc-tab):not(.vc-range-btn):not(.vc-icon-btn):not([data-sub]) {
   background: var(--vc-panel);
   border: 1px solid var(--vc-grid);
   color: var(--vc-fg);
@@ -766,7 +666,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   cursor: pointer;
   letter-spacing: 0.05em;
 }
-.vc button:not(.vc-tab):not(.vc-range-btn):not(.vc-icon-btn):not(.vc-page-tab):not([data-sub]):hover {
+.vc button:not(.vc-tab):not(.vc-range-btn):not(.vc-icon-btn):not([data-sub]):hover {
   background: var(--vc-accent-soft);
   border-color: var(--vc-accent);
 }
@@ -1238,7 +1138,7 @@ body.vc-page > div[style*="text-align:center"] a {
   --blue: #3b82f6;
   --purple: #a855f7;
   --cyan: #06b6d4;
-  --pink: #ec4899;
+  --amber: #f59e0b;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:var(--bg); color:var(--text); font-size:14px; }
@@ -1347,15 +1247,6 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 .progress-stats .stat-item.good .stat-val { color:var(--vc-pos); }
 .progress-stats .stat-item.accent .stat-val { color:var(--vc-accent); }
 
-.plan-comparison { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
-.plan-comparison h3 { font-size:15px; font-weight:600; margin-bottom:4px; }
-.plan-comparison .plan-comparison-note { font-size:11px; color:var(--text2); margin:0 0 14px 0; line-height:1.4; font-style:italic; }
-.plan-comparison .bar-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
-.plan-comparison .bar-label { width:160px; flex-shrink:0; font-size:13px; color:var(--text2); }
-.plan-comparison .bar-track { flex:1; background:var(--bg3); border-radius:6px; height:24px; overflow:hidden; }
-.plan-comparison .bar-fill { height:100%; border-radius:6px; display:flex; align-items:center; padding-left:8px; font-size:11px; font-weight:600; min-width:2px; }
-.plan-comparison .bar-val { min-width:80px; text-align:right; font-size:13px; font-weight:600; }
-
 /* Insights Tab */
 .config-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .config-item { padding:10px 14px; background:var(--bg3); border-radius:8px; }
@@ -1414,15 +1305,13 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
   .session-filters input { flex:1; min-width:0; }
   .config-grid { grid-template-columns:1fr; }
   .misc-stat-grid { grid-template-columns:1fr; }
-  .plan-comparison .bar-label { width:100px; font-size:12px; }
-  .plan-comparison .bar-val { min-width:60px; font-size:12px; }
   .plan-highlight { grid-template-columns:1fr; }
   .progress-stats { gap:12px; }
   .chart-box canvas { max-height:280px; }
 }
 .vc .vc-idle-aggregate,
 #idleGapAggregateCard.vc-idle-aggregate {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
   padding: 12px 16px; margin-bottom: 22px;
   border: 1px solid var(--vc-grid); border-radius: var(--vc-radius-sm);
   background: var(--vc-accent-soft);
@@ -1434,8 +1323,6 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 }
 .vc .vc-idle-aggregate .vc-v,
 .vc .vc-idle-aggregate b { color: var(--vc-fg); }
-.vc .vc-idle-aggregate,
-#idleGapAggregateCard.vc-idle-aggregate { flex-direction: column; align-items: flex-start; gap: 6px; }
 .vc .vc-idle-aggregate .vc-idle-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .vc-limits-section { margin: 20px 0; }
 .vc-limits-section h3 { margin-bottom: 12px; }

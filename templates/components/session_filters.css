@@ -94,7 +94,6 @@
 }
 .sf-clear-all:hover { color: var(--vc-fg, #14161c); }
 
-.sf-panel-host {}
 .sf-panel {
   background: var(--vc-panel, #ffffff);
   border: 1px solid var(--vc-grid, #e7e9ee);

@@ -67,5 +67,26 @@ class CacheEffTrivialFilterTest(unittest.TestCase):
         self.assertEqual(days, ["2026-06-10"])
 
 
+class SubagentFlagExportTest(unittest.TestCase):
+    def test_orphan_subagent_flagged_in_session_list(self):
+        tmp = Path(tempfile.mkdtemp(prefix="cs-subflag-"))
+        pd = tmp / "projects"
+        write_jsonl(pd / "proj1" / "S1.jsonl",
+                    [user_line(), assistant_line()])
+        # Orphan subagent: parent transcript PARENT-GONE was cleaned up,
+        # so the agent session survives as a standalone session.
+        write_jsonl(
+            pd / "proj1" / "PARENT-GONE" / "subagents" / "agent-a1.jsonl",
+            [user_line(session_id="agent-a1"),
+             assistant_line(session_id="agent-a1", msg_id="m2")])
+        with patched_sources(pd) as es:
+            sessions = es.parse_session_transcripts()
+            data = es.build_dashboard_data(sessions, {}, {}, [])
+        by_id = {s["session_id"]: s for s in data["sessions"]}
+        self.assertIn("agent-a1", by_id)
+        self.assertIs(by_id["agent-a1"]["is_subagent"], True)
+        self.assertIs(by_id["S1"]["is_subagent"], False)
+
+
 if __name__ == "__main__":
     unittest.main()

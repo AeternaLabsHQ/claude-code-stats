@@ -3654,6 +3654,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "file_ops_count": len(sess.get("file_ops", [])),
             "git_ops": sess.get("git_ops", []),
             "source": sess.get("source", SOURCE_LABEL),
+            "is_subagent": bool(sess.get("is_subagent")),
         })
 
     session_list.sort(key=lambda s: s["start"])

@@ -116,11 +116,15 @@
       defaultIn: ['dashboard','projectDetail'],
       get: (s) => s.first_prompt || '',
       render: (s, ctx) => {
+        // Orphan subagent transcripts (parent cleaned up) get a muted badge.
+        // 'agent' is deliberately unlocalized: technical term, consistent
+        // with source badges and token labels like Cache Read.
+        const badge = s.is_subagent ? '<span class="st-source">agent</span> ' : '';
         const raw = s.first_prompt || '';
-        if (!raw) return '<span class="st-muted">—</span>';
+        if (!raw) return badge || '<span class="st-muted">—</span>';
         const short = truncate(raw, 80);
         const cls = ctx.anonMode ? 'anon-blur st-prompt' : 'st-prompt';
-        return '<span class="' + cls + '" title="' + escHtml(raw) + '">' + escHtml(short) + '</span>';
+        return badge + '<span class="' + cls + '" title="' + escHtml(raw) + '">' + escHtml(short) + '</span>';
       }
     },
     { id: 'source', label: 'Source', group: 'identity', align: 'left', sortable: true,

@@ -229,8 +229,6 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-.vc .model-badge.opus { color: var(--vc-accent) !important; background: var(--vc-accent-soft) !important; }
-.vc .model-badge.sonnet, .vc .model-badge.haiku { color: var(--vc-fg-2) !important; background: var(--vc-grid-2) !important; }
 .vc .main-layout { background: var(--vc-bg); }
 .vc .flow-container, .vc .chat-panel, .vc .sidebar {
   background: var(--vc-panel) !important;

@@ -16,6 +16,13 @@ def flatten(d, prefix=""):
         key = prefix + k
         if isinstance(v, dict):
             out.update(flatten(v, key + "."))
+        elif isinstance(v, list):
+            for i, item in enumerate(v):
+                list_key = key + "." + str(i)
+                if isinstance(item, dict):
+                    out.update(flatten(item, list_key + "."))
+                else:
+                    out[list_key] = item
         else:
             out[key] = v
     return out

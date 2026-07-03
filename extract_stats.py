@@ -399,6 +399,13 @@ PRICING = {
         "cache_read": 1.00, "cache_write_5m": 12.50, "cache_write_1h": 20.00,
         "display": "Fable 5"
     },
+    # Sonnet 5 — standard pricing. An introductory $2/$10 rate applied through
+    # 2026-08-31; standard rates below took effect 2026-09-01.
+    "claude-sonnet-5": {
+        "input": 3.00, "output": 15.00,
+        "cache_read": 0.30, "cache_write_5m": 3.75, "cache_write_1h": 6.00,
+        "display": "Sonnet 5"
+    },
     # Claude 4.8
     "claude-opus-4-8": {
         "input": 5.00, "output": 25.00,

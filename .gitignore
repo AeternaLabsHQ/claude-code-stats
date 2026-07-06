@@ -38,3 +38,5 @@ __pycache__/
 
 # Local-only: symlinked playwright for headless smoke-test (tools/smoke_shot.mjs)
 node_modules/
+
+.golden/

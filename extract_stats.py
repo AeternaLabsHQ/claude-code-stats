@@ -208,6 +208,17 @@ TEMPLATE_HTML = Path(__file__).parent / "dashboard_template.html"
 PLAN_HISTORY = CONFIG.get("plan_history", [])
 PLAN_CAPACITY_OVERRIDE_PRO_USD = CONFIG.get("plan_capacity_override_pro_usd")
 
+import claudestats_core.settings as _core_settings
+_core_settings.configure(
+    week_anchor=WEEK_ANCHOR,
+    plan_history=PLAN_HISTORY,
+    plan_capacity_override_pro_usd=PLAN_CAPACITY_OVERRIDE_PRO_USD,
+    cache_eff_min_messages=CACHE_EFF_MIN_MESSAGES,
+    source_label=SOURCE_LABEL,
+    locale=LOCALE,
+    display_name=CONFIG.get("display_name"),
+)
+
 # Plan-recommendation constants (Task 4).
 # Source: Anthropic pricing communication / docs page (Pro = 1×, Max 5x = 5×,
 # Max 20x = 20×). Exact token limits are not published — these factors are

@@ -40,3 +40,4 @@ __pycache__/
 node_modules/
 
 .golden/
+*.egg-info/

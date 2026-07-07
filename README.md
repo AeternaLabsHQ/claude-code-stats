@@ -238,6 +238,16 @@ To include Claude Code data from other users on the same machine (or any additio
 
 When `sudo_user` is omitted the running user needs direct read access to the referenced directories. Sessions are deduplicated and all data (sessions, plans, todos, telemetry, etc.) is merged into the dashboard.
 
+## Library Usage (`claudestats_core`)
+
+The calibrated domain logic (costs, cache anomalies, limits, attribution) is available as a stdlib-only package `claudestats_core`. `extract_stats.py` is the CLI driver on top of it; other consumers can install the package directly:
+
+```bash
+pip install "claudestats-core @ git+https://github.com/<owner>/claude-stats@<tag>"
+```
+
+Settings (week anchor, plan history, locale) are configured via `claudestats_core.settings.configure(...)`; without a call, sensible defaults apply.
+
 ## Custom Styling
 
 You can recolor the dashboard without editing the source. Every build ships `public/custom.css.example` with the full list of overridable design tokens (the new design plus the legacy chart variables) for light, dark, and `prefers-color-scheme`.

@@ -35,3 +35,12 @@ def test_core_imports_without_config_json(tmp_path):
         cwd=tmp_path, env=env, capture_output=True, text=True,
     )
     assert r.returncode == 0, r.stderr
+
+
+def test_public_api_surface():
+    """Der Name-Vertrag, gegen den das Collector-Repo programmiert."""
+    import claudestats_core as core
+    for name in ("settings", "SessionFileMeta", "absorb_file",
+                 "finalize_sessions", "build_dashboard_data", "calc_cost",
+                 "get_model_display", "PRICING", "build_pricing_warnings"):
+        assert hasattr(core, name), f"public API missing: {name}"

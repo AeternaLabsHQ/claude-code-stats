@@ -40,6 +40,7 @@ Builds on the 1.0.0 feature set below. A full dashboard rethink that consolidate
 - Display names are derived from the raw model id (`derive_model_display`), so unseen `claude-*` ids render a sensible label and surface the estimated-pricing notice
 
 ### Changed
+- refactor: Domain logic extracted as stdlib-only package `claudestats_core` (pricing, attribution, classify, anomalies, limits, sessions, plan_analysis, aggregate). `extract_stats.py` remains CLI driver and re-exports all names; behavior is byte-identical (Golden-Master-verified).
 - In-progress billing period is framed with its real end date plus a projected end-of-cycle API value and ROI
 - Configurable `plan_capacity_override_pro_usd` to override the empirical Pro-tier capacity used by the recommendation
 

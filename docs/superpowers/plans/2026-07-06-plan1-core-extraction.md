@@ -1123,3 +1123,23 @@ git commit -m "feat(core): finalize claudestats_core public API + docs"
    settings-Namen zwischen Task 2 (`_KNOWN`) und allen Ersetzungsstellen in
    Tasks 3-5 abgeglichen (7 Namen, 11 Ersetzungszeilen: 1 limits, 1 sessions,
    6+... plan_analysis 6 Zeilen, aggregate 6 Zeilen).
+
+---
+
+## Amendment 2026-07-07: Golden-Master v2 (Eingabe-Snapshot)
+
+Der v1-Harness aus Task 1 verglich Pipeline-Läufe über lebende Daten;
+`~/.claude` wächst durch aktive Sessions zwischen den Läufen (verifiziert:
+zwei Läufe im 3-Minuten-Abstand differierten um +57M cache_read_tokens).
+v2 friert die Eingabe ein: `baseline` snapshottet alle nicht-sudo-Quellen
+nach `.golden/input/` (rsync, ~4 GB) und läuft mit `HOME`-Override +
+`CLAUDE_STATS_CONFIG` (neuer, additiver Env-Seam in extract_stats.py)
+gegen den Snapshot; `check` läuft gegen denselben Snapshot. Die
+sudo-Quelle `cortex:dori` ist bewusst nicht im Golden-Korpus (ohne sudo
+nicht einfrierbar; der sudo-Lesepfad ist Driver-Code und bleibt vom
+Refactor unberührt). Der UTC-Tages-Guard (Exit 2) bleibt. Alle
+"golden check"-Schritte der Tasks 2-6 beziehen sich ab hier auf v2.
+Die Baseline wurde nach diesem Fix auf dem Stand von Task 2 neu erzeugt;
+die Verhaltensneutralität von Task 2 (reines Package-Skelett + inerter
+configure-Aufruf) ist durch Code-Review + Testsuite abgedeckt, nicht durch
+den Golden-Master (v1-Baseline war designbedingt unbrauchbar).

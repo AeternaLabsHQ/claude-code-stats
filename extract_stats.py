@@ -21,7 +21,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # ── Configuration ──────────────────────────────────────────────────────────
-CONFIG_PATH = Path(__file__).parent / "config.json"
+# Config-Override fuer hermetische Laeufe (Golden-Master, Server-Driver).
+_cfg_env = os.environ.get("CLAUDE_STATS_CONFIG")
+CONFIG_PATH = Path(_cfg_env) if _cfg_env else Path(__file__).parent / "config.json"
 CONFIG_EXAMPLE = Path(__file__).parent / "config.example.json"
 
 

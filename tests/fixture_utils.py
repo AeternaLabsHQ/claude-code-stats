@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import extract_stats as es
+import claudestats_core.settings as core_settings
 
 STD_PLAN = {"plan": "Max 5x", "start": "2026-01-01", "end": None,
             "cost_usd": 100.0, "billing_day": 2, "billing_cycle": "monthly"}
@@ -47,13 +48,17 @@ def patched_sources(primary_dir, additional=None, plan_history=None):
     the user's real config.json values are saved and restored)."""
     saved = (es.PROJECTS_DIR, es.MIGRATION_ENABLED, es.ADDITIONAL_SOURCES,
              es.SOURCE_LABEL, es.PLAN_HISTORY)
+    saved_core = (core_settings.SOURCE_LABEL, core_settings.PLAN_HISTORY)
     es.PROJECTS_DIR = Path(primary_dir)
     es.MIGRATION_ENABLED = False
     es.ADDITIONAL_SOURCES = additional or []
     es.SOURCE_LABEL = "current"
+    core_settings.SOURCE_LABEL = "current"
     es.PLAN_HISTORY = [dict(STD_PLAN)] if plan_history is None else plan_history
+    core_settings.PLAN_HISTORY = es.PLAN_HISTORY
     try:
         yield es
     finally:
         (es.PROJECTS_DIR, es.MIGRATION_ENABLED, es.ADDITIONAL_SOURCES,
          es.SOURCE_LABEL, es.PLAN_HISTORY) = saved
+        (core_settings.SOURCE_LABEL, core_settings.PLAN_HISTORY) = saved_core

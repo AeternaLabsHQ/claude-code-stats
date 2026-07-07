@@ -172,13 +172,19 @@ Pflicht.
 | Angriff | parentUuid | Hash-Chain | Signatur |
 |---|---|---|---|
 | Record inhaltlich verändert | - | ja | ja |
-| Record in der Mitte gelöscht | ja (Session) | ja | - |
-| Records umsortiert | - | ja | - |
+| Record in der Mitte gelöscht | ja (Session) | ja* | - |
+| Records umsortiert | - | ja* | - |
 | Record in fremden Tenant/Session verschoben | - | ja (bind) | ja (bind) |
 | Betreiber fälscht/ändert nachträglich | - | nein* | **ja** |
 
-\* Chain allein nicht, weil ohne Geheimnis nachrechenbar. Erst die Signatur (5.3)
-und später TSA (Roadmap) schließen das.
+\* Chain allein nicht, weil ohne Geheimnis nachrechenbar: Ein Betreiber mit
+Storage-Zugriff kann Löschung/Umsortierung nachversiegeln (empirisch bestätigt
+im Plan-2-Final-Review). Gegen Dritte ohne Schreibzugriff gilt das "ja"
+uneingeschränkt; gegen den Betreiber sind Löschung/Umsortierung nur relativ zu
+einem extern aufbewahrten Chain-Kopf nachweisbar (Verifier `--expected-head`,
+Auditor archiviert `GET /v1/chain/head` out-of-band). Inhaltsfälschung und
+Record-Fabrikation schließt die Signatur (5.3) hart aus; Vollständigkeit gegen
+den Betreiber schließt erst TSA/Anchoring (Roadmap).
 
 ---
 

@@ -3,6 +3,14 @@
 extract_stats.py (CLI) befuellt sie aus config.json; der Collector-Server
 (anderes Repo) pro Tenant. Defaults sind so gewaehlt, dass der Kern ohne
 configure()-Aufruf lauffaehig ist.
+
+Vertrag fuer Mehrmandanten-Betrieb: Dieses Modul haelt modul-globalen,
+mutablen Zustand und ist NICHT thread-safe. Ein Mehrmandanten-Server muss
+entweder pro Tenant einen eigenen Worker-Prozess verwenden oder die
+Tenant-Verarbeitung strikt seriell abarbeiten und vor jeder Tenant-Berechnung
+configure() erneut aufrufen. configure() speichert Referenzen, keine
+Kopien - Aufrufer muessen frische bzw. kopierte Objekte uebergeben
+(insbesondere plan_history-Listen) und diese danach nicht mehr mutieren.
 """
 
 WEEK_ANCHOR = "mon"

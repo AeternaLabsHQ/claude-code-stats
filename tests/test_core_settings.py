@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -44,3 +45,25 @@ def test_public_api_surface():
                  "finalize_sessions", "build_dashboard_data", "calc_cost",
                  "get_model_display", "PRICING", "build_pricing_warnings"):
         assert hasattr(core, name), f"public API missing: {name}"
+
+
+def test_config_env_seam_honored(tmp_path):
+    """CLAUDE_STATS_CONFIG muss die Config-Quelle fuer extract_stats.CONFIG
+    umleiten koennen - das ist der Seam, den hermetische Laeufe (Golden
+    Master, Server-Driver) benutzen. Importieren von extract_stats fuehrt
+    nur den Modul-Top aus (Config/Locale-Laden); die eigentlichen Loader
+    sind lazy, daher ist dieser Test schnell."""
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"language": "en", "source_label": "seam-test"}),
+        encoding="utf-8",
+    )
+    env = dict(os.environ, CLAUDE_STATS_CONFIG=str(config_path))
+    r = subprocess.run(
+        [sys.executable, "-c",
+         "import extract_stats; print(extract_stats.SOURCE_LABEL)"],
+        cwd=REPO_ROOT, env=env, capture_output=True, text=True,
+    )
+    assert r.returncode == 0, r.stderr
+    last_line = r.stdout.strip().splitlines()[-1]
+    assert last_line == "seam-test"

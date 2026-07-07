@@ -8,16 +8,14 @@ data only. No external/untrusted input is rendered as HTML. All user-provided
 text (prompts) is escaped via textContent before display.
 """
 
-import calendar
 import json
 import os
 import re
-import statistics
 import subprocess
 import sys
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 from claudestats_core.pricing import (
@@ -46,6 +44,16 @@ from claudestats_core.limits import (
     _iso_to_ms, _dedupe_limit_events, _match_limit_events_to_windows,
     _count_5h_hits,
 )
+from claudestats_core.sessions import (
+    _merge_model_buckets, _absorb_subagent, _link_subagents,
+    _day_from_ms, split_session_by_day,
+    SessionFileMeta, absorb_file, finalize_sessions,
+)
+from claudestats_core.plan_analysis import (
+    _month_day_clamped, _expand_billing_cycles, _recommend_tier,
+    _tier_holds_in_cycle, _switch_arrow_for_cycle, build_plan_analysis,
+)
+from claudestats_core.aggregate import project_display_name, build_dashboard_data
 
 # ── Configuration ──────────────────────────────────────────────────────────
 # Config-Override fuer hermetische Laeufe (Golden-Master, Server-Driver).
@@ -777,13 +785,6 @@ def load_tasks():
     }
 
 
-from claudestats_core.sessions import (
-    _merge_model_buckets, _absorb_subagent, _link_subagents,
-    _day_from_ms, split_session_by_day,
-    SessionFileMeta, absorb_file, finalize_sessions,
-)
-
-
 def parse_session_transcripts():
     """Parse all session JSONL transcripts from all sources."""
     sessions = {}
@@ -1200,15 +1201,6 @@ def extract_session_messages(session_id, project_dir_name):
                     })
 
     return messages
-
-
-from claudestats_core.plan_analysis import (
-    _month_day_clamped, _expand_billing_cycles, _recommend_tier,
-    _tier_holds_in_cycle, _switch_arrow_for_cycle, build_plan_analysis,
-)
-
-
-from claudestats_core.aggregate import project_display_name, build_dashboard_data
 
 
 def generate_dashboard(data):

@@ -3,11 +3,9 @@ import calendar
 from datetime import datetime, timedelta, timezone
 
 from . import settings
-from .limits import (PLAN_TIER_FACTORS, PRO_CAPACITY_USD_DEFAULT,
-                     _normalize_tier_name, _compute_5h_windows, _compute_weekly_buckets,
-                     _estimate_5h_window_cap_usd, _detect_5h_fingerprint_events,
-                     _iso_to_ms, _dedupe_limit_events, _match_limit_events_to_windows,
-                     _count_5h_hits)
+from .limits import (PLAN_TIER_FACTORS, _normalize_tier_name,
+                     _estimate_5h_window_cap_usd,
+                     _match_limit_events_to_windows, _count_5h_hits)
 
 
 def _month_day_clamped(year, month, day):

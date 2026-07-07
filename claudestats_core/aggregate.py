@@ -1,18 +1,14 @@
 """Aggregation entry point: turns parsed sessions into the dashboard data dict."""
-import statistics
 from collections import defaultdict
 from datetime import datetime, timezone
 
 from . import settings
 from .limits import (_compute_5h_windows, _compute_weekly_buckets,
-                     _count_5h_hits, _dedupe_limit_events,
-                     _detect_5h_fingerprint_events,
-                     _estimate_5h_window_cap_usd, _iso_to_ms,
-                     _match_limit_events_to_windows)
+                     _dedupe_limit_events, _detect_5h_fingerprint_events)
 from .plan_analysis import build_plan_analysis
 from .attribution import WRITE_CATEGORIES
 from .pricing import build_pricing_warnings, get_model_display, pricing_for_display
-from .sessions import _day_from_ms, split_session_by_day
+from .sessions import split_session_by_day
 
 
 def project_display_name(project_path):

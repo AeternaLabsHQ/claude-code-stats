@@ -229,6 +229,31 @@ weil er keine verteilte Zustandslogik hinterlässt.
 
 ---
 
+## 6b. Befund aus dem Final-Review von Plan 2 (2026-07-07): Grenzen der Chain ohne Anker
+
+Empirisch bewiesen (Angriffs-Probe im Review): Ein Storage-Betreiber mit
+DB-Superuser, aber OHNE Agent-Private-Keys, kann Records aus der Mitte löschen
+oder umsortieren und die Chain nachversiegeln - sha256 ohne Geheimnis ist für
+jeden nachrechenbar, und die Ed25519-Signatur deckt nur `bind`
+(tenant/session/uuid/inhalt), nicht die Position. Der Verifier akzeptiert den
+manipulierten Export (rc=0). Was die Signatur hart garantiert: keine
+Inhaltsfälschung, keine Record-Fabrikation. Vollständigkeit/Ordnung gegen den
+Betreiber braucht einen EXTERNEN Anker - exakt der TSA-/Transparency-Punkt der
+Roadmap (§11), also kein neues Loch, aber eine Präzisierung dessen, was v0
+schon kauft.
+
+Mitigation in v0 umgesetzt: `tools/verifier.py --expected-head SEQ:CHAIN_HASH` -
+ein Auditor, der den Chain-Kopf out-of-band notiert (z.B. regelmäßig
+`GET /v1/chain/head` archiviert), erkennt Truncation/Löschung damit HEUTE.
+
+**Vorschlag an Andie (Spec ist dein Dokument, daher nicht still editiert):**
+In §5 der Spec ("Was jede Schicht beweist") die Zeilen "Record in der Mitte
+gelöscht" und "Records umsortiert" in der Hash-Chain-Spalte mit demselben
+Sternchen versehen wie die Betreiber-Zeile ("Chain allein nicht, weil ohne
+Geheimnis nachrechenbar - erst mit extern gesichertem Chain-Kopf bzw. TSA").
+Die Spec-Fußnote sagt das sinngemäß schon; die Tabellenzellen wenden es nur
+nicht konsistent an.
+
 ## 7. Änderungsprotokoll
 
 - 2026-07-06: Ursprüngliche Empfehlung in Punkt 4 (Monorepo) von Andie gedreht:

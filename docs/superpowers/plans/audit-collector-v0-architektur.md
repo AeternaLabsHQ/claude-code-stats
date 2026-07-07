@@ -226,6 +226,17 @@ weil er keine verteilte Zustandslogik hinterlässt.
      austauschbare Komponente geschnitten, OAuth-Andockung ist Roadmap-Option.
    ENTSCHIEDEN.
 6. **Compute-Trigger:** Debounce-on-Ingest. ENTSCHIEDEN.
+   **Nachtrag 2026-07-07 (von Andie abgenommen):** v0 implementiert stattdessen
+   Lazy-Rebuild-on-Read mit seq-Cache-Key (`dashboard_cache.as_of_seq` vs.
+   `tenant_heads.last_seq`). Gründe: kein Hintergrund-Worker im Server-Prozess
+   (prozess-globale, nicht thread-safe Engine-Settings), deterministisch ohne
+   Debounce-Fenster, und bei Abwesenheit wird nichts umsonst gerechnet (Debounce
+   hätte z.B. im Urlaub hunderte ungelesene Rebuilds produziert; Lazy rechnet
+   genau einmal beim ersten Blick, Kosten hängen an der Datenmenge, nicht an
+   der Abwesenheitsdauer). Erste-Lese-Latenz wird operativ per Cache-Warmer
+   abgefedert: Cron ruft periodisch `GET /v1/dashboard` (siehe
+   audit-collector/docs/FOLLOWUPS.md). Debounce-Worker bleibt Roadmap-Option,
+   falls Rebuild-Kosten trotz Warmer je stören.
 
 ---
 
@@ -256,6 +267,10 @@ nicht konsistent an.
 
 ## 7. Änderungsprotokoll
 
+- 2026-07-07: Spec-§5-Tabelle korrigiert (Andie-Freigabe): Löschung/Umsortierung
+  in der Chain-Spalte mit Sternchen (nur mit externem Chain-Kopf-Anker gegen
+  den Betreiber nachweisbar); Entscheidung 6 per Nachtrag auf
+  Lazy-Rebuild-on-Read + Cache-Warmer geändert (Andie-Abnahme).
 - 2026-07-06: Ursprüngliche Empfehlung in Punkt 4 (Monorepo) von Andie gedreht:
   eigenes Repo ab Tag 1. Punkt 5 neu begründet auf Merit-Basis (Andie-Vorgabe:
   Bestand ist kein Argument); Ergebnis inhaltlich gleich bei Framework/DB, aber

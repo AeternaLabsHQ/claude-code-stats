@@ -190,7 +190,7 @@ weil er keine verteilte Zustandslogik hinterlässt.
    `/v1/export`; Postgres-Schema; Chain + Signaturprüfung; WORM-Grants.
 5. **Agent** - tail, Offset/uuid-State, Ed25519-Signatur, Batch-Send,
    Subagent-Verzeichnisse + Sidecars.
-6. **Verifier-Script** - offline, gegen `/v1/export`, gemeinsame `canon()`.
+6. **Verifier-Script** - offline, gegen `/v1/export`, gemeinsame `canon()`. (überholt, s. 6c: Roh-Byte-Hash statt `canon()`.)
 7. **Server-Compute-Driver** - dirty-marking, Session-Rescan, per-Session-Summary,
    Tenant-JSON, API + minimales Dashboard-Serving hinter Auth.
 8. **E2E-Kalibrierungs-Beweis** - CLI vs. Server auf denselben Daten (Abschnitt 4.3).

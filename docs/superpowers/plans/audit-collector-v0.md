@@ -95,9 +95,9 @@ Wrapper fügt nur Identität und Integrität hinzu.
   "record_uuid":  "<aus JSONL: uuid>",    // FELDNAME an echtem JSONL verifizieren
   "parent_uuid":  "<aus JSONL: parentUuid | null>",
   "captured_at":  "2026-07-06T12:00:00Z", // wann der Agent versandt hat
-  "record_sha256":"<hex>",                // = sha256(canon(raw))
+  "record_sha256":"<hex>",                // = sha256(verbatim rohe Zeilen-Bytes)
   "sig":          "<base64 ed25519>",     // Signatur ueber 'bind' (s. u.)
-  "raw":          { /* JSONL-Zeile als Objekt, unveraendert */ }
+  "raw_b64":      "<base64>"              // JSONL-Zeile als verbatim Bytes, Base64
 }
 ```
 
@@ -105,22 +105,30 @@ Wrapper fügt nur Identität und Integrität hinzu.
 effizient bleibt. Volumen ist niedrig (Dev-Telemetrie), Signatur pro Record ist
 vertretbar; Batch-Merkle-Root ist Optimierung für später (Roadmap).
 
-### Kanonisierung (der klassische Footgun)
+### Record-Hash über verbatim Roh-Bytes
 
-Chain und Signatur sind nur reproduzierbar, wenn Agent, Server und Verifier
-**exakt dieselbe** Serialisierung hashen:
+`record_sha256` ist der SHA-256 über die **verbatim rohen Zeilen-Bytes**, genau
+wie sie aus der JSONL-Datei gelesen werden:
 
 ```python
-def canon(obj) -> bytes:
-    return json.dumps(
-        obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    ).encode("utf-8")
-
-record_sha256 = sha256(canon(raw)).hexdigest()
+record_sha256 = sha256(raw_line_bytes).hexdigest()
 ```
 
-An einer Stelle definieren, aus Agent + Server + Verifier importieren. Nie
-kopieren.
+Eine Record-Grenze ist der Bereich zwischen zwei `\n`-Trennern; ein
+abschliessendes `\r` (CRLF) gehört zu den Bytes und wird nicht entfernt. Die
+Bytes reisen als `raw_b64` (Base64, RFC 4648, mit Padding) und werden verbatim
+gespeichert (`BYTEA`); der Verifier re-hasht die dekodierten Bytes. Weil die
+exakten Bytes transportiert und gespeichert werden, ist keine sprachübergreifende
+Kanonisierung nötig - jeder Agent (in jeder Sprache) braucht nur `sha256(bytes)`
+und Ed25519 und weist Konformität gegen die Referenzvektoren nach.
+
+> **Korrektur (2026-07-07, Plan 5, von Andie abgenommen):** v0 hashte ursprünglich
+> `sha256(canon(raw))` mit einer kanonischen JSON-Serialisierung (`json.dumps`,
+> `sort_keys`, `separators`, `ensure_ascii=False`) - der klassische
+> sprachübergreifende Footgun. Roh-Byte-Hashing beseitigt ihn an der Wurzel und
+> ist strikt näher an "raw JSONL verbatim" (§1) als das frühere `JSONB`, das
+> Keys umsortierte und Whitespace normalisierte. Details siehe
+> `2026-07-07-plan5-raw-byte-format-law.md` und die Architektur-Notiz.
 
 ---
 
@@ -211,7 +219,7 @@ Klein, REST, self-hostable.
 ```
 
 Verifier ist ein **eigenständiges Script**, kein Endpunkt: es lädt via `/v1/export`,
-rechnet die Chain mit derselben `canon()` nach und verifiziert jede Signatur gegen
+rechnet `record_sha256` über die dekodierten `raw_b64`-Bytes und die Chain nach und verifiziert jede Signatur gegen
 die enrollten Pubkeys. Meldet die erste Divergenz. Dass ein Dritter das offline
 reproduzieren kann, ist genau das, was das Log glaubwürdig macht.
 
@@ -265,7 +273,7 @@ signierten Records ungültig zu machen. Genau deshalb getrennt.
   vollständiges Audit-Log.
 - **At Rest:** mindestens Disk-/DB-Verschlüsselung in v0. App-Level-Feldverschlüsselung
   der `raw`-Payload ist Roadmap. Wichtig: die Chain hasht den **Klartext**
-  (`record_sha256` über `canon(raw)`), damit Integrität unabhängig von
+  (`record_sha256` über die verbatim Roh-Bytes), damit Integrität unabhängig von
   Storage-Key-Rotation bleibt. Ciphertext + Klartext-Hash speichern.
 - **DB-WORM:** App-Rolle bekommt nur `INSERT` auf die Ingest-Tabelle, `UPDATE`/
   `DELETE` werden entzogen. Defense in Depth zusätzlich zur Chain.

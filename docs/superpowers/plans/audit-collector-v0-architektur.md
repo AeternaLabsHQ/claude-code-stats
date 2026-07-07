@@ -265,8 +265,52 @@ Geheimnis nachrechenbar - erst mit extern gesichertem Chain-Kopf bzw. TSA").
 Die Spec-Fußnote sagt das sinngemäß schon; die Tabellenzellen wenden es nur
 nicht konsistent an.
 
+## 6c. Roh-Byte-Format-Gesetz (Option B, von Andie abgenommen 2026-07-07)
+
+Auslöser: die Frage, ob der Agent plattformweit und ohne Fremdabhängigkeiten
+baubar ist ("was, wenn auf einem Client kein Python installiert werden darf?").
+Der v0-Agent war als "Python + Krypto-Lib" spezifiziert; der eigentliche
+Vertrag ist aber das Draht-Protokoll plus Format-Gesetz, nicht die konkrete
+Implementierung. Das ursprüngliche `record_sha256 = sha256(canon(raw))` mit
+kanonischer JSON-Serialisierung zwang jede Agent-Sprache, Pythons
+`json.dumps(sort_keys, separators, ensure_ascii=False)` byte-genau zu
+reproduzieren - der klassische sprachübergreifende Footgun (Spec §4).
+
+Entschieden (Option B, gegenüber A "Agent als PyInstaller-Binary" und C "vorerst
+vertagen"): Der Record-Hash speist sich aus den **verbatim rohen Zeilen-Bytes**.
+
+- Record-Grenze = Bereich zwischen zwei `\n`-Trennern, verbatim; ein
+  abschliessendes `\r` (CRLF) bleibt Teil der Bytes.
+- `record_sha256 = sha256(raw_line_bytes)`; `bind`/`sig`/`chain_hash`
+  unverändert (nur die Hash-Eingabe ändert sich).
+- Draht: `raw_b64` (Base64, RFC 4648, padded) statt geparstem `raw`-Objekt.
+- Storage: `records.raw` als `BYTEA` verbatim statt `JSONB` (letzteres sortierte
+  Keys um und normalisierte Whitespace - `BYTEA` ist strikt näher an §1).
+- `canon()` fällt aus dem Record-Pfad komplett weg.
+
+Kern-Eigenschaft: Weil die exakten Bytes transportiert **und** gespeichert
+werden, ist die Serialisierungswahl eines Producers privat - die Verifikation
+re-hasht die gespeicherten Bytes. Ein konformer Agent in jeder Sprache braucht
+nur `sha256(bytes)` + Ed25519 und weist Konformität gegen die
+Referenzvektoren nach. Damit ist ein abhängigkeitsfreies statisches Binary
+(Go/Rust) ohne Server-Änderung möglich; der Python-Agent ist Referenz, nicht
+Zwang.
+
+Bewusst in Kauf genommene Konsequenz: byte-strikte Dedup. Zwei byte-
+unterschiedliche, aber semantisch gleiche Serialisierungen derselben
+`record_uuid` ergeben `duplicate_mismatch` statt `duplicate` (z.B. nach
+`dos2unix`/Re-Sync). Für Attestierung korrekt; dokumentiert in FOLLOWUPS und
+gespeist ins Observability-Ticket. Umgesetzt in Plan 5
+(`2026-07-07-plan5-raw-byte-format-law.md`, 4 Tasks, alle Gates grün,
+Kalibrierungs-Beweis Datei-Weg == DB-Weg unverändert bestanden).
+
 ## 7. Änderungsprotokoll
 
+- 2026-07-07: Roh-Byte-Format-Gesetz beschlossen und umgesetzt (Entscheidung 6c,
+  Plan 5): `record_sha256` über verbatim Zeilen-Bytes, `raw_b64`-Draht, `BYTEA`-
+  Storage, `canon` entfernt; beseitigt den sprachübergreifenden
+  Kanonisierungs-Footgun und ermöglicht abhängigkeitsfreie Agenten in beliebigen
+  Sprachen. Spec §4 entsprechend korrigiert.
 - 2026-07-07: Spec-§5-Tabelle korrigiert (Andie-Freigabe): Löschung/Umsortierung
   in der Chain-Spalte mit Sternchen (nur mit externem Chain-Kopf-Anker gegen
   den Betreiber nachweisbar); Entscheidung 6 per Nachtrag auf

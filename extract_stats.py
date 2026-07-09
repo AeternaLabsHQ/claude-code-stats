@@ -190,6 +190,23 @@ PLAN_HISTORY = CONFIG.get("plan_history", [])
 
 # ── Pricing (USD per 1M tokens) ───────────────────────────────────────────
 PRICING = {
+    # Claude 5
+    "claude-fable-5": {
+        "input": 10.00, "output": 50.00,
+        "cache_read": 1.00, "cache_write_5m": 12.50, "cache_write_1h": 20.00,
+        "display": "Fable 5"
+    },
+    "claude-sonnet-5": {
+        "input": 3.00, "output": 15.00,
+        "cache_read": 0.30, "cache_write_5m": 3.75, "cache_write_1h": 6.00,
+        "display": "Sonnet 5"
+    },
+    # Claude 4.8
+    "claude-opus-4-8": {
+        "input": 5.00, "output": 25.00,
+        "cache_read": 0.50, "cache_write_5m": 6.25, "cache_write_1h": 10.00,
+        "display": "Opus 4.8"
+    },
     # Claude 4.7
     "claude-opus-4-7": {
         "input": 5.00, "output": 25.00,
@@ -2386,8 +2403,9 @@ function escHtml(s) {
 }
 
 const MODEL_COLORS = {
+  'Fable 5': '#f59e0b', 'Opus 4.8': '#d8b4fe',
   'Opus 4.7': '#c084fc', 'Opus 4.6': '#a855f7', 'Opus 4.5': '#7c3aed',
-  'Sonnet 4.5': '#3b82f6', 'Haiku 4.5': '#22c55e',
+  'Sonnet 5': '#06b6d4', 'Sonnet 4.6': '#60a5fa', 'Sonnet 4.5': '#3b82f6', 'Haiku 4.5': '#22c55e',
   'Unknown': '#6b7280'
 };
 

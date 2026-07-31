@@ -949,10 +949,16 @@ function activateTabByName(name, updateHash) {
   return true;
 }
 
+// Anchors from 0.8.x whose tab was folded into another one. Without this
+// map an old bookmark resolves to null and silently lands on the default
+// tab instead of the content it pointed at.
+const TAB_ALIASES = { projects: 'activity', agents: 'insights' };
+
 function tabFromHash() {
   const h = (location.hash || '').slice(1).split('?')[0];
   if (!h) return null;
-  return TAB_NAMES.find(t => t.id === h) ? h : null;
+  const name = TAB_ALIASES[h] || h;
+  return TAB_NAMES.find(t => t.id === name) ? name : null;
 }
 
 // ── Idle-gap aggregate card (Task 2) ────────────────────────────────────

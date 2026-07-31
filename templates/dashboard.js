@@ -2288,7 +2288,7 @@ function renderPlanRecommendation() {
     : cal5.source === 'config_override' ? T.calOverride
     : T.calDefault;
   const caps5 = cal5.caps_per_window || {};
-  const cal5Line = T.cal + ' (5h): ' + calSrc5 + ' — Pro $' + (caps5.Pro || 0).toFixed(2) +
+  const cal5Line = T.cal + ' (5h): ' + calSrc5 + ' - Pro $' + (caps5.Pro || 0).toFixed(2) +
     ' / Max 5x $' + (caps5['Max 5x'] || 0).toFixed(2) +
     ' / Max 20x $' + (caps5['Max 20x'] || 0).toFixed(2) + ' ' + T.capPerWindow +
     ' (n=' + (cal5.anchor_window_count || 0) + ' ' + T.anchors + ')' +
@@ -2298,7 +2298,7 @@ function renderPlanRecommendation() {
   const capsW = calW.caps_per_week || {};
   const calWLine = T.cal + ' (' + T.weeks + '): ' + T.calDerived +
     ' × ' + (calW.ratio_vs_5h || 7) +
-    ' — Pro $' + (capsW.Pro || 0).toFixed(0) +
+    ' - Pro $' + (capsW.Pro || 0).toFixed(0) +
     ' / Max 5x $' + (capsW['Max 5x'] || 0).toFixed(0) +
     ' / Max 20x $' + (capsW['Max 20x'] || 0).toFixed(0) + ' ' + T.capPerWeek;
 

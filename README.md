@@ -91,12 +91,6 @@ Highlights:
 - Dashboard donut for tool-share that recomputes live when filters change
 - Largest-remainder allocation prevents fractional drift across many small turns
 
-#### Plan & billing
-
-- Cost savings analysis vs. your subscription plan
-- Per-billing-cycle slicing (monthly cycles even for annual plans)
-- Local-currency display alongside USD
-
 #### Limits (beta)
 
 - Rate-limit and server-overload events detected from transcripts; legend distinguishes explicit API markers from heuristic signals
@@ -168,6 +162,7 @@ See [`config.example.json`](config.example.json) for all options:
 | `language`           | `string` | `"en"`      | UI language (`"en"` or `"de"`)                                               |
 | `display_name`       | `string` | `""`        | Account name shown in the dashboard header (overrides the auto-detected one) |
 | `source_label`       | `string` | `"current"` | Label for the local `~/.claude` source in session metadata                   |
+| `week_anchor`        | `string` | `"mon"`     | Weekday (`"mon"`..`"sun"`) your weekly rate limit resets on; sets the weekly bucketing for the limits tracker and the week markers on the charts |
 | `hide_session_flow`  | `bool`   | `false`     | Hide the Session Flow visualization (for screenshots/recordings)             |
 | `plan_history`       | `array`  | `[]`        | Your subscription plan history                                               |
 | `plan_capacity_override_pro_usd` | `number` | `null` | Manual per-window USD capacity of the Pro tier for the plan recommendation; overrides the empirical calibration (Max 5x / 20x scale ×5 / ×20) |
@@ -245,7 +240,7 @@ When `sudo_user` is omitted the running user needs direct read access to the ref
 The calibrated domain logic (costs, cache anomalies, limits, attribution) is available as a stdlib-only package `claudestats_core`. `extract_stats.py` is the CLI driver on top of it; other consumers can install the package directly:
 
 ```bash
-pip install "claudestats-core @ git+https://github.com/<owner>/claude-stats@<tag>"
+pip install "claudestats-core @ git+https://github.com/AeternaLabsHQ/claude-code-stats@v1.0.0"
 ```
 
 Settings (week anchor, plan history, locale) are configured via `claudestats_core.settings.configure(...)`; without a call, sensible defaults apply.
@@ -270,8 +265,13 @@ The example file also ships ready-made accent presets. `Classic Indigo` restores
 
 The script generates files in the `public/` directory:
 
-- `index.html` - Self-contained interactive dashboard (open in any browser)
+- `index.html` - Interactive dashboard (open in any browser)
 - `dashboard_data.json` - Raw aggregated data (for custom analysis)
+- `custom.css` / `custom.css.example` - Your styling overrides and the reference token list (see [Custom Styling](#custom-styling))
+- `projects/` - Per-project detail pages
+- `sessions/` - Per-session detail pages with chat replay
+
+Deploying only `index.html` produces a dashboard with broken detail-page links and no theming. Copy the whole `public/` directory.
 
 ## Automation
 

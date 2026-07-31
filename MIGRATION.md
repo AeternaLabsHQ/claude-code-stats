@@ -54,7 +54,7 @@ One thing is worth adding if you track a non-USD plan price. `cost_eur` was assu
 
 ### If you deploy the output yourself
 
-The dashboard is no longer a single file. Alongside `index.html` it now writes `custom.css` and the `projects/` and `sessions/` directories. A deploy script that copies only `index.html` will produce a dashboard whose detail pages and theming are missing. Copy the whole `public/` directory.
+The dashboard was never a single file: 0.8.x already wrote the `projects/` and `sessions/` directories alongside `index.html`, and a deploy script that copied only `index.html` already produced a dashboard with broken detail-page links. What's new in 1.0.0 is `custom.css` and `custom.css.example`; their absence doesn't break anything since the styling is inlined into `index.html` and `custom.css` is purely an override, but you won't get your theming. Copy the whole `public/` directory either way.
 
 ## For fork maintainers
 
@@ -64,7 +64,7 @@ No new obligations. The repository now carries a real `LICENSE` file, where befo
 
 ### The file layout changed substantially
 
-This is the part that affects you. `extract_stats.py` went from 4617 to 1760 lines. It is now the CLI and the HTML renderer, nothing else.
+This is the part that affects you. `extract_stats.py` went from 6283 to 1790 lines. It is now the CLI and the HTML renderer, nothing else.
 
 The HTML, CSS and JavaScript are no longer Python strings. They live in `templates/` as real files. The computation logic moved into a `claudestats_core` package:
 

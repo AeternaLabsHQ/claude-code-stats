@@ -15,7 +15,7 @@ First stable release. Consolidates the dashboard into five focused tabs with a l
 ### Added
 
 #### Tab consolidation (7 to 5)
-- Consolidated into five tabs: **Token & API Value**, **Plan & Billing**, **Activity & Projects**, **Sessions**, **Insights & System**; the former standalone Agents, Errors, Tools, Storage, and Workflows surfaces became numbered sub-sections under Insights & System
+- Consolidated into five tabs: **Token & API Value**, **Plan & Billing**, **Activity & Projects**, **Sessions**, **Insights & System**; Projects merged into Activity, and Agents became a numbered sub-section under Insights & System
 - A modern visual reskin across the dashboard and the project / session detail pages, with light / dark themes
 - KPI-strip polish, a billing bar, and week markers on the time-series charts
 
@@ -56,7 +56,7 @@ First stable release. Consolidates the dashboard into five focused tabs with a l
 - Section sub-headers added on the Insights tab; charts on single-metric panels no longer render redundant legends
 - Project and session detail pages re-skinned to match the dashboard
 
-#### Limits and plan recommendation (new tab, beta)
+#### Limits and plan recommendation (Plan & Billing section, beta)
 - Detects rate-limit events from session transcripts using both explicit API error markers and heuristic signals; the legend distinguishes the two
 - Server-overload events are separated from user rate-limit hits so 529s do not inflate your usage stats
 - 5-hour rolling window tracker (matches how Anthropic actually enforces the cap) with a weekly hit-count summary, replacing the previous monthly percent-of-limit readout
@@ -91,7 +91,7 @@ First stable release. Consolidates the dashboard into five focused tabs with a l
 - See "Custom Styling" in the README
 
 #### Other additions
-- Cache-efficiency per-day box plot on the Costs tab to surface day-over-day variance
+- Cache-efficiency per-day box plot on the Token & API Value tab to surface day-over-day variance
 - Per-session cache-efficiency badge and flush counter
 - Theme-aware session-flow canvas: container, node fill, grid, and icons all switch with the theme
 - Footer now reads consistently at 13 px across the site
@@ -111,14 +111,13 @@ First stable release. Consolidates the dashboard into five focused tabs with a l
 - Dashboard pages no longer break when served behind a SPA catch-all that produces nested `/sessions/` paths
 - Inline `<script>` JSON payloads escape `</` to prevent premature script termination
 - Subagent types resolve correctly via the new `agent-<id>.meta.json` sidecar in addition to the parent `toolUseResult`
-- Light-mode regressions on the Limits tab, Idle-Gap panels, and several legacy components
+- Light-mode regressions in the Limits & Recommendation section, Idle-Gap panels, and several legacy components
 - Dark-mode doughnut chart borders and chart grid colors persist across theme toggles
 - Multi-byte hex grid in the session-flow canvas now renders correctly under both themes
 
 ### Internal
 - HTML, CSS, and JS for all three page types extracted into `templates/` and assembled at build time
 - New session-filters and session-table components live under `templates/components/`
-- `VERSION` should be bumped to `1.0.0` before tagging
 
 ## [0.8.1] - 2026 (hotfix)
 
@@ -168,7 +167,7 @@ First stable release. Consolidates the dashboard into five focused tabs with a l
 - Per-session chat replay pages with role filter and copy-to-clipboard
 - Per-project detail pages with session lists
 - GitHub-style activity heatmap on the Activity tab
-- Cache-efficiency display on the Costs tab
+- Cache-efficiency display on the Token & API Value tab
 - Skills and hooks display on the Insights tab
 - Global project-name filter next to the time-range buttons
 

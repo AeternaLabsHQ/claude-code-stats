@@ -43,10 +43,10 @@ class DeriveModelDisplayTest(unittest.TestCase):
         self.assertEqual(derive_model_display("claude-3-5-haiku-20241022"), "Haiku 3.5")
 
     def test_future_model_needs_no_code_change(self):
-        # A ".0" model is named bare-major ("Opus 5"), matching how Anthropic
+        # A ".0" model is named bare-major ("Opus 9"), matching how Anthropic
         # names models (there is no "Opus 4.0", only "Opus 4"). Non-zero minors
         # keep the dotted form.
-        self.assertEqual(derive_model_display("claude-opus-5-0"), "Opus 5")
+        self.assertEqual(derive_model_display("claude-opus-9-0"), "Opus 9")
         self.assertEqual(derive_model_display("claude-sonnet-5-2-20270101"), "Sonnet 5.2")
 
     def test_zero_minor_renders_bare_major(self):
@@ -117,7 +117,7 @@ class ResolvePricingTest(unittest.TestCase):
         )
 
     def test_genuinely_unknown_model_falls_back_to_default(self):
-        self.assertIs(resolve_pricing("claude-opus-5-0"), DEFAULT_PRICING)
+        self.assertIs(resolve_pricing("claude-opus-9-0"), DEFAULT_PRICING)
 
 
 class CalcCostConsistencyTest(unittest.TestCase):
@@ -150,7 +150,7 @@ class GetModelDisplayTest(unittest.TestCase):
 
     def test_unknown_claude_model_is_derived_not_unknown(self):
         # Regression: previously collapsed to "Unknown"; now named from the id.
-        self.assertEqual(get_model_display("claude-opus-5-0"), "Opus 5")
+        self.assertEqual(get_model_display("claude-opus-9-0"), "Opus 9")
 
     def test_unparseable_model_still_returns_string(self):
         self.assertIsInstance(get_model_display("gpt-4o"), str)
@@ -162,15 +162,22 @@ class PricingForDisplayTest(unittest.TestCase):
 
     def test_unmatched_display_falls_back_to_default_not_first_entry(self):
         # Bugfix: an unknown/derived display must use DEFAULT_PRICING, NOT
-        # list(PRICING.keys())[0] (which would misprice it at Opus rates).
-        self.assertIs(pricing_for_display("Opus 5"), DEFAULT_PRICING)
+        # list(PRICING.keys())[0] (which would misprice it at Fable rates).
+        self.assertIs(pricing_for_display("Opus 9"), DEFAULT_PRICING)
         self.assertIs(pricing_for_display("Unknown"), DEFAULT_PRICING)
+
+    def test_opus_5_is_priced_not_defaulted(self):
+        # Regression: claude-opus-5 sat in the Unknown bucket and was costed
+        # at DEFAULT_PRICING ($3/$15) instead of $5/$25, a 40% undercount.
+        self.assertIsNot(pricing_for_display("Opus 5"), DEFAULT_PRICING)
+        self.assertEqual(PRICING["claude-opus-5"]["input"], 5.00)
+        self.assertEqual(PRICING["claude-opus-5"]["output"], 25.00)
 
 
 class BuildPricingWarningsTest(unittest.TestCase):
     def test_unknown_claude_model_is_flagged_with_derived_name(self):
-        warnings = build_pricing_warnings(["claude-opus-5-0"])
-        self.assertEqual(warnings, [{"model_id": "claude-opus-5-0", "display": "Opus 5"}])
+        warnings = build_pricing_warnings(["claude-opus-9-0"])
+        self.assertEqual(warnings, [{"model_id": "claude-opus-9-0", "display": "Opus 9"}])
 
     def test_known_model_is_not_flagged(self):
         self.assertEqual(build_pricing_warnings(["claude-opus-4-8"]), [])
@@ -195,18 +202,18 @@ class BuildPricingWarningsTest(unittest.TestCase):
         # the surfaced model_id is the canonical base regardless of input order
         # (callers pass a set, so iteration order is otherwise nondeterministic).
         warnings = build_pricing_warnings(
-            ["claude-opus-5-0[1m]", "claude-opus-5-0-20990101", "claude-opus-5-0"]
+            ["claude-opus-9-0[1m]", "claude-opus-9-0-20990101", "claude-opus-9-0"]
         )
-        self.assertEqual(warnings, [{"model_id": "claude-opus-5-0", "display": "Opus 5"}])
+        self.assertEqual(warnings, [{"model_id": "claude-opus-9-0", "display": "Opus 9"}])
 
     def test_deduplicates_and_sorts_by_display(self):
         warnings = build_pricing_warnings(
-            ["claude-sonnet-9-0", "claude-opus-5-0", "claude-sonnet-9-0"]
+            ["claude-sonnet-9-0", "claude-opus-9-0", "claude-sonnet-9-0"]
         )
         self.assertEqual(
             warnings,
             [
-                {"model_id": "claude-opus-5-0", "display": "Opus 5"},
+                {"model_id": "claude-opus-9-0", "display": "Opus 9"},
                 {"model_id": "claude-sonnet-9-0", "display": "Sonnet 9"},
             ],
         )

@@ -131,7 +131,6 @@ def _switch_arrow_for_cycle(cycle, recommended_tier):
       - downgrade ("down"): recommended is cheaper AND held this cycle.
       - upgrade   ("up"):   recommended is pricier AND the active tier did
                             NOT hold this cycle.
-    See docs/superpowers/specs/2026-06-10-limits-recommendation-redesign.md.
     """
     active = cycle.get("active_tier")
     if not recommended_tier or not active or active == recommended_tier:

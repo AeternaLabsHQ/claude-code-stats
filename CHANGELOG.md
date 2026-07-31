@@ -4,13 +4,13 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased] - v2 (Dashboard Rethink)
 
-Builds on the 1.0.0 feature set below. A full dashboard rethink that consolidates the eight v1 tabs into five focused surfaces with a "Modern SaaS" reskin, adds a currency/token metric toggle, no-gap cache-anomaly detection, and a calibrated plan-tier recommendation, and re-bases all time-series on the day work actually happened. Not yet tagged.
+Builds on the 1.0.0 feature set below. A full dashboard rethink that consolidates the eight v1 tabs into five focused surfaces with a modern visual reskin, adds a currency/token metric toggle, no-gap cache-anomaly detection, and a calibrated plan-tier recommendation, and re-bases all time-series on the day work actually happened. Not yet tagged.
 
 ### Added
 
 #### Dashboard rethink (8 tabs to 5)
 - Consolidated into five tabs: **Token & API Value**, **Plan & Billing**, **Activity & Projects**, **Sessions**, **Insights & System**; the former standalone Agents, Errors, Tools, Storage, and Workflows surfaces became numbered sub-sections under Insights & System
-- "Modern SaaS" visual reskin across the dashboard and the project / session detail pages, with light / dark themes
+- A modern visual reskin across the dashboard and the project / session detail pages, with light / dark themes
 - KPI-strip polish, a billing bar, and week markers on the time-series charts
 
 #### Metric toggle (USD / billing currency / Tokens)

@@ -55,7 +55,7 @@ const _VC_PALETTE_DARK  = ['#d97757', '#b3ad9b', '#76705f', '#2c1c14'];
 
 // Single categorical palette for multi-series doughnut/bar charts. Earth-tone
 // family (terracotta / sage / ochre / clay …) matching the SaaS reskin; replaces
-// the old bright slate/rainbow/hsl() loops. Mirrors docs/design-handoff CAT_PALETTE.
+// the old bright slate/rainbow/hsl() loops.
 const _VC_CAT = ['#c4623f', '#7aa589', '#cda43f', '#a8442a', '#6f8f9e',
   '#9b7bb0', '#4f7a5f', '#d98b6a', '#8a8175', '#b8966a'];
 
@@ -192,7 +192,6 @@ function setupVcChartDefaults() {
   const accent = v('--vc-accent', '#b04a2f');
   const panel = v('--vc-panel', '#fbfaf6');
   // Font: read --vc-font-sans (SaaS 'Manrope'), take first family, strip quotes.
-  // Mirrors the fam() helper in docs/design-handoff/js/charts.js.
   const fontFam = (v('--vc-font-sans', "'Manrope', system-ui, sans-serif").split(',')[0] || 'Manrope').replace(/['"]/g, '').trim() || 'Manrope';
 
   // Disable all chart animations (entrance, hover, update) — the

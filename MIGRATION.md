@@ -18,7 +18,7 @@ Two of the seven tabs were folded into others: Projects merged into Activity, an
 | Insights | Insights & System |
 | Agents | Insights & System |
 
-Deep links keep working. `index.html#projects` and `index.html#agents` redirect to `#activity` and `#insights`, so existing bookmarks land on the content rather than the default tab.
+Deep links keep working. `index.html#projects` and `index.html#agents` open the tab their content moved to, so existing bookmarks land on the content rather than on the default tab.
 
 ### New color scheme
 

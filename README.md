@@ -4,6 +4,8 @@ A self-hosted analytics dashboard for [Claude Code](https://docs.anthropic.com/e
 
 **_Disclaimer:_** _Unofficial, community-built tool. Not affiliated with or endorsed by Anthropic._
 
+> **Upgrading from 0.8.x?** Your existing `config.json` keeps working and no migration step is required. See [MIGRATION.md](MIGRATION.md) for what changed, including how to restore the previous color scheme.
+
 ## What you get
 
 <table>
@@ -258,6 +260,8 @@ cp public/custom.css.example public/custom.css
 ```
 
 The generated pages load `public/custom.css` _after_ the inlined stylesheet, so any rule you put there wins the cascade. The builder only creates `public/custom.css` when it does not already exist, so your edits survive every rebuild.
+
+The example file also ships ready-made accent presets. `Classic Indigo` restores the color scheme used up to 0.8.x; uncomment the block and reload, no rebuild needed.
 
 > [!IMPORTANT]
 > Theme variables are scoped to `html.theme-light .vc`, `html.theme-dark .vc`, and `body.vc-page`. Target those selectors (not bare `.vc`) or your overrides will lose specificity to the built-in theme rules. The example file shows the right shape.

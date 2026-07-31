@@ -1273,6 +1273,36 @@ def _provision_custom_css(out_dir):
         )
 
 
+def _font_face_css():
+    """Inline the bundled fonts as @font-face rules with data URIs.
+
+    The dashboard used to pull Manrope and JetBrains Mono from Google on
+    every page load, which sends a request to a third party from a tool
+    whose whole point is that the data stays local. Both families are OFL
+    licensed, so they ship with the repo instead. Embedding them keeps the
+    generated page self-contained: no extra files to copy when deploying.
+    """
+    import base64
+
+    base_dir = Path(__file__).parent
+    fonts = [
+        ("Manrope", "Manrope[wght].woff2", "400 800"),
+        ("JetBrains Mono", "JetBrainsMono[wght].woff2", "400 600"),
+    ]
+    rules = []
+    for family, filename, weight_range in fonts:
+        path = base_dir / "assets" / "fonts" / filename
+        if not path.exists():
+            continue
+        b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+        rules.append(
+            f"@font-face{{font-family:'{family}';"
+            f"src:url(data:font/woff2;base64,{b64}) format('woff2-variations');"
+            f"font-weight:{weight_range};font-style:normal;font-display:swap;}}"
+        )
+    return "".join(rules)
+
+
 def _locale_script_tag():
     """Inline the locale as window.__LOCALE__ so bundled page/component JS
     can resolve UI strings at runtime. Must be emitted BEFORE the JS bundle.
@@ -1294,7 +1324,7 @@ def _get_html_template():
     shared_js = (base_dir / "templates" / "components" / "shared_helpers.js").read_text(encoding="utf-8")
     css = filters_css + "\n" + table_css + "\n" + css
     js = shared_js + "\n" + filters_js + "\n" + table_js + "\n" + js
-    html = html.replace("<!-- STYLES -->", f"<style>{css}</style>")
+    html = html.replace("<!-- STYLES -->", f"<style>{_font_face_css()}{css}</style>")
     html = html.replace("<!-- SCRIPTS -->", f"{_locale_script_tag()}\n<script>{js}</script>")
     return html
 
@@ -1505,7 +1535,7 @@ def _get_session_html_template():
     js = (base_dir / "templates" / "session_detail.js").read_text(encoding="utf-8")
     shared_js = (base_dir / "templates" / "components" / "shared_helpers.js").read_text(encoding="utf-8")
     js = shared_js + "\n" + js
-    html = html.replace("<!-- STYLES -->", f"<style>{css}</style>")
+    html = html.replace("<!-- STYLES -->", f"<style>{_font_face_css()}{css}</style>")
     html = html.replace("<!-- SCRIPTS -->", f"{_locale_script_tag()}\n<script>{js}</script>")
     # Locale tokens are resolved at template stage, BEFORE any session data
     # is inserted, so user text containing "__L_..." can never be rewritten.
@@ -1648,7 +1678,7 @@ def _get_project_html_template():
     shared_js = (base_dir / "templates" / "components" / "shared_helpers.js").read_text(encoding="utf-8")
     css = filters_css + "\n" + table_css + "\n" + css
     js = shared_js + "\n" + filters_js + "\n" + table_js + "\n" + js
-    html = html.replace("<!-- STYLES -->", f"<style>{css}</style>")
+    html = html.replace("<!-- STYLES -->", f"<style>{_font_face_css()}{css}</style>")
     html = html.replace("<!-- SCRIPTS -->", f"{_locale_script_tag()}\n<script>{js}</script>")
     # Same ordering rule as the session template: tokens before data.
     html = _inject_locale(html, LOCALE)

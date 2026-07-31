@@ -323,3 +323,5 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full release history.
 ## License
 
 [MIT](LICENSE). Copyright (c) 2026 Aeterna Labs.
+
+The bundled fonts (Manrope, JetBrains Mono) are licensed separately under the [SIL Open Font License 1.1](assets/fonts/OFL-Manrope.txt); see [`assets/fonts/README.md`](assets/fonts/README.md).

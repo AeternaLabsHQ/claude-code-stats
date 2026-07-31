@@ -50,8 +50,6 @@ Builds on the 1.0.0 feature set below. A full dashboard rethink that consolidate
 
 First stable release. Brings a complete visual refresh, a new Limits / Plan-recommendation tab driven by gap analysis of session transcripts, multi-attribute session filtering, a unified session table, per-tool token attribution, and user theming via `custom.css`.
 
-> **License change:** The project relicensed from MIT to **AGPL-3.0** with this release. If you fork and run a modified version on a network server, you must make the source of your modifications available to users interacting with it. See [`LICENSE`](LICENSE).
-
 ### Added
 
 #### Refreshed dashboard design

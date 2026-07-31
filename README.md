@@ -318,6 +318,4 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full release history.
 
 ## License
 
-[GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0).
-
-If you run a modified version of this dashboard on a network server (e.g. host the generated `public/` directory behind a public URL), the AGPL requires you to make the corresponding source code available to users who interact with it over the network.
+[MIT](LICENSE). Copyright (c) 2026 Aeterna Labs.

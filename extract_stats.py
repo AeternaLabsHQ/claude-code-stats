@@ -52,6 +52,7 @@ from claudestats_core.sessions import (
 from claudestats_core.plan_analysis import (
     _month_day_clamped, _expand_billing_cycles, _recommend_tier,
     _tier_holds_in_cycle, _switch_arrow_for_cycle, build_plan_analysis,
+    _plan_currency_symbol,
 )
 from claudestats_core.aggregate import project_display_name, build_dashboard_data
 

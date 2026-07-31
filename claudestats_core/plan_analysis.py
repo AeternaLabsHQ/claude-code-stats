@@ -16,6 +16,22 @@ def _month_day_clamped(year, month, day):
     return datetime(year, month, min(day, calendar.monthrange(year, month)[1]))
 
 
+def _plan_currency_symbol(ph):
+    """Currency symbol for a plan entry, or None if unknown.
+
+    Configs written before the cost_local rename carry cost_eur, which was
+    euro by definition. Without this fallback the frontend sees no symbol,
+    drops to USD and hides the currency toggle entirely, so a long-time
+    user silently loses their local-currency view on upgrade.
+    """
+    symbol = ph.get("currency_symbol")
+    if symbol:
+        return symbol
+    if "cost_local" not in ph and ph.get("cost_eur") is not None:
+        return "€"
+    return None
+
+
 def _expand_billing_cycles(ph, start_str, end_str):
     """Expand a plan period into per-month accounting cycles with per-cycle cost.
 
@@ -219,7 +235,7 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
                 "days_active": days_active,
                 "plan_cost_local": round(plan_cost_local, 2) if plan_cost_local is not None else None,
                 "plan_cost_usd": round(plan_cost_usd, 2),
-                "currency_symbol": ph.get("currency_symbol"),
+                "currency_symbol": _plan_currency_symbol(ph),
                 "api_cost": round(api_cost, 2),
                 "savings": round(savings, 2),
                 "roi_factor": round(api_cost / plan_cost_usd, 1) if plan_cost_usd > 0 else 0,
@@ -324,7 +340,7 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
         "days_remaining": days_remaining,
         "plan_cost_local": current_plan_cost_local,
         "plan_cost_usd": current_plan_cost_usd,
-        "currency_symbol": current_plan.get("currency_symbol"),
+        "currency_symbol": _plan_currency_symbol(current_plan),
         "api_cost": round(current_api_cost, 2),
         "projected_cost": round(projected_cost, 2),
         "savings": round(current_savings, 2),
@@ -361,8 +377,9 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
     # Global currency symbol: prefer the most recent plan that has one
     currency_symbol = None
     for ph in reversed(settings.PLAN_HISTORY):
-        if ph.get("currency_symbol"):
-            currency_symbol = ph["currency_symbol"]
+        resolved = _plan_currency_symbol(ph)
+        if resolved:
+            currency_symbol = resolved
             break
 
     # ── Plan Recommendation (Task 4) ───────────────────────────────

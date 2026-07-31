@@ -2,19 +2,19 @@
 /* VC-SHARED:tokens:START */
 /* ================================================================
    Design tokens - light and dark themes.
-   Dieser VC-SHARED:tokens-Block ist byte-identisch in dashboard.css,
-   project_detail.css und session_detail.css; tools/check_css_tokens.py
-   erzwingt die Paritaet als pytest. Aenderungen IMMER in allen drei
-   Dateien gleichzeitig machen.
-   Die Tokens liegen bewusst auf .vc UND body.vc-page, NICHT auf :root:
-   - .vc bleibt der Scope fuer Komponenten und custom.css-Overrides
-     (Overrides weiter auf .vc-Ebene ansetzen; sie gewinnen, weil der
-     Legacy-Remap unten var(--vc-*)-Referenzen speichert, die erst am
-     Nutzungsort aufgeloest werden).
-   - body.vc-page braucht die Tokens, damit der Legacy-Var-Remap
-     (--green/--red/--amber/... -> var(--vc-*)) nicht guaranteed-invalid
-     aufloest; ohne sie rendert z.B. style="color:var(--green)" in
-     normaler Textfarbe.
+   This VC-SHARED:tokens block is byte-identical in dashboard.css,
+   project_detail.css and session_detail.css; tools/check_css_tokens.py
+   enforces the parity as a pytest. ALWAYS make changes in all three
+   files at the same time.
+   The tokens deliberately live on .vc AND body.vc-page, NOT on :root:
+   - .vc stays the scope for components and custom.css overrides
+     (keep targeting overrides at the .vc level; they win because the
+     legacy remap below stores var(--vc-*) references that only get
+     resolved at the point of use).
+   - body.vc-page needs the tokens so the legacy var remap
+     (--green/--red/--amber/... -> var(--vc-*)) doesn't resolve as
+     guaranteed-invalid; without them, e.g. style="color:var(--green)"
+     renders in the normal text color.
 ================================================================ */
 .vc, body.vc-page {
   --vc-bg: #f5f6f8; --vc-panel: #ffffff;
@@ -77,11 +77,11 @@ body.vc-page.theme-dark, html.theme-dark body.vc-page { background: #0e1014 !imp
 }
 html.theme-light body.vc-page { background: #f5f6f8 !important; color: #14161c !important; }
 
-/* Legacy-Var-Remap: dynamisch gerendertes Markup nutzt inline var(--bg),
-   var(--text), var(--accent), var(--green) usw.; hier werden die alten
-   Namen auf die Design-Tokens gemappt, damit light/dark ueberall
-   greift. Referenz-Werte (var(--vc-*)) statt Literale, wo ein Token
-   existiert - so gewinnen custom.css-Overrides am Nutzungsort. */
+/* Legacy var remap: dynamically rendered markup uses inline var(--bg),
+   var(--text), var(--accent), var(--green) etc.; here the old
+   names get mapped onto the design tokens so light/dark works
+   everywhere. Reference values (var(--vc-*)) instead of literals, where
+   a token exists - so custom.css overrides win at the point of use. */
 body.vc-page {
   --bg: #f5f6f8; --bg2: #ffffff; --bg3: #eef0f3; --border: #e7e9ee;
   --text: #14161c; --text2: #5b6473;
@@ -118,11 +118,11 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 /* VC-SHARED:tokens:END */
 
 /* VC-SHARED:topbar:START */
-/* Top bar - byte-identisch auf allen drei Seiten
-   (tools/check_css_tokens.py). Markup ueberall:
-   div.vc.vc-top > div.vc-top-inner > (left | center oder spacer | right).
-   Dashboard-Look ist der Kanon; .vc-back/.vc-kv/.vc-checkbox existieren
-   nicht auf jeder Seite, die Regeln sind dort schlicht unbenutzt. */
+/* Top bar - byte-identical on all three pages
+   (tools/check_css_tokens.py). Markup everywhere:
+   div.vc.vc-top > div.vc-top-inner > (left | center or spacer | right).
+   The dashboard look is canonical; .vc-back/.vc-kv/.vc-checkbox don't
+   exist on every page, the rules are simply unused there. */
 .vc-top {
   background: var(--vc-panel);
   border-bottom: 1px solid var(--vc-grid);

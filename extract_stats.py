@@ -196,6 +196,11 @@ PRICING = {
         "cache_read": 1.00, "cache_write_5m": 12.50, "cache_write_1h": 20.00,
         "display": "Fable 5"
     },
+    "claude-opus-5": {
+        "input": 5.00, "output": 25.00,
+        "cache_read": 0.50, "cache_write_5m": 6.25, "cache_write_1h": 10.00,
+        "display": "Opus 5"
+    },
     "claude-sonnet-5": {
         "input": 3.00, "output": 15.00,
         "cache_read": 0.30, "cache_write_5m": 3.75, "cache_write_1h": 6.00,
@@ -292,6 +297,19 @@ DEFAULT_PRICING = {
 
 def get_model_display(model_id):
     return PRICING.get(model_id, DEFAULT_PRICING)["display"]
+
+
+def resolve_pricing_by_display(display_name):
+    """Resolve a display name back to its PRICING entry, or DEFAULT_PRICING.
+
+    Aggregations key their totals by display name, so unknown models arrive
+    here as "Unknown". Those fall back to DEFAULT_PRICING rather than to the
+    first table entry, whose rates depend on nothing but insertion order.
+    """
+    for entry in PRICING.values():
+        if entry["display"] == display_name:
+            return entry
+    return DEFAULT_PRICING
 
 
 def calc_cost(model_id, usage):
@@ -1750,14 +1768,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
 
     cost_by_type = {"input": 0.0, "output": 0.0, "cache_read": 0.0, "cache_write": 0.0}
     for mname_display, mdata in model_totals.items():
-        model_id = None
-        for mid, mp in PRICING.items():
-            if mp["display"] == mname_display:
-                model_id = mid
-                break
-        if not model_id:
-            model_id = list(PRICING.keys())[0]
-        p = PRICING[model_id]
+        p = resolve_pricing_by_display(mname_display)
 
         cost_by_type["input"] += mdata["input_tokens"] * p["input"] / 1_000_000
         cost_by_type["output"] += mdata["output_tokens"] * p["output"] / 1_000_000
@@ -1769,14 +1780,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
     # Cache efficiency: what would cache_read tokens have cost at full input price?
     cache_savings = 0.0
     for mname_display, mdata in model_totals.items():
-        model_id = None
-        for mid, mp in PRICING.items():
-            if mp["display"] == mname_display:
-                model_id = mid
-                break
-        if not model_id:
-            model_id = list(PRICING.keys())[0]
-        p = PRICING[model_id]
+        p = resolve_pricing_by_display(mname_display)
         full_price = mdata["cache_read_tokens"] * p["input"] / 1_000_000
         cache_price = mdata["cache_read_tokens"] * p["cache_read"] / 1_000_000
         cache_savings += full_price - cache_price
@@ -2403,7 +2407,7 @@ function escHtml(s) {
 }
 
 const MODEL_COLORS = {
-  'Fable 5': '#f59e0b', 'Opus 4.8': '#d8b4fe',
+  'Fable 5': '#f59e0b', 'Opus 5': '#e9d5ff', 'Opus 4.8': '#d8b4fe',
   'Opus 4.7': '#c084fc', 'Opus 4.6': '#a855f7', 'Opus 4.5': '#7c3aed',
   'Sonnet 5': '#06b6d4', 'Sonnet 4.6': '#60a5fa', 'Sonnet 4.5': '#3b82f6', 'Haiku 4.5': '#22c55e',
   'Unknown': '#6b7280'

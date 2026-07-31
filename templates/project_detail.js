@@ -173,7 +173,7 @@ document.querySelectorAll('.wf-filter').forEach(btn => {
 
 renderWorkflow();
 
-// ── Variant-C wiring (theme + utc + meta + anon F2) ──────────────
+// ── Page wiring (theme + utc + meta + anon F2) ───────────────────
 document.addEventListener('keydown', function(e) {
   if (e.key === 'F2') {
     e.preventDefault();

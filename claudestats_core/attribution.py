@@ -50,8 +50,8 @@ def attribute_turn_tokens(output_tokens, cost, tool_names):
 
 
 WRITE_CATEGORIES = (
-    "screen_text",            # text in turns with NO tool_use — final answers / pure explanations
-    "screen_text_narration",  # text in turns WITH tool_use — "let me check…" inter-tool narration
+    "screen_text",            # text in turns with NO tool_use: final answers / pure explanations
+    "screen_text_narration",  # text in turns WITH tool_use: "let me check…" inter-tool narration
     "thinking",
     "file_writes",
     "bash_commands",
@@ -140,7 +140,7 @@ def attribute_write_categories(content_blocks, output_tokens):
         total_weight += w
 
     if total_weight <= 0:
-        # No measurable payload — dump everything into screen_text as a safe fallback.
+        # No measurable payload: dump everything into screen_text as a safe fallback.
         result["screen_text"] = output_tokens
         return result
 

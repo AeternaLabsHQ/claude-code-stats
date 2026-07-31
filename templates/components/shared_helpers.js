@@ -60,7 +60,7 @@
     return { color: 'var(--red)', emoji: '❌', label: pct.toFixed(1) + '%' };
   }
 
-  // One F2 note style for all three pages (Modern SaaS variant).
+  // One F2 note style for all three pages.
   function vcAnonNote(isOn) {
     let note = document.getElementById('anonNote');
     if (!note) {

@@ -12,7 +12,7 @@ _WEEKDAY_BY_ANCHOR = {"mon": 0, "tue": 1, "wed": 2, "thu": 3,
 
 # Plan-recommendation constants (Task 4).
 # Source: Anthropic pricing communication / docs page (Pro = 1×, Max 5x = 5×,
-# Max 20x = 20×). Exact token limits are not published — these factors are
+# Max 20x = 20×). Exact token limits are not published: these factors are
 # rough relative-capacity estimates from Anthropic, not measurements.
 PLAN_TIER_FACTORS = {"Pro": 1.0, "Max 5x": 5.0, "Max 20x": 20.0}
 
@@ -46,7 +46,7 @@ def _compute_5h_windows(turns):
 
     A 5h-window opens with the first turn after the previous window closes,
     and stays open for 5h. Any turn within that 5h is part of the same
-    window — matches Claude Code's actual session-limit semantics. Returns
+    window: matches Claude Code's actual session-limit semantics. Returns
     a list of {start_ts, end_ts, cost, turn_count, session_ids} dicts.
     """
     if not turns:

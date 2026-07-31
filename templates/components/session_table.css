@@ -1,6 +1,6 @@
 /* ── Session Table Component ──────────────────────────────────── */
 /* Styles are scoped under .st-wrapper so they don't leak into the
-   rest of the dashboard. The table inherits the Variant-C palette
+   rest of the dashboard. The table inherits the shared color palette
    via CSS custom properties already defined on .vc / :root. */
 
 .st-wrapper {

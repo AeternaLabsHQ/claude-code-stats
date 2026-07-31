@@ -114,7 +114,7 @@
     return out;
   }
 
-  // Slider position is always integer 0–1000. We convert to/from the
+  // Slider position is always integer 0-1000. We convert to/from the
   // attribute's domain using either linear or log10(value + 1).
   const SLIDER_RES = 1000;
 

@@ -268,8 +268,8 @@ def absorb_file(sessions, meta, parsed_objs):
                     "compactions": 0,
                     "compaction_events": [],
                     "cache_flush_count": 0,
-                    "_assistant_turns": [],  # private: {"ts","cache_creation","cache_read","model"} dicts per assistant turn — dropped before serialization
-                    "_pending_text_tokens": 0,  # private: screen_text from most recent pure-text assistant turn, awaiting narration-vs-final classification — dropped before serialization
+                    "_assistant_turns": [],  # private: {"ts","cache_creation","cache_read","model"} dicts per assistant turn, dropped before serialization
+                    "_pending_text_tokens": 0,  # private: screen_text from most recent pure-text assistant turn, awaiting narration-vs-final classification, dropped before serialization
                     "message_count": 0,
                     "user_message_count": 0,
                     "assistant_message_count": 0,
@@ -469,7 +469,7 @@ def absorb_file(sessions, meta, parsed_objs):
                             # NOTE: tool_result.is_error is intentionally NOT
                             # used as a limit-event signal, and backend
                             # categories (rate_limit / overload) are NOT matched
-                            # here — tool output often mentions those words
+                            # here, tool output often mentions those words
                             # incidentally. Real backend errors come in via
                             # isApiErrorMessage (source "backend") below.
 

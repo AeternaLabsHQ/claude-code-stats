@@ -1118,7 +1118,7 @@ def extract_session_messages(session_id, project_dir_name):
                 thinking = "\n\n".join(t for t in thinking_parts if t).strip()
                 # thinking_parts is populated for every thinking block, even
                 # signature-only ones. Modern models (Opus 4.7/4.8) return
-                # encrypted thinking, so the text is empty — we still flag that
+                # encrypted thinking, so the text is empty: we still flag that
                 # the turn reasoned, but only attach text when it exists.
                 had_thinking = bool(thinking_parts)
                 if not text and not tools and not thinking:
@@ -1207,7 +1207,7 @@ def extract_session_messages(session_id, project_dir_name):
 def generate_dashboard(data):
     """Generate self-contained HTML dashboard with embedded data."""
     data_json = json.dumps(data, ensure_ascii=False)
-    # Same </script>-in-string protection as session pages — avoid premature
+    # Same </script>-in-string protection as session pages: avoid premature
     # script-tag close when any embedded text contains "</...".
     data_json_inline = data_json.replace("</", "<\\/")
 

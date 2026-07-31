@@ -3,7 +3,7 @@
 
 extract_stats.py splits each assistant message's output_tokens across write
 categories (screen_text / thinking / file_writes / bash_commands / tool_inputs)
-by char-weight. Prose has roughly 4 chars/token, JSON has roughly 2.5 — so the
+by char-weight. Prose has roughly 4 chars/token, JSON has roughly 2.5, so the
 heuristic systematically over-weights text and under-weights JSON-y buckets.
 
 This script samples N blocks per category from your JSONL session files,
@@ -95,7 +95,7 @@ def block_payload(block):
     """Return the (chars, text) the model emitted for this block.
 
     For text/thinking: the body string.
-    For tool_use: "name " + compact JSON of input — matches what extract_stats
+    For tool_use: "name " + compact JSON of input: matches what extract_stats
     counts as the char-weight.
     """
     t = block.get("type")
@@ -141,7 +141,7 @@ def resolve_sources(projects_dir_overrides=None):
     if primary.exists():
         sources.append(("local", primary))
 
-    # config.json (optional — script still runs without it)
+    # config.json (optional, script still runs without it)
     config_path = Path(__file__).parent.parent / "config.json"
     if config_path.exists():
         try:
@@ -185,7 +185,7 @@ def iter_jsonl_blocks(sources):
     assistant messages across every (label, projects_dir) source.
 
     The model is the value of `message.model` on the assistant message that
-    contained the block — important when tokenising with Anthropic's API,
+    contained the block: important when tokenising with Anthropic's API,
     because different model families use different tokenisers (Opus 4.7
     introduced a new tokenizer that produces noticeably more tokens than
     earlier model families for the same input string).
@@ -457,7 +457,7 @@ def main():
                     help="Anthropic model id used as fallback when the JSONL block "
                          "carries no model field or its model is retired (default: "
                          "claude-haiku-4-5). Anthropic backend ALWAYS prefers the "
-                         "per-block model from the JSONL — important because "
+                         "per-block model from the JSONL: important because "
                          "different model families (esp. Opus 4.7) use different "
                          "tokenisers and report different token counts for the "
                          "same input.")

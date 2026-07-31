@@ -1,7 +1,7 @@
 
 /* VC-SHARED:tokens:START */
 /* ================================================================
-   Variant-C tokens - Modern SaaS (light + dark).
+   Design tokens - light and dark themes.
    Dieser VC-SHARED:tokens-Block ist byte-identisch in dashboard.css,
    project_detail.css und session_detail.css; tools/check_css_tokens.py
    erzwingt die Paritaet als pytest. Aenderungen IMMER in allen drei
@@ -79,7 +79,7 @@ html.theme-light body.vc-page { background: #f5f6f8 !important; color: #14161c !
 
 /* Legacy-Var-Remap: dynamisch gerendertes Markup nutzt inline var(--bg),
    var(--text), var(--accent), var(--green) usw.; hier werden die alten
-   Namen auf die Variant-C-Tokens gemappt, damit light/dark ueberall
+   Namen auf die Design-Tokens gemappt, damit light/dark ueberall
    greift. Referenz-Werte (var(--vc-*)) statt Literale, wo ein Token
    existiert - so gewinnen custom.css-Overrides am Nutzungsort. */
 body.vc-page {
@@ -118,7 +118,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 /* VC-SHARED:tokens:END */
 
 /* VC-SHARED:topbar:START */
-/* Variant-C top bar - byte-identisch auf allen drei Seiten
+/* Top bar - byte-identisch auf allen drei Seiten
    (tools/check_css_tokens.py). Markup ueberall:
    div.vc.vc-top > div.vc-top-inner > (left | center oder spacer | right).
    Dashboard-Look ist der Kanon; .vc-back/.vc-kv/.vc-checkbox existieren
@@ -189,14 +189,14 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 }
 /* VC-SHARED:topbar:END */
 
-/* ── Variant-C KPI strip → SaaS KPI cards ──────────────────────── */
+/* ── KPI strip ─────────────────────────────────────────────────── */
 .vc-kpis-wrap {
   background: transparent;
   max-width: 1400px;
   margin: 0 auto;
 }
 /* Old "band" treatment removed: each KPI is now its own card, so the wrap
-   and inner just provide bottom spacing — no border, no shared-edge framing. */
+   and inner just provide bottom spacing: no border, no shared-edge framing. */
 .vc-kpis-band {
   margin-bottom: 24px;
 }
@@ -314,7 +314,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   .vc-kpi-dual { grid-template-rows: 28px auto; }
 }
 
-/* Variant-C heatmap polish */
+/* Heatmap polish */
 .vc .heatmap-cell {
   border: 0 !important;
   border-radius: 3px !important;
@@ -343,10 +343,10 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 .vc .vc-heatmap-legend .cell[data-i="0.95"] { --legend-opacity: 0.95; }
 .vc .heatmap-container { padding: 18px; }
 
-/* ── Variant-C overrides for legacy components inside .vc scope ─────
+/* ── Overrides for legacy components inside .vc scope ───────────────
    Re-skins the existing chart-box, data-table, kpi-card, etc. with
-   Terminal tokens. This avoids a full markup rewrite while delivering
-   the Variant-C aesthetic. */
+   the design tokens. This avoids a full markup rewrite while delivering
+   the current look. */
 .vc.container { background: var(--vc-bg); color: var(--vc-fg); }
 .vc h1, .vc h2, .vc h3, .vc h4, .vc h5 {
   color: var(--vc-fg);
@@ -354,7 +354,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   letter-spacing: 0.02em;
 }
 /* Normalize all in-content h3 (chart-box / billing-progress / sections /
-   info-card etc.) to the same Terminal-style scale: 11px uppercase 600
+   info-card etc.) to the same scale: 11px uppercase 600
    weight with wide letter-spacing. Avoids the 15px bold h3 in
    .billing-progress that visually clashed with the 11px h3 elsewhere. */
 .vc h3 {
@@ -407,7 +407,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 .vc .chart-grid:last-child { margin-bottom: 24px; }
 .vc .chart-grid.full { grid-template-columns: 1fr; }
 /* Standalone chart-boxes that are direct children of a subsection (e.g. Error
-   Overview, Task Overview) get their own bottom spacing — unlike grid/masonry
+   Overview, Task Overview) get their own bottom spacing: unlike grid/masonry
    children, no gap applies to them. */
 .vc .vc-subsection > .chart-box { margin-bottom: 18px; }
 @media (max-width: 960px) {
@@ -449,9 +449,9 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 }
 
 /* Tabs from legacy tabBar (#tabBar inside .vc scope, used as backup) */
-.vc .tabs { display: none; }  /* Hidden — we use .vc-nav-tabs instead */
+.vc .tabs { display: none; }  /* Hidden: we use .vc-nav-tabs instead */
 
-/* Tab content: no extra LR padding — .container already provides it,
+/* Tab content: no extra LR padding, .container already provides it,
    and the KPI strip above uses the same 20px LR offset, so they line up. */
 .vc .tab-content { padding: 16px 0 0; }
 /* .container already has padding: 20px from legacy CSS; keep it so the
@@ -770,7 +770,7 @@ body.vc-page > div[style*="text-align:center"] a {
   color: var(--vc-accent) !important;
 }
 
-/* ── Variant-C shared components (panes, distbars, tables) ───── */
+/* ── Shared components (panes, distbars, tables) ─────────────── */
 .vc-tab-h {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -808,7 +808,7 @@ body.vc-page > div[style*="text-align:center"] a {
   white-space: nowrap;
 }
 
-/* Sub-section header inside a tab — slimmer than vc-tab-h, with a thin rule */
+/* Sub-section header inside a tab: slimmer than vc-tab-h, with a thin rule */
 .vc-sect-h {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -1017,7 +1017,7 @@ body.vc-page > div[style*="text-align:center"] a {
   .vc-misc:nth-child(2n) { border-right: none; }
 }
 
-/* ── Variant-C primary nav ─────────────────────────────────────── */
+/* ── Primary nav ───────────────────────────────────────────────── */
 .vc-nav {
   background: var(--vc-bg);
   font-family: var(--vc-font-sans);
@@ -1120,8 +1120,8 @@ body.vc-page > div[style*="text-align:center"] a {
 }
 
 /* ================================================================
-   Legacy theme below — keeps existing dashboard rendering intact
-   while Variant-C components are progressively introduced.
+   Legacy theme below: keeps existing dashboard rendering intact
+   while the redesigned .vc components are progressively introduced.
 ================================================================ */
 :root {
   --bg: #0f1117;
@@ -1366,7 +1366,7 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 .plan-rec-summary > div:last-child { margin-bottom: 0; }
 .plan-rec-summary b { color: var(--vc-fg); }
 
-/* Currency toggle (USD / local) in the Plan tab meta — segmented control.
+/* Currency toggle (USD / local) in the Plan tab meta: segmented control.
    The buttons themselves carry inline styles (border / bg / color via tokens);
    here we shape the group: collapse the gap and round + clip the container so
    the two buttons read as one bordered segmented control. */

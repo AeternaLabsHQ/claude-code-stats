@@ -368,7 +368,7 @@ def test_normalize_unknown_returns_none():
 # ── 5h-window aggregation ───────────────────────────────────────────
 
 def _wt(ts_ms, cost, session_id="s1"):
-    """Helper for window/weekly tests — distinct from _turn() above."""
+    """Helper for window/weekly tests, distinct from _turn() above."""
     return {"ts": ts_ms, "cost": cost, "session_id": session_id}
 
 

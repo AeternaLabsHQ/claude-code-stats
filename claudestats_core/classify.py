@@ -4,7 +4,7 @@ import re
 # Empirically derived from real Claude Code JSONLs: only these phrases
 # uniquely indicate a USER-plan rate-limit hit (vs auth, server overload,
 # network, invalid request). Used by the isApiErrorMessage-driven
-# limit-event detection — see _is_user_plan_limit_text().
+# limit-event detection: see _is_user_plan_limit_text().
 _USER_PLAN_LIMIT_SIGNALS = (
     "you've hit your limit",         # Claude Code 5h-session cap banner
     "hit your org's monthly usage",  # Weekly/monthly org cap
@@ -59,7 +59,7 @@ def _classify_user_entry(obj: dict) -> str:
     if obj.get("isMeta"):
         return "meta"
     if not text:
-        # empty, non-tool-result user entry (e.g. attachment-only) — not a
+        # empty, non-tool-result user entry (e.g. attachment-only), not a
         # typed prompt; bucket with meta rather than inflating the count
         return "meta"
     return "prompt"
@@ -79,7 +79,7 @@ def _merge_streamed_assistant_entries(entries: list) -> list:
     downstream accounting sees one response = one entry, exactly once.
 
     message.id is globally unique per API response, so all rows of one
-    response are merged into the single entry at its first occurrence — even
+    response are merged into the single entry at its first occurrence, even
     when they are NOT consecutive. Agentic turns interleave one response's
     tool_use rows with the tool_result (type:"user") rows that come back, so
     the same message.id can recur dozens of times spread across the
@@ -114,7 +114,7 @@ def _classify_tool_error(msg: str, tool_name: str) -> tuple:
     """Classify a tool_result `is_error` payload into (source, category).
 
     source is one of: "user" (the person declined / a parallel sibling was
-    cancelled — NOT a failure), "hook" (a PreToolUse/PostToolUse hook
+    cancelled, NOT a failure), "hook" (a PreToolUse/PostToolUse hook
     failed), or "tool" (the tool call genuinely failed).
 
     Deliberately does NOT recognise backend categories (rate_limit /

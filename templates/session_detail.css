@@ -1,7 +1,7 @@
 
 /* VC-SHARED:tokens:START */
 /* ================================================================
-   Variant-C tokens - Modern SaaS (light + dark).
+   Design tokens - light and dark themes.
    Dieser VC-SHARED:tokens-Block ist byte-identisch in dashboard.css,
    project_detail.css und session_detail.css; tools/check_css_tokens.py
    erzwingt die Paritaet als pytest. Aenderungen IMMER in allen drei
@@ -79,7 +79,7 @@ html.theme-light body.vc-page { background: #f5f6f8 !important; color: #14161c !
 
 /* Legacy-Var-Remap: dynamisch gerendertes Markup nutzt inline var(--bg),
    var(--text), var(--accent), var(--green) usw.; hier werden die alten
-   Namen auf die Variant-C-Tokens gemappt, damit light/dark ueberall
+   Namen auf die Design-Tokens gemappt, damit light/dark ueberall
    greift. Referenz-Werte (var(--vc-*)) statt Literale, wo ein Token
    existiert - so gewinnen custom.css-Overrides am Nutzungsort. */
 body.vc-page {
@@ -137,7 +137,7 @@ body.anon-mode .msg-tools { filter: blur(4px); user-select: none; }
 }
 
 /* VC-SHARED:topbar:START */
-/* Variant-C top bar - byte-identisch auf allen drei Seiten
+/* Top bar - byte-identisch auf allen drei Seiten
    (tools/check_css_tokens.py). Markup ueberall:
    div.vc.vc-top > div.vc-top-inner > (left | center oder spacer | right).
    Dashboard-Look ist der Kanon; .vc-back/.vc-kv/.vc-checkbox existieren
@@ -208,7 +208,7 @@ body.anon-mode .msg-tools { filter: blur(4px); user-select: none; }
 }
 /* VC-SHARED:topbar:END */
 
-/* Re-skin legacy session detail components — Modern SaaS */
+/* Re-skin legacy session detail components */
 .vc.header, .vc .header {
   background: var(--vc-panel) !important;
   border-bottom: 1px solid var(--vc-grid) !important;
@@ -249,7 +249,7 @@ body.anon-mode .msg-tools { filter: blur(4px); user-select: none; }
   background: var(--vc-panel) !important;
   border-bottom: 1px solid var(--vc-grid);
 }
-/* flow-toolbar floats over the canvas — no container fill, button overlay handles contrast */
+/* flow-toolbar floats over the canvas: no container fill, button overlay handles contrast */
 .vc .flow-toolbar {
   background: transparent !important;
   border: none !important;
@@ -332,7 +332,7 @@ body.anon-mode .msg-tools { filter: blur(4px); user-select: none; }
 .vc .flow-progress { background: var(--vc-grid-2); }
 .vc .flow-progress-bar { background: var(--vc-accent); }
 
-/* Markers — route semantic colors through SaaS tokens */
+/* Markers: route semantic colors through SaaS tokens */
 .vc .marker { border-radius: var(--vc-radius-sm) !important; font-family: var(--vc-font-sans); }
 .vc .marker.hook, .vc .marker.interrupt { background: var(--vc-accent-soft) !important; border-color: var(--vc-accent) !important; color: var(--vc-accent) !important; }
 .vc .marker.compaction, .vc .marker.rate-limit, .vc .marker.error { background: var(--vc-neg-soft) !important; border-color: var(--vc-neg) !important; color: var(--vc-neg) !important; }

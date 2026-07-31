@@ -5,7 +5,7 @@ const D = "__DATA_PLACEHOLDER__";
 const fmt = n => (Number(n) || 0).toLocaleString(VCShared.localeCode());
 const fmtUSD = n => VCShared.fmtUSD(n);
 let planCurrencyMode = (D.plan && D.plan.currency_symbol) ? 'local' : 'usd';
-let costMetricMode = 'usd'; // 'usd' | 'local' | 'tokens' — Costs tab metric toggle
+let costMetricMode = 'usd'; // 'usd' | 'local' | 'tokens': Costs tab metric toggle
 function planCurrencySymbol() {
   return (D.plan && D.plan.currency_symbol) || '$';
 }
@@ -46,7 +46,7 @@ const fmtTokens = VCShared.fmtTokens;
 const escHtml = VCShared.escHtml;
 
 
-// Variant-C single-accent palette. Values mirror the CSS custom
+// Single-accent palette. Values mirror the CSS custom
 // properties on .vc and are kept in sync with the dark/light theme
 // via a refresh on theme toggle. Hardcoded fallback ensures chart
 // dataset declarations at module-load time always have a real color.
@@ -86,7 +86,7 @@ function vcAccentLive() {
 }
 function vcColor(rank) {
   const p = vcCurrentPalette();
-  // Slot 0 is the accent — read the live token so custom.css overrides apply.
+  // Slot 0 is the accent: read the live token so custom.css overrides apply.
   if (rank % p.length === 0) return vcAccentLive();
   return p[rank % p.length];
 }
@@ -175,7 +175,7 @@ function sourceColor(label) {
 Chart.defaults.color = '#918a7a';
 Chart.defaults.borderColor = '#d8d2c4';
 
-// Variant-C Chart.js theming — overrides legacy defaults to match Terminal aesthetic
+// Chart.js theming: overrides legacy defaults to match the dashboard design
 function setupVcChartDefaults() {
   if (typeof Chart === 'undefined') return;
   // Read live CSS vars; falls back to embedded defaults if .vc not present
@@ -194,8 +194,8 @@ function setupVcChartDefaults() {
   // Font: read --vc-font-sans (SaaS 'Manrope'), take first family, strip quotes.
   const fontFam = (v('--vc-font-sans', "'Manrope', system-ui, sans-serif").split(',')[0] || 'Manrope').replace(/['"]/g, '').trim() || 'Manrope';
 
-  // Disable all chart animations (entrance, hover, update) — the
-  // single-accent Terminal aesthetic feels snappier without them.
+  // Disable all chart animations (entrance, hover, update): the
+  // single-accent design feels snappier without them.
   Chart.defaults.animation = false;
   Chart.defaults.animations = { colors: false, x: false, y: false };
   Chart.defaults.transitions = {
@@ -275,7 +275,7 @@ function setupVcChartDefaults() {
             });
           }
           // Legacy charts hardcode pale slate (#e2e8f0 / #94a3b8) for
-          // legend labels — invisible on light bg. Force theme-aware fg2.
+          // legend labels: invisible on light bg. Force theme-aware fg2.
           const lbls = c.options.plugins && c.options.plugins.legend
             && c.options.plugins.legend.labels;
           if (lbls) lbls.color = fg2;
@@ -866,7 +866,7 @@ function renderKPI() {
     grid.appendChild(div);
   });
 
-  // Token breakdown card — replace placeholder with detailed version
+  // Token breakdown card: replace placeholder with detailed version
   const tokCard = grid.querySelector('.kpi-card.tokens');
   if (tokCard) {
     const totalIn = (k.total_input_tokens||0) + (k.total_cache_read_tokens||0) + (k.total_cache_write_tokens||0);
@@ -915,7 +915,7 @@ function initTabs() {
 
 
 // Central tab activator + hash router. Activates the named tab across
-// both UIs (legacy .tab-btn + Variant-C .vc-tab) and keeps location.hash
+// both UIs (legacy .tab-btn + current .vc-tab) and keeps location.hash
 // in sync so deep links (#limits) and F5 reload preserve the visible tab.
 function activateTabByName(name, updateHash) {
   const tab = TAB_NAMES.find(t => t.id === name);
@@ -930,7 +930,7 @@ function activateTabByName(name, updateHash) {
   const vc = document.querySelector('.vc-tab[data-tab="' + name + '"]');
   if (vc) vc.classList.add('active');
   // Plan & Billing is inherently full-period (driven by D.plan, not the
-  // filtered set F), so the range filter has no effect there — grey it out and
+  // filtered set F), so the range filter has no effect there: grey it out and
   // disable clicks while that tab is active.
   const rangeEl = document.getElementById('vcRange');
   if (rangeEl) {
@@ -1182,7 +1182,7 @@ function renderCostCharts() {
       scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, ticks: yTicks, title: { display: true, text: yTitle, color: window.__vcFg2 || '#5b6473' } } } }
   });
 
-  // API value by token type — follows the same USD|local|Tokens toggle as the
+  // API value by token type: follows the same USD|local|Tokens toggle as the
   // two charts above. cost_by_token_type is an all-time aggregate (no per-date
   // FX), so local mode uses the blended currentFx(); tokens mode sums the raw
   // per-type token counts from the filtered sessions.
@@ -1477,7 +1477,7 @@ function renderHeatmap() {
   while (d <= today) {
     const k = d.toISOString().slice(0,10);
     const m = msgMap[k]||0;
-    // Variant-C heatmap: single-accent terracotta with opacity gradient
+    // Heatmap: single-accent terracotta with opacity gradient
     let bg;
     if (m > 0 && maxMsg > 0) {
       const r = m / maxMsg;
@@ -2167,7 +2167,7 @@ function renderLimitsEventTimeline() {
         return '<a class="' + cls + '" style="' + style + '" title="' + titleAttr +
                '" href="sessions/' + ev.session_id + '.html' + frag + '"></a>';
       }
-      // No session linkage — render a non-interactive marker (span avoids page-jump scroll-to-top).
+      // No session linkage: render a non-interactive marker (span avoids page-jump scroll-to-top).
       return '<span class="' + cls + '" style="' + style + '" title="' + titleAttr + '"></span>';
     }).join('');
     return (
@@ -2325,7 +2325,7 @@ function renderInsights() {
   renderToolTokenChart();
   renderWriteCategoriesChart();
 
-  // Storage chart — show the top entries by size and fold the long tail into
+  // Storage chart: show the top entries by size and fold the long tail into
   // "Other" so the slice count stays within the palette (no repeated colors /
   // indistinguishable slices in the legend).
   const storage = ins.storage || {};
@@ -2701,7 +2701,7 @@ document.querySelectorAll('table.data-table').forEach(attachTableSorting);
 // project name or plan title) clips with an ellipsis instead of blowing out
 // the page; the wrapper scrolls horizontally when the columns are wider than
 // it. Drag a column's right edge to resize; double-click that edge to
-// auto-fit to content. Header clicks still sort — the grip stops propagation.
+// auto-fit to content. Header clicks still sort: the grip stops propagation.
 function enhanceResizableTable(table, defaults) {
   if (!table || !table.tHead || table.classList.contains('vc-resizable')) return;
   table.classList.add('vc-resizable');
@@ -2884,9 +2884,9 @@ document.addEventListener('keydown', function(e) {
 });
 
 
-// ── Variant-C top bar wiring ──────────────────────────────────────
+// ── Top bar wiring ────────────────────────────────────────────────
 (function() {
-  // Theme handling — two-state toggle (light/dark). System pref only used
+  // Theme handling: two-state toggle (light/dark). System pref only used
   // for the very first render when no saved preference exists; once the
   // user clicks the toggle, their choice is locked.
   function vcSystemPrefersDark() {
@@ -2956,7 +2956,7 @@ document.addEventListener('keydown', function(e) {
 })();
 
 
-// ── Variant-C primary nav wiring ──────────────────────────────────
+// ── Primary nav wiring ────────────────────────────────────────────
 (function() {
   const tabsEl = document.getElementById('vcTabs');
   if (!tabsEl) return;
@@ -2994,7 +2994,7 @@ document.addEventListener('keydown', function(e) {
     });
   });
 
-  // Quick filter — drives the same handler as #projectFilter (debounced)
+  // Quick filter: drives the same handler as #projectFilter (debounced)
   let pfTimer;
   const qf = document.getElementById('vcQuickFilter');
   qf?.addEventListener('input', function() {
@@ -3010,7 +3010,7 @@ document.addEventListener('keydown', function(e) {
   initInsightsSubnav();
 })();
 
-// ── Variant-C KPI strip rendering ─────────────────────────────────
+// ── KPI strip rendering ───────────────────────────────────────────
 function fmtVcUsd(n) {
   return '$' + (n || 0).toLocaleString(D.locale.locale_code, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
@@ -3108,7 +3108,7 @@ if (typeof applyFilter === 'function') {
 }
 
 
-// ── Variant-C tab section meta wiring ─────────────────────────────
+// ── Tab section meta wiring ───────────────────────────────────────
 function _vcMeta(id, text) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;

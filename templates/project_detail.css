@@ -1,7 +1,7 @@
 
 /* VC-SHARED:tokens:START */
 /* ================================================================
-   Variant-C tokens - Modern SaaS (light + dark).
+   Design tokens - light and dark themes.
    Dieser VC-SHARED:tokens-Block ist byte-identisch in dashboard.css,
    project_detail.css und session_detail.css; tools/check_css_tokens.py
    erzwingt die Paritaet als pytest. Aenderungen IMMER in allen drei
@@ -79,7 +79,7 @@ html.theme-light body.vc-page { background: #f5f6f8 !important; color: #14161c !
 
 /* Legacy-Var-Remap: dynamisch gerendertes Markup nutzt inline var(--bg),
    var(--text), var(--accent), var(--green) usw.; hier werden die alten
-   Namen auf die Variant-C-Tokens gemappt, damit light/dark ueberall
+   Namen auf die Design-Tokens gemappt, damit light/dark ueberall
    greift. Referenz-Werte (var(--vc-*)) statt Literale, wo ein Token
    existiert - so gewinnen custom.css-Overrides am Nutzungsort. */
 body.vc-page {
@@ -117,7 +117,7 @@ html.theme-light body.vc-page {
 body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 /* VC-SHARED:tokens:END */
 
-/* Re-skin legacy components inside .vc scope — Modern SaaS */
+/* Re-skin legacy components inside .vc scope */
 .vc.header, .vc .header {
   background: var(--vc-panel) !important;
   border-bottom: 1px solid var(--vc-grid) !important;
@@ -139,7 +139,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 }
 .vc .container { background: var(--vc-bg); padding: 24px; }
 
-/* KPI cards — discrete SaaS cards */
+/* KPI cards: discrete SaaS cards */
 .vc .kpi-grid {
   grid-template-columns: repeat(4, 1fr);
   gap: 16px !important;
@@ -190,7 +190,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 }
 .vc h4 { color: var(--vc-fg-2) !important; font-family: var(--vc-font-sans); }
 
-/* Pills — accent-soft */
+/* Pills: accent-soft */
 .vc .tool-pill {
   background: var(--vc-accent-soft) !important;
   border: none !important;
@@ -208,7 +208,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   font-weight: 600;
 }
 
-/* Model badge — accent-soft pill */
+/* Model badge: accent-soft pill */
 .vc .model-badge {
   background: var(--vc-accent-soft) !important;
   border: none !important;
@@ -221,7 +221,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   font-family: var(--vc-font-sans);
 }
 
-/* Tabs — pill nav (accent active) */
+/* Tabs: pill nav (accent active) */
 .vc .proj-tabs {
   border-bottom: none !important;
   gap: 6px !important;
@@ -244,7 +244,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   background: var(--vc-accent) !important;
 }
 
-/* Info grid — discrete rounded shadowed cards */
+/* Info grid: discrete rounded shadowed cards */
 .vc .info-grid { gap: 16px !important; margin-bottom: 16px !important; }
 .vc .info-card, .vc .info-grid > * {
   background: var(--vc-panel) !important;
@@ -261,7 +261,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 .vc .memory-content { color: var(--vc-fg-2) !important; font-family: var(--vc-font-sans); font-size: var(--vc-fs-sm); }
 
 /* VC-SHARED:topbar:START */
-/* Variant-C top bar - byte-identisch auf allen drei Seiten
+/* Top bar - byte-identisch auf allen drei Seiten
    (tools/check_css_tokens.py). Markup ueberall:
    div.vc.vc-top > div.vc-top-inner > (left | center oder spacer | right).
    Dashboard-Look ist der Kanon; .vc-back/.vc-kv/.vc-checkbox existieren

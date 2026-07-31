@@ -81,7 +81,7 @@ def _expand_billing_cycles(ph, start_str, end_str):
     return cycles
 
 
-WEEKLY_VS_5H_RATIO = 7  # weekly cap ≈ 7 × 5h-cap (rough — one full 5h-session per day × 7 days)
+WEEKLY_VS_5H_RATIO = 7  # weekly cap ≈ 7 × 5h-cap (rough, one full 5h-session per day × 7 days)
 
 REC_RECENT_CYCLES = 3         # recommendation looks at the last N billing cycles
 REC_5H_HIT_QUOTA = 0.05       # tier holds if it hits in <=5% of recent 5h-windows
@@ -425,7 +425,7 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
 
     # Weekly caps: rough estimate as WEEKLY_VS_5H_RATIO × 5h cap. We don't
     # have a separate weekly-fingerprint detector yet, so the calibration
-    # source for weekly is "derived_from_5h" — surfaced in the UI so the
+    # source for weekly is "derived_from_5h", surfaced in the UI so the
     # estimate is not presented as primary evidence.
     cap_info_weekly = {
         "caps_per_week": {t: round(c * WEEKLY_VS_5H_RATIO, 2)

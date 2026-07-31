@@ -248,7 +248,7 @@ document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
 // If the URL points at a specific event marker (#evt-<slug>), scroll it
 // into view and briefly flash it. The chat-panel is its own scroll
 // container (overflow-y: auto), so we need to wait for hljs syntax
-// highlighting and chart canvases to settle — otherwise the target's
+// highlighting and chart canvases to settle: otherwise the target's
 // offsetTop is stale by the time scrollIntoView fires and the panel
 // ends up scrolled past the marker. Smooth-scroll amplifies the drift,
 // so use instant. Re-scroll once more 250ms after load to absorb late
@@ -273,7 +273,7 @@ if (location.hash && location.hash.startsWith('#evt-')) {
 // Role filter
 // Chat filters are multi-select: each category button toggles on/off
 // independently and the active categories combine as a union (an element
-// shows if it matches ANY active category). "All" is the reset state —
+// shows if it matches ANY active category). "All" is the reset state,
 // clicking it clears the categories; deselecting the last active category
 // falls back to "All".
 const FILTER_MATCHERS = {
@@ -446,7 +446,7 @@ if (hasTokenAttribution) {
     '</div>';
 }
 
-// Output by activity (stacked bar) — char-heuristic attribution of output_tokens
+// Output by activity (stacked bar): char-heuristic attribution of output_tokens
 // across visible text / narration / thinking / file writes / bash / other tools.
 const wc = sess.write_categories || {};
 // Colors = _VC_CAT[0..5] from dashboard.js in WC_CAT_ORDER (keep in sync),
@@ -1812,7 +1812,7 @@ class SessionFlow {
 }
 
 if (document.body.classList.contains('flow-hidden')) {
-  // Visualization globally hidden via config — skip canvas init entirely.
+  // Visualization globally hidden via config: skip canvas init entirely.
 } else if (FLOW && FLOW.agents && FLOW.agents.length > 0 && FLOW.events && FLOW.events.length > 0) {
   const fc = document.getElementById("flow-canvas");
   const cp = document.querySelector(".chat-panel");
@@ -1870,7 +1870,7 @@ if (flowToggle && flowContainer) {
   });
 }
 
-// ── Variant-C wiring (theme + utc + anon F2) ─────────────────────
+// ── Page wiring (theme + utc + anon F2) ──────────────────────────
 document.addEventListener('keydown', function(e) {
   if (e.key === 'F2') {
     e.preventDefault();

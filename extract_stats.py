@@ -57,7 +57,8 @@ from claudestats_core.plan_analysis import (
 from claudestats_core.aggregate import project_display_name, build_dashboard_data
 
 # ── Configuration ──────────────────────────────────────────────────────────
-# Config-Override fuer hermetische Laeufe (Golden-Master, Server-Driver).
+# Allows redirecting the config source via an environment variable, so
+# test runs don't depend on a local config.json.
 _cfg_env = os.environ.get("CLAUDE_STATS_CONFIG")
 CONFIG_PATH = Path(_cfg_env) if _cfg_env else Path(__file__).parent / "config.json"
 CONFIG_EXAMPLE = Path(__file__).parent / "config.example.json"

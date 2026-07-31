@@ -26,8 +26,8 @@ def test_configure_rejects_unknown_setting():
 
 
 def test_core_imports_without_config_json(tmp_path):
-    """Der Kern muss ohne config.json und ohne extract_stats importierbar
-    sein - sonst ist er als Library (Collector-Repo!) unbrauchbar."""
+    """The core package must be importable without config.json and without
+    extract_stats - otherwise it's unusable as a standalone library."""
     env = dict(os.environ, PYTHONPATH=str(REPO_ROOT))
     r = subprocess.run(
         [sys.executable, "-c",
@@ -39,7 +39,7 @@ def test_core_imports_without_config_json(tmp_path):
 
 
 def test_public_api_surface():
-    """Der Name-Vertrag, gegen den das Collector-Repo programmiert."""
+    """The name contract that external consumers of the library program against."""
     import claudestats_core as core
     for name in ("settings", "SessionFileMeta", "absorb_file",
                  "finalize_sessions", "build_dashboard_data", "calc_cost",
@@ -48,11 +48,11 @@ def test_public_api_surface():
 
 
 def test_config_env_seam_honored(tmp_path):
-    """CLAUDE_STATS_CONFIG muss die Config-Quelle fuer extract_stats.CONFIG
-    umleiten koennen - das ist der Seam, den hermetische Laeufe (Golden
-    Master, Server-Driver) benutzen. Importieren von extract_stats fuehrt
-    nur den Modul-Top aus (Config/Locale-Laden); die eigentlichen Loader
-    sind lazy, daher ist dieser Test schnell."""
+    """CLAUDE_STATS_CONFIG must be able to redirect the config source for
+    extract_stats.CONFIG - this is the seam that hermetic test runs rely
+    on. Importing extract_stats only runs the module top level (config
+    and locale loading); the actual loaders are lazy, so this test stays
+    fast."""
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps({"language": "en", "source_label": "seam-test"}),

@@ -98,7 +98,7 @@ First stable release. Consolidates the dashboard into five focused tabs with a l
 - `config.json` accepts `cost_local` + `currency_symbol` for any currency (the legacy `cost_eur` key keeps working)
 
 ### Changed
-- refactor: Domain logic extracted as stdlib-only package `claudestats_core` (pricing, attribution, classify, anomalies, limits, sessions, plan_analysis, aggregate). `extract_stats.py` remains CLI driver and re-exports all names; behavior is byte-identical (Golden-Master-verified).
+- refactor: Domain logic extracted as stdlib-only package `claudestats_core` (pricing, attribution, classify, anomalies, limits, sessions, plan_analysis, aggregate). `extract_stats.py` remains CLI driver and re-exports all names; behavior is byte-identical to the pre-refactor implementation, confirmed via regression testing.
 - In-progress billing period is framed with its real end date plus a projected end-of-cycle API value and ROI
 - Configurable `plan_capacity_override_pro_usd` to override the empirical Pro-tier capacity used by the recommendation
 - Plan-cost math is now filter-aware: switching the time range or project filter scales the plan-cost reference accordingly

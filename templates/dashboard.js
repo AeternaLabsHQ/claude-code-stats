@@ -2774,7 +2774,6 @@ document.getElementById('filterSearch').addEventListener('input', _applySessionF
 document.getElementById('hideEmptySessions').addEventListener('change', () => { applyFilter(currentDays); });
 
 // ── Masonry layout (round-robin distribution into N independent flex columns) ──
-// Adapted from collector/client/src/components/MasonryColumns.tsx pattern.
 // Items are split round-robin so reading order stays row-major: items[0] →
 // col[0], items[1] → col[1], items[2] → col[0], ... Both columns flow
 // independently as flex columns, no inter-row alignment, so a short card

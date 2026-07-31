@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claudestats-core"
-version = "0.1.0"
-description = "Kalibrierte claude-stats Domaenenlogik (Kosten, Cache, Limits, Attribution) als Library"
+version = "1.0.0"
+description = "Calibrated claude-stats domain logic (cost, cache, limits, attribution) as a library"
 requires-python = ">=3.10"
 
 [tool.setuptools]

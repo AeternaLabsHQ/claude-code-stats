@@ -142,3 +142,11 @@ html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#818cf8; --vc-
 html.theme-light .vc, html.theme-light body.vc-page { --vc-accent:#0e9f6e; --vc-accent-rgb:14,159,110; --vc-accent-soft:rgba(14,159,110,.10); --accent:#0e9f6e; }
 html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#34d399; --vc-accent-rgb:52,211,153; --vc-accent-soft:rgba(52,211,153,.18); --accent:#34d399; }
 */
+
+/* === Classic Indigo === */
+/* The color scheme used up to 0.8.x. Backgrounds are near identical
+   between the two designs, so restoring the accent restores the look. */
+/*
+html.theme-light .vc, html.theme-light body.vc-page { --vc-accent:#6366f1; --vc-accent-rgb:99,102,241; --vc-accent-soft:rgba(99,102,241,.10); --accent:#6366f1; }
+html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#818cf8; --vc-accent-rgb:129,140,248; --vc-accent-soft:rgba(129,140,248,.18); --accent:#818cf8; }
+*/

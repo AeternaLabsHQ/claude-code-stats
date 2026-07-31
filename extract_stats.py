@@ -233,7 +233,7 @@ def sudo_file_size(path, sudo_user):
     except ValueError:
         return 0
 
-VERSION = "0.8.2"
+VERSION = "1.0.0"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"

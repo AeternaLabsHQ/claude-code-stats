@@ -2,13 +2,19 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - v2 (Dashboard Rethink)
+## [1.0.0] - 2026-07-31
 
-Builds on the 1.0.0 feature set below. A full dashboard rethink that consolidates the eight v1 tabs into five focused surfaces with a modern visual reskin, adds a currency/token metric toggle, no-gap cache-anomaly detection, and a calibrated plan-tier recommendation, and re-bases all time-series on the day work actually happened. Not yet tagged.
+First stable release. Consolidates the dashboard into five focused tabs with a light and dark theme, adds a currency and token metric toggle, cache anomaly detection, and a calibrated plan recommendation, and re-bases every time series on the day the work actually happened. It also corrects several cost and rate calculations that were wrong in 0.8.x.
+
+### Breaking changes
+
+- The seven dashboard tabs are consolidated into five. The `#projects` and `#agents` deep links now resolve to `#activity` and `#insights`; existing bookmarks keep working.
+- `extract_stats.py` no longer contains the HTML, CSS and JavaScript, which moved to `templates/`, and the computation logic moved to the `claudestats_core` package. Anyone maintaining a patched fork should re-apply their changes rather than merge. See [MIGRATION.md](MIGRATION.md).
+- Existing `config.json` files keep working unchanged, including the older `cost_eur` key.
 
 ### Added
 
-#### Dashboard rethink (8 tabs to 5)
+#### Tab consolidation (8 to 5)
 - Consolidated into five tabs: **Token & API Value**, **Plan & Billing**, **Activity & Projects**, **Sessions**, **Insights & System**; the former standalone Agents, Errors, Tools, Storage, and Workflows surfaces became numbered sub-sections under Insights & System
 - A modern visual reskin across the dashboard and the project / session detail pages, with light / dark themes
 - KPI-strip polish, a billing bar, and week markers on the time-series charts
@@ -38,19 +44,6 @@ Builds on the 1.0.0 feature set below. A full dashboard rethink that consolidate
 #### Pricing and model naming
 - Added **Fable 5** and **Opus 4.8** to the pricing table and chart palette
 - Display names are derived from the raw model id (`derive_model_display`), so unseen `claude-*` ids render a sensible label and surface the estimated-pricing notice
-
-### Changed
-- refactor: Domain logic extracted as stdlib-only package `claudestats_core` (pricing, attribution, classify, anomalies, limits, sessions, plan_analysis, aggregate). `extract_stats.py` remains CLI driver and re-exports all names; behavior is byte-identical (Golden-Master-verified).
-- In-progress billing period is framed with its real end date plus a projected end-of-cycle API value and ROI
-- Configurable `plan_capacity_override_pro_usd` to override the empirical Pro-tier capacity used by the recommendation
-
----
-
-## [1.0.0] - Unreleased
-
-First stable release. Brings a complete visual refresh, a new Limits / Plan-recommendation tab driven by gap analysis of session transcripts, multi-attribute session filtering, a unified session table, per-tool token attribution, and user theming via `custom.css`.
-
-### Added
 
 #### Refreshed dashboard design
 - Unified monospace aesthetic across all surfaces (dashboard, project detail, session detail) with a single restrained accent color
@@ -105,6 +98,9 @@ First stable release. Brings a complete visual refresh, a new Limits / Plan-reco
 - `config.json` accepts `cost_local` + `currency_symbol` for any currency (the legacy `cost_eur` key keeps working)
 
 ### Changed
+- refactor: Domain logic extracted as stdlib-only package `claudestats_core` (pricing, attribution, classify, anomalies, limits, sessions, plan_analysis, aggregate). `extract_stats.py` remains CLI driver and re-exports all names; behavior is byte-identical (Golden-Master-verified).
+- In-progress billing period is framed with its real end date plus a projected end-of-cycle API value and ROI
+- Configurable `plan_capacity_override_pro_usd` to override the empirical Pro-tier capacity used by the recommendation
 - Plan-cost math is now filter-aware: switching the time range or project filter scales the plan-cost reference accordingly
 - Session-flow visualization no longer auto-plays; toolbar buttons are unified and theme-aware
 - The Insights tab uses a masonry layout to fill grid gaps
@@ -123,8 +119,6 @@ First stable release. Brings a complete visual refresh, a new Limits / Plan-reco
 - HTML, CSS, and JS for all three page types extracted into `templates/` and assembled at build time
 - New session-filters and session-table components live under `templates/components/`
 - `VERSION` should be bumped to `1.0.0` before tagging
-
----
 
 ## [0.8.1] - 2026 (hotfix)
 

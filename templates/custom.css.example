@@ -1,5 +1,5 @@
 /* ============================================================
-   claude-stats — custom.css
+   claude-stats - custom.css
    ============================================================
    This file lets you override the dashboard's color scheme
    without touching the source CSS. Copy this file to
@@ -15,7 +15,7 @@
    block, so anything here wins the cascade.
 
    IMPORTANT: target the theme-scoped selectors (html.theme-light
-   .vc / html.theme-dark .vc), not just `.vc` — otherwise the
+   .vc / html.theme-dark .vc), not just `.vc`, otherwise the
    built-in theme rules win on specificity.
 
    Two CSS variable namespaces exist:

@@ -174,10 +174,10 @@ def split_session_by_day(daily_models, model_totals,
 
 @dataclass
 class SessionFileMeta:
-    """Datei-/Herkunfts-Metadaten eines Transcripts, vom Driver geliefert."""
+    """File / provenance metadata for a transcript, supplied by the driver."""
     source_label: str
-    file_session_id: str      # Datei-Stem (bei Subagents die agent-Datei)
-    project_name: str         # Name des Projekt-Verzeichnisses
+    file_session_id: str      # File stem (for subagents, the agent file)
+    project_name: str         # Name of the project directory
     file_size: int = 0
     is_subagent: bool = False
     parent_session_id: str = ""
@@ -187,11 +187,12 @@ class SessionFileMeta:
 
 
 def absorb_file(sessions, meta, parsed_objs):
-    """Faltet die geparsten JSONL-Objekte EINER Transcript-Datei in sessions.
+    """Fold the parsed JSONL objects of ONE transcript file into sessions.
 
-    Herkunftsneutral: der CLI-Driver liefert parsed_objs aus Dateien, der
-    Collector-Server aus dem DB-Export. Duplikate (session bereits aus
-    anderer Quelle geparst) werden wie bisher uebersprungen - first seen wins.
+    Source-neutral: the CLI driver supplies parsed_objs read from files, but
+    any other driver can too, as long as it matches this shape. Duplicates
+    (session already parsed from another source) are skipped as before -
+    first seen wins.
     """
     source_label = meta.source_label
     file_session_id = meta.file_session_id
@@ -651,7 +652,7 @@ def absorb_file(sessions, meta, parsed_objs):
 
 
 def finalize_sessions(sessions):
-    """Subagent-Linking + per-Session-Ableitungen nach dem letzten absorb_file."""
+    """Subagent linking + per-session derivations, run after the last absorb_file."""
     # Link subagents to parent sessions and remove them from the top level;
     # orphans (parent transcript missing) stay so their spend is not lost.
     _link_subagents(sessions)

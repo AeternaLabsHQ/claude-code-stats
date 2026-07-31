@@ -1,16 +1,15 @@
-"""Laufzeit-Einstellungen des Kerns.
+"""Core runtime settings.
 
-extract_stats.py (CLI) befuellt sie aus config.json; der Collector-Server
-(anderes Repo) pro Tenant. Defaults sind so gewaehlt, dass der Kern ohne
-configure()-Aufruf lauffaehig ist.
+extract_stats.py (the CLI) populates these from config.json. Defaults are
+chosen so the core works without ever calling configure().
 
-Vertrag fuer Mehrmandanten-Betrieb: Dieses Modul haelt modul-globalen,
-mutablen Zustand und ist NICHT thread-safe. Ein Mehrmandanten-Server muss
-entweder pro Tenant einen eigenen Worker-Prozess verwenden oder die
-Tenant-Verarbeitung strikt seriell abarbeiten und vor jeder Tenant-Berechnung
-configure() erneut aufrufen. configure() speichert Referenzen, keine
-Kopien - Aufrufer muessen frische bzw. kopierte Objekte uebergeben
-(insbesondere plan_history-Listen) und diese danach nicht mehr mutieren.
+Not thread-safe: this module holds mutable, module-global state. A caller
+that needs to process more than one independent dataset in a single process
+must either use a separate worker process per dataset, or process them
+strictly serially and re-call configure() before each computation.
+configure() stores references, not copies - callers must pass fresh or
+already-copied objects (especially plan_history lists) and must not mutate
+them afterward.
 """
 
 WEEK_ANCHOR = "mon"
@@ -28,7 +27,7 @@ _KNOWN = {
 
 
 def configure(**kwargs):
-    """Setzt Einstellungen per lowercase-Keyword; unbekannte Namen -> Fehler."""
+    """Set settings via lowercase keyword args; unknown names raise."""
     import sys
     mod = sys.modules[__name__]
     for key, value in kwargs.items():

@@ -1,9 +1,10 @@
-"""claudestats_core - kalibrierte Domaenenlogik von claude-stats.
+"""claudestats_core - calibrated domain logic for claude-stats.
 
-Stdlib-rein. Zwei Driver konsumieren dieses Package:
-- extract_stats.py (CLI): Datei-Discovery -> absorb_file/finalize_sessions
-  -> build_dashboard_data -> statisches HTML
-- Collector-Server (eigenes Repo): DB-Export -> dieselbe Kette -> Tenant-JSON
+Stdlib-only, and driver-agnostic: any caller that feeds parsed session data
+through absorb_file/finalize_sessions -> build_dashboard_data gets the same
+computed output. extract_stats.py (the CLI) is the reference driver: file
+discovery -> absorb_file/finalize_sessions -> build_dashboard_data ->
+static HTML.
 """
 from . import settings  # noqa: F401
 from .aggregate import build_dashboard_data, project_display_name  # noqa: F401

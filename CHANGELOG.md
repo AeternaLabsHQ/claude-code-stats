@@ -14,7 +14,7 @@ First stable release. Consolidates the dashboard into five focused tabs with a l
 
 ### Added
 
-#### Tab consolidation (8 to 5)
+#### Tab consolidation (7 to 5)
 - Consolidated into five tabs: **Token & API Value**, **Plan & Billing**, **Activity & Projects**, **Sessions**, **Insights & System**; the former standalone Agents, Errors, Tools, Storage, and Workflows surfaces became numbered sub-sections under Insights & System
 - A modern visual reskin across the dashboard and the project / session detail pages, with light / dark themes
 - KPI-strip polish, a billing bar, and week markers on the time-series charts

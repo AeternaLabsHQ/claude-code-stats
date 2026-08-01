@@ -9,7 +9,11 @@
     "hide_empty_hint": "Sessions ohne Nachrichten und ohne Token-Verbrauch ausblenden"
   },
   "top": {
-    "theme_title": "Theme wechseln (System / Hell / Dunkel)"
+    "theme_title": "Theme wechseln (System / Hell / Dunkel)",
+    "user": "User",
+    "plan": "Plan",
+    "range": "Zeitraum",
+    "range_all": "Alle"
   },
   "filter": {
     "placeholder": "Projekte filtern..."
@@ -17,11 +21,16 @@
   "kpi": {
     "api_equivalent": "API-\u00c4quivalent",
     "api_equivalent_sub": "Wert bei API-Preisen \u2013 tats\u00e4chlich bezahlt: ",
+    "paid_prefix": "bezahlt ",
     "messages": "Nachrichten",
     "messages_sub_prefix": "in ",
     "messages_sub_suffix": " Sessions",
     "sessions": "Sessions",
     "tokens": "Tokens",
+    "tokens_out": "out",
+    "tokens_in": "in",
+    "cache_hit": "Cache-Hit",
+    "cache_read_prefix": "gelesen ",
     "per_day_suffix": "/Tag",
     "per_session_suffix": "/Session",
     "tip_api_equivalent": "Was diese Nutzung über die API kosten würde (ohne Abo). Darunter: tatsächlich bezahlter Abo-Preis im gewählten Zeitraum.",
@@ -79,12 +88,19 @@
     "hourly": "Tageszeit-Verteilung (Nachrichten, lokale Zeit)",
     "weekday": "Wochentags-Verteilung (lokale Zeit)",
     "sessions_label": "Sessions",
-    "heatmap": "Aktivität"
+    "heatmap": "Aktivität",
+    "heatmap_mon": "Mo",
+    "heatmap_wed": "Mi",
+    "heatmap_fri": "Fr",
+    "heatmap_less": "weniger",
+    "heatmap_more": "mehr"
   },
   "weekdays": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
   "projects": {
+    "section_title": "Projekte",
     "all_projects": "Alle Projekte",
     "th_project": "Projekt",
+    "th_source": "Quelle",
     "th_sessions": "Sessions",
     "th_messages": "Nachrichten",
     "th_api_value": "API-Wert ($)",
@@ -259,6 +275,7 @@
     "sect_storage_files_meta": "Disk-Nutzung · Snapshots · Todos",
     "sect_errors_meta": "Fehlerrate im Zeitverlauf",
     "subnav_agents": "Agenten",
+    "subnav_agents_meta": "Subagenten-Aktivität",
     "subnav_errors": "Fehler & Zuverlässigkeit"
   },
   "agents": {
@@ -274,6 +291,7 @@
     "error_rate": "Fehlerrate"
   },
   "project_detail": {
+    "title": "Projektdetails",
     "overview": "\u00dcbersicht",
     "workflow": "Workflow",
     "memory": "Projekt-Memory",
@@ -306,6 +324,17 @@
     "wf_push": "Push",
     "wf_pr": "PR",
     "wf_agent": "Agent"
+  },
+  "session_detail": {
+    "title": "Session-Details",
+    "hide_flow": "Flow ausblenden",
+    "show_flow": "Flow einblenden",
+    "filter_all": "Alle",
+    "filter_user": "User",
+    "filter_agent": "Agent",
+    "filter_subagents": "Subagents",
+    "filter_errors": "Fehler",
+    "filter_events": "Events"
   },
   "cacheFlush": {
     "cardTitle": "Cache-Flush-Anomalien (ohne Pause)",

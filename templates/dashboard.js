@@ -3047,7 +3047,7 @@ function renderVcKpis() {
   const apiEqLabelEl = document.getElementById('vcKpiApiEqLabel');
   if (apiEqLabelEl) apiEqLabelEl.title = D.locale.kpi.tip_api_equivalent;
   const apiSubEl = document.getElementById('vcKpiApiEqSub');
-  if (apiSubEl) apiSubEl.innerHTML = 'paid <b>' + fmtMoney(paid) + '</b>';
+  if (apiSubEl) apiSubEl.innerHTML = '__L_kpi_paid_prefix__<b>' + fmtMoney(paid) + '</b>';
   const deltaEl = document.getElementById('vcKpiSavePct');
   if (deltaEl) {
     if (savePct >= 0) {
@@ -3105,7 +3105,7 @@ function renderVcKpis() {
   if (chEl) chEl.innerHTML = cacheHit.toFixed(1) + '<span class="vc-kpi-pct">%</span>';
   const chSub = document.getElementById('vcKpiCacheHitSub');
   if (chSub) {
-    chSub.innerHTML = 'read <b>' + fmtVcTok(cacheRead) + '</b>';
+    chSub.innerHTML = '__L_kpi_cache_read_prefix__<b>' + fmtVcTok(cacheRead) + '</b>';
     chSub.title = D.locale.kpi.tip_cache_read;
   }
 }

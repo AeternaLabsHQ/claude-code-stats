@@ -35,9 +35,9 @@
       <span class="vc-version">v__VERSION__</span>
     </div>
     <div class="vc-top-center">
-      <span class="vc-kv"><span class="vc-k">USER</span><span class="vc-v" id="vcTopUser">-</span></span>
-      <span class="vc-kv"><span class="vc-k">PLAN</span><span class="vc-v" id="vcTopPlan">-</span></span>
-      <span class="vc-kv"><span class="vc-k">RANGE</span><span class="vc-v" id="vcTopRange">90d</span></span>
+      <span class="vc-kv"><span class="vc-k">__L_top_user__</span><span class="vc-v" id="vcTopUser">-</span></span>
+      <span class="vc-kv"><span class="vc-k">__L_top_plan__</span><span class="vc-v" id="vcTopPlan">-</span></span>
+      <span class="vc-kv"><span class="vc-k">__L_top_range__</span><span class="vc-v" id="vcTopRange">90d</span></span>
     </div>
     <div class="vc-top-right">
       <label class="vc-checkbox" title="__L_header_hide_empty_hint__">
@@ -61,7 +61,7 @@
         <input type="text" id="vcQuickFilter" class="vc-filter-input" placeholder="__L_filter_placeholder__" />
       </div>
       <div class="vc-range" id="vcRange">
-        <button class="vc-range-btn active" data-days="0">All</button>
+        <button class="vc-range-btn active" data-days="0">__L_top_range_all__</button>
         <button class="vc-range-btn" data-days="7">7D</button>
         <button class="vc-range-btn" data-days="30">30D</button>
         <button class="vc-range-btn" data-days="90">90D</button>
@@ -96,33 +96,33 @@
       <div class="vc-kpis-inner">
       <div class="vc-kpis">
         <div class="vc-kpi vc-kpi-primary">
-          <div class="vc-kpi-label" id="vcKpiApiEqLabel">API EQUIVALENT<span class="vc-kpi-delta" id="vcKpiSavePct"></span></div>
+          <div class="vc-kpi-label" id="vcKpiApiEqLabel">__L_kpi_api_equivalent__<span class="vc-kpi-delta" id="vcKpiSavePct"></span></div>
           <div class="vc-kpi-value" id="vcKpiApiEq">$0.00</div>
-          <div class="vc-kpi-sub" id="vcKpiApiEqSub">paid <b>$0.00</b></div>
+          <div class="vc-kpi-sub" id="vcKpiApiEqSub">__L_kpi_paid_prefix__<b>$0.00</b></div>
         </div>
         <div class="vc-kpi vc-kpi-tokens">
-          <div class="vc-kpi-label" id="vcKpiTokensLabel">TOKENS</div>
+          <div class="vc-kpi-label" id="vcKpiTokensLabel">__L_kpi_tokens__</div>
           <div class="vc-kpi-dual">
             <div class="vc-kpi-dual-val" id="vcKpiOutput">0</div>
             <div class="vc-kpi-dual-val" id="vcKpiInput">0</div>
-            <div class="vc-kpi-dual-cap">out</div>
-            <div class="vc-kpi-dual-cap">in</div>
+            <div class="vc-kpi-dual-cap">__L_kpi_tokens_out__</div>
+            <div class="vc-kpi-dual-cap">__L_kpi_tokens_in__</div>
           </div>
         </div>
         <div class="vc-kpi">
-          <div class="vc-kpi-label">MESSAGES</div>
+          <div class="vc-kpi-label">__L_kpi_messages__</div>
           <div class="vc-kpi-value" id="vcKpiMessages">0</div>
           <div class="vc-kpi-sub" id="vcKpiMessagesSub"><b>0</b>/session</div>
         </div>
         <div class="vc-kpi">
-          <div class="vc-kpi-label">SESSIONS</div>
+          <div class="vc-kpi-label">__L_kpi_sessions__</div>
           <div class="vc-kpi-value" id="vcKpiSessions">0</div>
           <div class="vc-kpi-sub" id="vcKpiSessionsSub"><b>0</b>/day</div>
         </div>
         <div class="vc-kpi">
-          <div class="vc-kpi-label">CACHE HIT</div>
+          <div class="vc-kpi-label">__L_kpi_cache_hit__</div>
           <div class="vc-kpi-value" id="vcKpiCacheHit">0<span class="vc-kpi-pct">%</span></div>
-          <div class="vc-kpi-sub" id="vcKpiCacheHitSub">read <b>0</b></div>
+          <div class="vc-kpi-sub" id="vcKpiCacheHitSub">__L_kpi_cache_read_prefix__<b>0</b></div>
         </div>
       </div>
       </div>
@@ -161,18 +161,18 @@
       <div class="heatmap-scroll">
         <div id="heatmapMonths" class="heatmap-months"></div>
         <div style="display:flex">
-          <div class="heatmap-labels"><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span></div>
+          <div class="heatmap-labels"><span></span><span>__L_activity_heatmap_mon__</span><span></span><span>__L_activity_heatmap_wed__</span><span></span><span>__L_activity_heatmap_fri__</span><span></span></div>
           <div id="activityHeatmap" class="heatmap-grid"></div>
         </div>
       </div>
       <div class="heatmap-legend vc-heatmap-legend">
-        <span>less</span>
+        <span>__L_activity_heatmap_less__</span>
         <div class="cell" data-i="0.10"></div>
         <div class="cell" data-i="0.30"></div>
         <div class="cell" data-i="0.50"></div>
         <div class="cell" data-i="0.70"></div>
         <div class="cell" data-i="0.95"></div>
-        <span>more</span>
+        <span>__L_activity_heatmap_more__</span>
       </div>
     </div>
     <div class="chart-grid full">
@@ -184,7 +184,7 @@
     </div>
 
     <div class="vc-sect-h">
-      <div class="vc-sect-h-title">Projects</div>
+      <div class="vc-sect-h-title">__L_projects_section_title__</div>
       <div class="vc-sect-h-rule"></div>
       <div class="vc-sect-h-meta" id="vcProjectsMeta"></div>
     </div>
@@ -194,7 +194,7 @@
       <table class="data-table sortable responsive" id="projectTable">
         <thead><tr>
           <th>__L_projects_th_project__</th>
-          <th>Source</th>
+          <th>__L_projects_th_source__</th>
           <th class="num">__L_projects_th_sessions__</th>
           <th class="num">__L_projects_th_messages__</th>
           <th class="num">__L_projects_th_api_value__</th>
@@ -209,7 +209,7 @@
 
   <div class="tab-content" id="tab-sessions">
     <div class="vc-tab-h">
-      <div class="vc-tab-h-title">Sessions</div>
+      <div class="vc-tab-h-title">__L_tabs_sessions__</div>
       <div class="vc-tab-h-rule"></div>
       <div class="vc-tab-h-meta" id="vcSessionsMeta"></div>
     </div>
@@ -379,7 +379,7 @@
     <div class="vc-sect-h">
       <div class="vc-sect-h-title">__L_insights_subnav_agents__</div>
       <div class="vc-sect-h-rule"></div>
-      <div class="vc-sect-h-meta">subagent activity</div>
+      <div class="vc-sect-h-meta">__L_insights_subnav_agents_meta__</div>
     </div>
     <div class="chart-grid">
       <div class="chart-box"><h3>__L_agents_subagent_types__</h3><canvas id="agentTypesChart"></canvas></div>

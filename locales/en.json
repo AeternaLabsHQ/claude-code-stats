@@ -9,7 +9,11 @@
     "hide_empty_hint": "Hide sessions with no messages and no token usage"
   },
   "top": {
-    "theme_title": "Toggle theme (system / light / dark)"
+    "theme_title": "Toggle theme (system / light / dark)",
+    "user": "User",
+    "plan": "Plan",
+    "range": "Range",
+    "range_all": "All"
   },
   "filter": {
     "placeholder": "filter projects..."
@@ -17,11 +21,16 @@
   "kpi": {
     "api_equivalent": "API Equivalent",
     "api_equivalent_sub": "Value at API prices \u2013 actually paid: ",
+    "paid_prefix": "paid ",
     "messages": "Messages",
     "messages_sub_prefix": "in ",
     "messages_sub_suffix": " sessions",
     "sessions": "Sessions",
     "tokens": "Tokens",
+    "tokens_out": "out",
+    "tokens_in": "in",
+    "cache_hit": "Cache Hit",
+    "cache_read_prefix": "read ",
     "per_day_suffix": "/day",
     "per_session_suffix": "/session",
     "tip_api_equivalent": "What this usage would cost via the API (without subscription). Below: actual subscription cost paid in the selected period.",
@@ -79,12 +88,19 @@
     "hourly": "Time of Day Distribution (Messages, local time)",
     "weekday": "Weekday Distribution (local time)",
     "sessions_label": "Sessions",
-    "heatmap": "Activity"
+    "heatmap": "Activity",
+    "heatmap_mon": "Mon",
+    "heatmap_wed": "Wed",
+    "heatmap_fri": "Fri",
+    "heatmap_less": "less",
+    "heatmap_more": "more"
   },
   "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   "projects": {
+    "section_title": "Projects",
     "all_projects": "All Projects",
     "th_project": "Project",
+    "th_source": "Source",
     "th_sessions": "Sessions",
     "th_messages": "Messages",
     "th_api_value": "API Value ($)",
@@ -259,6 +275,7 @@
     "sect_storage_files_meta": "disk usage · snapshots · todos",
     "sect_errors_meta": "error rate over time",
     "subnav_agents": "Agents",
+    "subnav_agents_meta": "subagent activity",
     "subnav_errors": "Errors & Reliability"
   },
   "agents": {
@@ -274,6 +291,7 @@
     "error_rate": "Error Rate"
   },
   "project_detail": {
+    "title": "Project Detail",
     "overview": "Overview",
     "workflow": "Workflow",
     "memory": "Project Memory",
@@ -306,6 +324,17 @@
     "wf_push": "Push",
     "wf_pr": "PR",
     "wf_agent": "Agent"
+  },
+  "session_detail": {
+    "title": "Session Detail",
+    "hide_flow": "Hide Flow",
+    "show_flow": "Show Flow",
+    "filter_all": "All",
+    "filter_user": "User",
+    "filter_agent": "Agent",
+    "filter_subagents": "Subagents",
+    "filter_errors": "Errors",
+    "filter_events": "Events"
   },
   "cacheFlush": {
     "cardTitle": "Cache-flush anomalies (no gap)",

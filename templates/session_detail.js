@@ -1852,7 +1852,7 @@ if (flowToggle && flowContainer) {
     document.body.classList.toggle('flow-collapsed', collapsed);
     flowToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     if (iconEl) iconEl.innerHTML = collapsed ? '&#9660;' : '&#9650;';
-    if (labelEl) labelEl.textContent = collapsed ? 'Show Flow' : 'Hide Flow';
+    if (labelEl) labelEl.textContent = collapsed ? '__L_session_detail_show_flow__' : '__L_session_detail_hide_flow__';
   }
 
   var stored = null;

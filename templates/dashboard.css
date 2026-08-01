@@ -1268,15 +1268,19 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 .heatmap-container { margin-bottom:20px; }
 .heatmap-scroll { overflow-x:auto; }
 .heatmap-grid { display:flex; gap:2px; width:100%; }
-.heatmap-col { display:flex; flex-direction:column; gap:2px; flex:1 1 0; min-width:0; max-width:30px; }
+.heatmap-col { display:flex; flex-direction:column; gap:2px; flex:1 1 0; min-width:0; }
 .heatmap-cell { width:100%; height:auto; aspect-ratio:1; border-radius:2px; position:relative; }
 .heatmap-cell:hover::after { content:attr(data-tip); position:absolute; bottom:18px; left:50%; transform:translateX(-50%); background:var(--bg2); border:1px solid var(--border); padding:4px 8px; border-radius:4px; font-size:11px; white-space:nowrap; z-index:10; color:var(--text); pointer-events:none; }
-.heatmap-labels { display:flex; flex-direction:column; gap:2px; margin-right:4px; }
+.heatmap-labels { display:flex; flex-direction:column; gap:2px; width:24px; margin-right:4px; }
 .heatmap-labels span { flex:1 1 0; display:flex; align-items:center; font-size:10px; color:var(--text2); }
 .heatmap-legend { display:flex; align-items:center; gap:4px; margin-top:8px; justify-content:flex-end; font-size:11px; color:var(--text2); }
 .heatmap-legend .cell { width:13px; height:13px; border-radius:2px; }
-.heatmap-months { display:flex; font-size:10px; color:var(--text2); margin-bottom:2px; }
-.heatmap-months span { text-align:center; }
+/* .heatmap-months is a sibling above the flex row that holds
+   .heatmap-labels + .heatmap-grid, so it starts at the scroll container's
+   left edge. padding-left re-creates the labels column's width plus its
+   margin-right, so the month bar lines up with the grid below it. */
+.heatmap-months { display:flex; width:100%; padding-left:28px; font-size:10px; color:var(--text2); margin-bottom:2px; }
+.heatmap-months span { text-align:center; min-width:0; }
 
 .tag { display:inline-block; padding:3px 10px; border-radius:6px; font-size:12px; font-weight:600; }
 

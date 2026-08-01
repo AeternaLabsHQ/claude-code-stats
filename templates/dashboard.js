@@ -1502,17 +1502,16 @@ function renderHeatmap() {
       md.setUTCDate(md.getUTCDate()+1);
     }
     monthsEl.innerHTML = '';
-    monthsEl.style.paddingLeft = '20px';
-    // Column pitch (cell width + gap) is responsive now (see .heatmap-col),
-    // so measure the rendered column instead of assuming the old fixed
-    // 13px cell + 2px gap; otherwise month labels would only cover the
-    // left ~quarter of the now much wider grid.
-    const firstCol = container.querySelector('.heatmap-col');
-    const colPx = firstCol ? firstCol.getBoundingClientRect().width + 2 : 15;
+    // Month labels get a flex share of the bar instead of a measured pixel
+    // width: the Activity tab can be display:none on initial load, and a
+    // getBoundingClientRect() on a hidden column always reports 0. The
+    // left offset that aligns the bar with the grid (past the weekday
+    // labels) is handled in CSS instead, via .heatmap-months padding-left.
     months.forEach((m,i) => {
       const span = document.createElement('span');
       span.textContent = m.label;
-      span.style.width = ((i<months.length-1 ? months[i+1].idx-m.idx : weekIdx-m.idx)*colPx)+'px';
+      const weeks = (i<months.length-1 ? months[i+1].idx-m.idx : weekIdx-m.idx);
+      span.style.flex = weeks + ' 0 0';
       monthsEl.appendChild(span);
     });
   }

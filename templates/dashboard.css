@@ -1266,11 +1266,23 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 
 /* Activity Heatmap */
 .heatmap-container { margin-bottom:20px; }
-.heatmap-scroll { overflow-x:auto; }
+/* Columns are flex:1 1 0/min-width:0 (see .heatmap-col below), so the grid
+   always shrinks to fit its container and never needs to scroll. Keep
+   overflow visible (rather than auto) so the hover tooltip below, which is
+   position:absolute and can extend past the card's right edge, is not
+   clipped into a scrollbar. */
+.heatmap-scroll { overflow:visible; }
 .heatmap-grid { display:flex; gap:2px; width:100%; }
 .heatmap-col { display:flex; flex-direction:column; gap:2px; flex:1 1 0; min-width:0; }
 .heatmap-cell { width:100%; height:auto; aspect-ratio:1; border-radius:2px; position:relative; }
 .heatmap-cell:hover::after { content:attr(data-tip); position:absolute; bottom:18px; left:50%; transform:translateX(-50%); background:var(--bg2); border:1px solid var(--border); padding:4px 8px; border-radius:4px; font-size:11px; white-space:nowrap; z-index:10; color:var(--text); pointer-events:none; }
+/* Last few (most recent) week columns: centering the tooltip on the cell
+   would push it past the right edge of the viewport, since it is now free
+   to overflow the card (see .heatmap-scroll above). Anchor it to the
+   cell's right edge instead, so it only grows leftward. 5 columns is more
+   margin than the widest typical tooltip text (e.g. "2026-07-14: 617
+   messages") needs, even at the narrowest cell widths. */
+.heatmap-col:nth-last-child(-n+5) .heatmap-cell:hover::after { left:auto; right:0; transform:none; }
 .heatmap-labels { display:flex; flex-direction:column; gap:2px; width:24px; margin-right:4px; }
 .heatmap-labels span { flex:1 1 0; display:flex; align-items:center; font-size:10px; color:var(--text2); }
 .heatmap-legend { display:flex; align-items:center; gap:4px; margin-top:8px; justify-content:flex-end; font-size:11px; color:var(--text2); }

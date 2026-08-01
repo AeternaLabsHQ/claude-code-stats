@@ -31,7 +31,8 @@
     "tip_input": "Neue (nicht gecachte) Eingabe-Tokens pro Request",
     "tip_cache_read": "Konversationskontext aus dem Cache gelesen – wird bei jedem Turn erneut gesendet, daher die hohe Zahl",
     "tip_cache_write": "Tokens die in den Cache geschrieben wurden",
-    "tip_sessions_per_day": "Sitzungen pro Tag über die aktive Spanne (erste bis letzte Sitzung) des gewählten Zeitraums."
+    "tip_sessions_per_day": "Sitzungen pro Tag über die aktive Spanne (erste bis letzte Sitzung) des gewählten Zeitraums.",
+    "tip_messages_per_session": "Durchschnittliche Anzahl Nachrichten pro Sitzung."
   },
   "tabs": {
     "costs": "Token & API-Wert",

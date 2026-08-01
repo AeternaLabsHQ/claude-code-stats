@@ -270,13 +270,13 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   grid-template-rows: 36px auto;
   justify-content: start;
   align-items: end;
-  column-gap: 18px;
+  column-gap: 12px;
   row-gap: 4px;
 }
 .vc-kpi-dual-val {
   font-family: var(--vc-font-sans);
   font-variant-numeric: tabular-nums;
-  font-size: 30px;
+  font-size: clamp(19px, 1.9vw, 30px);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--vc-fg);

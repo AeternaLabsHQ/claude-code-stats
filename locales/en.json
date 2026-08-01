@@ -31,7 +31,8 @@
     "tip_input": "New (non-cached) input tokens per request",
     "tip_cache_read": "Conversation context read from cache – resent every turn, hence the large number",
     "tip_cache_write": "Tokens written to the prompt cache",
-    "tip_sessions_per_day": "Sessions per day across the active span (first to last session) of the selected range."
+    "tip_sessions_per_day": "Sessions per day across the active span (first to last session) of the selected range.",
+    "tip_messages_per_session": "Average number of messages exchanged per session."
   },
   "tabs": {
     "costs": "Token & API Value",

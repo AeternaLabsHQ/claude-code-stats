@@ -3039,8 +3039,10 @@ function renderVcKpis() {
   const savePct = apiEq > 0 ? ((apiEq - paid) / apiEq * 100) : 0;
   const apiEqEl = document.getElementById('vcKpiApiEq');
   if (apiEqEl) apiEqEl.textContent = fmtMoney(apiEq);
+  const apiEqLabelEl = document.getElementById('vcKpiApiEqLabel');
+  if (apiEqLabelEl) apiEqLabelEl.title = D.locale.kpi.tip_api_equivalent;
   const apiSubEl = document.getElementById('vcKpiApiEqSub');
-  if (apiSubEl) apiSubEl.innerHTML = 'paid <b>' + fmtMoney(paid) + '</b> &middot; save <b>' + savePct.toFixed(1) + '%</b>';
+  if (apiSubEl) apiSubEl.innerHTML = 'paid <b>' + fmtMoney(paid) + '</b>';
   const deltaEl = document.getElementById('vcKpiSavePct');
   if (deltaEl) {
     if (savePct >= 0) {
@@ -3076,23 +3078,31 @@ function renderVcKpis() {
   const msgEl = document.getElementById('vcKpiMessages');
   if (msgEl) msgEl.textContent = msgs.toLocaleString(D.locale.locale_code);
   const msgSub = document.getElementById('vcKpiMessagesSub');
-  if (msgSub) msgSub.innerHTML = '<b>' + perSession + '</b>' + D.locale.kpi.per_session_suffix;
+  if (msgSub) {
+    msgSub.innerHTML = '<b>' + perSession + '</b>' + D.locale.kpi.per_session_suffix;
+    msgSub.title = D.locale.kpi.tip_messages_per_session;
+  }
 
   const output = k.total_output_tokens || 0;
   const input = k.total_input_tokens || 0;
   const cacheRead = k.total_cache_read_tokens || 0;
   const cacheWrite = k.total_cache_write_tokens || 0;
+  const tokensLabelEl = document.getElementById('vcKpiTokensLabel');
+  if (tokensLabelEl) tokensLabelEl.title = D.locale.kpi.tip_tokens;
   const outEl = document.getElementById('vcKpiOutput');
-  if (outEl) outEl.textContent = fmtVcTok(output);
+  if (outEl) { outEl.textContent = fmtVcTok(output); outEl.title = D.locale.kpi.tip_output; }
   const inEl = document.getElementById('vcKpiInput');
-  if (inEl) inEl.textContent = fmtVcTok(input);
+  if (inEl) { inEl.textContent = fmtVcTok(input); inEl.title = D.locale.kpi.tip_input; }
 
   const totalIn = input + cacheRead + cacheWrite;
   const cacheHit = totalIn > 0 ? (cacheRead / totalIn * 100) : 0;
   const chEl = document.getElementById('vcKpiCacheHit');
   if (chEl) chEl.innerHTML = cacheHit.toFixed(1) + '<span class="vc-kpi-pct">%</span>';
   const chSub = document.getElementById('vcKpiCacheHitSub');
-  if (chSub) chSub.innerHTML = 'read <b>' + fmtVcTok(cacheRead) + '</b>';
+  if (chSub) {
+    chSub.innerHTML = 'read <b>' + fmtVcTok(cacheRead) + '</b>';
+    chSub.title = D.locale.kpi.tip_cache_read;
+  }
 }
 // Initial render
 if (typeof F !== 'undefined') renderVcKpis();

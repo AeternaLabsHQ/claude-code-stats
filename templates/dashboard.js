@@ -1465,7 +1465,7 @@ function renderHeatmap() {
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const startDate = new Date(today);
-  startDate.setUTCDate(startDate.getUTCDate() - (24 * 7) + 1);
+  startDate.setUTCDate(startDate.getUTCDate() - (52 * 7) + 1);
   while (startDate.getUTCDay() !== 1) startDate.setUTCDate(startDate.getUTCDate() - 1);
   let maxMsg = 0;
   const td = new Date(startDate);
@@ -1503,10 +1503,16 @@ function renderHeatmap() {
     }
     monthsEl.innerHTML = '';
     monthsEl.style.paddingLeft = '20px';
+    // Column pitch (cell width + gap) is responsive now (see .heatmap-col),
+    // so measure the rendered column instead of assuming the old fixed
+    // 13px cell + 2px gap; otherwise month labels would only cover the
+    // left ~quarter of the now much wider grid.
+    const firstCol = container.querySelector('.heatmap-col');
+    const colPx = firstCol ? firstCol.getBoundingClientRect().width + 2 : 15;
     months.forEach((m,i) => {
       const span = document.createElement('span');
       span.textContent = m.label;
-      span.style.width = ((i<months.length-1 ? months[i+1].idx-m.idx : weekIdx-m.idx)*15)+'px';
+      span.style.width = ((i<months.length-1 ? months[i+1].idx-m.idx : weekIdx-m.idx)*colPx)+'px';
       monthsEl.appendChild(span);
     });
   }

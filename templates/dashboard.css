@@ -1267,12 +1267,12 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 /* Activity Heatmap */
 .heatmap-container { margin-bottom:20px; }
 .heatmap-scroll { overflow-x:auto; }
-.heatmap-grid { display:flex; gap:2px; }
-.heatmap-col { display:flex; flex-direction:column; gap:2px; }
-.heatmap-cell { width:13px; height:13px; border-radius:2px; position:relative; }
+.heatmap-grid { display:flex; gap:2px; width:100%; }
+.heatmap-col { display:flex; flex-direction:column; gap:2px; flex:1 1 0; min-width:0; max-width:30px; }
+.heatmap-cell { width:100%; height:auto; aspect-ratio:1; border-radius:2px; position:relative; }
 .heatmap-cell:hover::after { content:attr(data-tip); position:absolute; bottom:18px; left:50%; transform:translateX(-50%); background:var(--bg2); border:1px solid var(--border); padding:4px 8px; border-radius:4px; font-size:11px; white-space:nowrap; z-index:10; color:var(--text); pointer-events:none; }
-.heatmap-labels { display:flex; flex-direction:column; gap:2px; margin-right:4px; padding-top:18px; }
-.heatmap-labels span { height:13px; font-size:10px; color:var(--text2); line-height:13px; }
+.heatmap-labels { display:flex; flex-direction:column; gap:2px; margin-right:4px; }
+.heatmap-labels span { flex:1 1 0; display:flex; align-items:center; font-size:10px; color:var(--text2); }
 .heatmap-legend { display:flex; align-items:center; gap:4px; margin-top:8px; justify-content:flex-end; font-size:11px; color:var(--text2); }
 .heatmap-legend .cell { width:13px; height:13px; border-radius:2px; }
 .heatmap-months { display:flex; font-size:10px; color:var(--text2); margin-bottom:2px; }

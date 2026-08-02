@@ -854,6 +854,16 @@ body.vc-page > div[style*="text-align:center"] a {
   color: var(--vc-fg-3);
   white-space: nowrap;
 }
+/* Same fix as .vc-tab-h above: the meta column does not wrap on its own
+   and can push past the viewport on narrow screens. Drop to a single
+   column so title and meta stack instead of overflowing. */
+@media (max-width: 640px) {
+  .vc-sect-h {
+    grid-template-columns: 1fr;
+    row-gap: 6px;
+  }
+  .vc-sect-h-meta { justify-self: start; }
+}
 .vc .vc-sect-h + .masonry-section,
 .vc .vc-sect-h + .chart-grid { margin-top: 0; }
 

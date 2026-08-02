@@ -17,6 +17,10 @@ A self-hosted analytics dashboard for [Claude Code](https://docs.anthropic.com/e
     <td><a href="docs/images/claude-code-stats-06.jpeg"><img src="docs/images/claude-code-stats-06.jpeg" width="380" alt="Sessions"></a></td>
     <td><a href="docs/images/claude-code-stats-07.jpeg"><img src="docs/images/claude-code-stats-07.jpeg" width="380" alt="Insights & System"></a></td>
   </tr>
+  <tr>
+    <td><a href="docs/images/claude-code-stats-04.jpeg"><img src="docs/images/claude-code-stats-04.jpeg" width="380" alt="Token & API Value (dark mode)"></a></td>
+    <td><a href="docs/images/claude-code-stats-05.jpeg"><img src="docs/images/claude-code-stats-05.jpeg" width="380" alt="Insights & System (dark mode)"></a></td>
+  </tr>
 </table>
 
 Highlights:

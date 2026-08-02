@@ -1535,7 +1535,8 @@ function renderHeatmap() {
     } else {
       bg = 'color-mix(in srgb, var(--vc-fg-2) 9%, transparent)';
     }
-    cw.push('<div class="heatmap-cell" style="background:'+bg+'" data-tip="'+k+': '+m+' messages" data-intensity="'+(maxMsg>0?(m/maxMsg).toFixed(2):0)+'"></div>');
+    const msgLabel = (D.locale && D.locale.activity && D.locale.activity.messages_label) || 'messages';
+    cw.push('<div class="heatmap-cell" style="background:'+bg+'" data-tip="'+k+': '+m+' '+msgLabel+'" data-intensity="'+(maxMsg>0?(m/maxMsg).toFixed(2):0)+'"></div>');
     if (d.getUTCDay()===0) { while(cw.length<7) cw.push('<div class="heatmap-cell" style="background:transparent"></div>'); weeks.push(cw); cw=[]; }
     d.setUTCDate(d.getUTCDate()+1);
   }

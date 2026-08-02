@@ -259,11 +259,15 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   min-height: 36px;
 }
 .vc-kpi-pct { font-size: var(--vc-fs-lg); color: var(--vc-fg-3); margin-left: 2px; }
-/* TOKENS tile: Out and In side by side at the same size as the other tiles'
-   values (30px). A 2x2 grid (values row over captions row) with content-sized
-   columns keeps the pair grouped at the left with a clear gap and the out/in
-   captions under each number. The value row is 36px tall and bottom-aligned so
-   the figures share the same baseline as API EQUIVALENT. */
+/* TOKENS tile: Out and In side by side, matching the other tiles' values
+   (30px) at ordinary desktop widths - the clamp below reaches its 30px cap
+   at ~1364px and holds it above that, then shrinks smoothly on narrower
+   windows so a fixed 30px never forces the tile wider than its column (a
+   flat 30px was measured to overflow at 1280px and below). A 2x2 grid
+   (values row over captions row) with content-sized columns keeps the
+   pair grouped at the left with a clear gap and the out/in captions under
+   each number. The value row is 36px tall and bottom-aligned so the
+   figures share the same baseline as API EQUIVALENT. */
 .vc-kpi-dual {
   display: grid;
   grid-template-columns: auto auto;
@@ -276,7 +280,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 .vc-kpi-dual-val {
   font-family: var(--vc-font-sans);
   font-variant-numeric: tabular-nums;
-  font-size: clamp(19px, 1.9vw, 30px);
+  font-size: clamp(19px, 2.2vw, 30px);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--vc-fg);
@@ -330,8 +334,15 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   text-transform: uppercase;
   margin-top: 12px;
 }
+/* --heatmap-cell-size is set in JS (syncHeatmapLegendSize in dashboard.js)
+   from the actual rendered .heatmap-cell width, which itself is not a
+   fixed CSS length - it's flex:1 1 0 across ~52 columns, so it scales
+   with viewport (measured ~4.5px at 430px wide, ~22.8px at 1400px). A
+   flat 12px legend swatch stopped matching the cells it is meant to key
+   once cell size became responsive; falls back to 12px before the first
+   sync (e.g. no JS) or if the heatmap has not rendered anything. */
 .vc .vc-heatmap-legend .cell {
-  width: 12px; height: 12px;
+  width: var(--heatmap-cell-size, 12px); height: var(--heatmap-cell-size, 12px);
   border: 1px solid var(--vc-grid);
   border-radius: 3px !important;
   background: rgba(var(--vc-accent-rgb), var(--legend-opacity, 0.5));

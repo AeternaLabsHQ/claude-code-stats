@@ -948,6 +948,9 @@ function activateTabByName(name, updateHash) {
   // render time and the earlier scroll-to-end was a no-op. Now that the tab
   // is visible, redo it here.
   if (target) vcScrollChartsToEnd(target);
+  // Same display:none-at-render issue for the heatmap legend's cell-size
+  // sync (see syncHeatmapLegendSize): re-run now that Activity is visible.
+  if (name === 'activity' && typeof syncHeatmapLegendSize === 'function') syncHeatmapLegendSize();
   // Plan & Billing is inherently full-period (driven by D.plan, not the
   // filtered set F), so the range filter has no effect there: grey it out and
   // disable clicks while that tab is active.
@@ -1561,6 +1564,21 @@ function renderHeatmap() {
       monthsEl.appendChild(span);
     });
   }
+  syncHeatmapLegendSize();
+}
+
+// The heatmap legend's swatches (--heatmap-cell-size, see dashboard.css)
+// track the actual rendered .heatmap-cell size, which is not a fixed
+// length - cells are flex:1 1 0 across ~52 columns, so their size scales
+// with viewport width. A getBoundingClientRect() here reports 0 while the
+// Activity tab is still display:none (same issue as the month labels
+// above), so this is safe to call eagerly and is re-run once the tab
+// actually becomes visible (see activateTabByName) and on window resize.
+function syncHeatmapLegendSize() {
+  const cell = document.querySelector('.heatmap-cell');
+  if (!cell) return;
+  const w = cell.getBoundingClientRect().width;
+  if (w > 0) document.documentElement.style.setProperty('--heatmap-cell-size', w + 'px');
 }
 
 // ── Tab 2: Activity ────────────────────────────────────────────────────
@@ -2856,7 +2874,13 @@ _applyMasonry();
 let _masonryResizeTimer;
 window.addEventListener('resize', function() {
   clearTimeout(_masonryResizeTimer);
-  _masonryResizeTimer = setTimeout(_applyMasonry, 150);
+  _masonryResizeTimer = setTimeout(function() {
+    _applyMasonry();
+    // Heatmap cells are flex-sized and rescale continuously with the
+    // viewport; keep the legend swatches (see syncHeatmapLegendSize) in
+    // step. No-ops harmlessly if Activity is not the visible tab.
+    if (typeof syncHeatmapLegendSize === 'function') syncHeatmapLegendSize();
+  }, 150);
 });
 
 // ── Init ───────────────────────────────────────────────────────────────

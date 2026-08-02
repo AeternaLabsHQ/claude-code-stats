@@ -147,7 +147,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   background: var(--vc-accent);
   border-radius: var(--vc-radius-pill);
 }
-.vc-brand-name { font-weight: 700; letter-spacing: 0.08em; color: var(--vc-fg); }
+.vc-brand-name { font-weight: 700; letter-spacing: 0.08em; color: var(--vc-fg); white-space: nowrap; }
 .vc-version { color: var(--vc-fg-3); font-size: var(--vc-fs-2xs); }
 .vc-back { color: var(--vc-accent); text-decoration: none; letter-spacing: 0.14em; text-transform: uppercase; font-size: var(--vc-fs-2xs); }
 .vc-back:hover { text-decoration: underline; }

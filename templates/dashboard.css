@@ -1340,7 +1340,12 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
   .container { padding:12px; }
   .kpi-grid { grid-template-columns:1fr; }
   .chart-box:has(.data-table) { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .data-table { min-width:500px; }
+  /* No blanket min-width here anymore: every .data-table also carries
+     .responsive and collapses to stacked cards at 760px (see "Mobile:
+     dense tables" above), so none of them need a horizontal-scroll floor
+     at this narrower 640px breakpoint. A min-width clamped the collapsed
+     table wider than its .vc-table-scroll wrapper, which is what defeated
+     the card layout and left content clipped behind overflow-x:hidden. */
   .session-filters { gap:8px; }
   .session-filters select { min-width:0; flex:1; }
   .session-filters input { flex:1; min-width:0; }

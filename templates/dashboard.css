@@ -1481,14 +1481,31 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 /* ── Per-cycle hit heatmap (replaces the plain hit tables) ────────── */
 /* 5h and weekly hit tables split the row into two equal halves, each table
    centered within its half; collapses to a single centered column on narrow
-   viewports (see media query below). */
-.ph-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 56px; align-items: start; justify-items: center; }
+   viewports (see media query below).
+   justify-items: center here (an earlier version of this rule) sized each
+   .ph-block to its max-content width instead of the grid track: a
+   center-aligned grid item is not clamped to its track width by
+   min-width: 0 (that only lowers the automatic *minimum*, not the used
+   width), so the table could render wider than the viewport and the
+   overflow-x: auto safeguard below never saw a constrained box to scroll
+   within. justify-items: stretch makes .ph-block fill the track (a
+   definite width wins over content-based sizing regardless of
+   justify-items), and the visual centering moves to the children: the
+   title via text-align, the table via margin: auto capped at 100% so it
+   still centers when it fits and scrolls instead of overflowing when it
+   doesn't. */
+.ph-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 56px; align-items: start; justify-items: stretch; }
 .ph-block { min-width: 0; }
 .ph-tables .ph-title { margin-top: 4px; }
-.ph-title { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vc-pos); margin: 16px 0 6px; }
+.ph-title { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vc-pos); margin: 16px 0 6px; text-align: center; }
 /* font-size bumped vs the page's 12.5px sans tables because the mono face reads
-   visually smaller at the same px; 14px mono matches the surrounding text. */
-.ph-table { border-collapse: separate; border-spacing: 0 4px; font-family: var(--vc-font-mono); font-size: 14px; }
+   visually smaller at the same px; 14px mono matches the surrounding text.
+   margin: 0 auto re-centers the table now that .ph-block stretches to the
+   full track width (see .ph-tables above); max-width: 100% keeps it from
+   ever rendering wider than that track, which is what lets overflow-x:
+   auto below actually engage instead of the table just pushing the page
+   wider. */
+.ph-table { border-collapse: separate; border-spacing: 0 4px; font-family: var(--vc-font-mono); font-size: 14px; margin: 0 auto; max-width: 100%; }
 .ph-table .ph-cell, .ph-table .ph-th { min-width: 56px; }
 .ph-table .ph-cyc { text-align: left; color: var(--vc-fg-2); white-space: nowrap; padding: 6px 4px 6px 4px; }
 .ph-th { text-align: right; padding: 2px 9px; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vc-fg-3); vertical-align: bottom; }

@@ -647,6 +647,15 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 }
 .vc .plan-highlight .plan-delta.pos { background: var(--vc-pos-soft); color: var(--vc-pos); }
 .vc .plan-highlight .plan-delta.accent { background: var(--vc-accent-soft); color: var(--vc-accent); }
+/* Same collapse behavior as .vc-kpis: the 5-col grid squeezes each card so
+   narrow that a nowrap plan-delta chip pushes past the viewport. Drop to
+   2 cols at 960px, 1 col at 600px. */
+@media (max-width: 960px) {
+  .vc .plan-highlight { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .vc .plan-highlight { grid-template-columns: 1fr; }
+}
 
 /* Misc / config / list / etc legacy */
 .vc .misc-stat-grid,

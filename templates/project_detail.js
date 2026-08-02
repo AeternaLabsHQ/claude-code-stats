@@ -70,6 +70,7 @@ const tf = P.top_files || [];
 if (tf.length > 0) {
   document.getElementById('topFilesSection').innerHTML =
     '<div class="tools-section"><h3>'+pdl('top_files','Top Files')+'</h3>' +
+    '<div class="file-table-scroll">' +
     '<table class="file-table"><thead><tr><th>'+pdl('th_file','File')+'</th><th>'+pdl('th_reads','Reads')+'</th><th>'+pdl('th_edits','Edits')+'</th><th>'+pdl('th_writes','Writes')+'</th></tr></thead><tbody>' +
     tf.map(f => {
       const short = f.path.split('/').slice(-2).join('/');
@@ -78,7 +79,8 @@ if (tf.length > 0) {
         '<td style="color:var(--cyan)">'+(f.ops.edit||0)+'</td>' +
         '<td style="color:var(--green)">'+(f.ops.write||0)+'</td></tr>';
     }).join('') +
-    '</tbody></table></div>';
+    '</tbody></table>' +
+    '</div></div>';
 }
 
 let pdSessionTable = null;

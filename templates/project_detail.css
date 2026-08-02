@@ -153,6 +153,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   text-align: left !important;
   padding: 18px 20px !important;
   font-family: var(--vc-font-sans);
+  min-width: 0;
 }
 .vc .kpi-card .label {
   color: var(--vc-fg-3) !important;
@@ -170,6 +171,19 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   font-feature-settings: 'tnum' 1;
 }
 .vc .kpi-card .value.accent { color: var(--vc-accent) !important; }
+
+/* Collapse the 4-col KPI grid at the same breakpoints as the main
+   dashboard's .vc-kpis (960px -> 2 cols, 600px -> 1 col). Needs the .vc
+   prefix to match (and, by appearing later, win) the specificity of the
+   unconditional .vc .kpi-grid rule above; the legacy plain ".kpi-grid"
+   media rule further down in this file is lower-specificity and never
+   wins against that rule, which is why the grid never collapsed before. */
+@media (max-width: 960px) {
+  .vc .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .vc .kpi-grid { grid-template-columns: 1fr; }
+}
 
 /* Section / memory cards */
 .vc .tools-section, .vc .memory-card {
@@ -200,8 +214,20 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   font-family: var(--vc-font-sans);
   font-size: var(--vc-fs-xs);
   font-weight: 500;
+  /* A tool/MCP name (e.g. "mcp__claude_ai_Higgsfield__generate_video") is
+     one unbreakable word; without a cap the pill grows to fit it instead
+     of wrapping, pushing past the viewport on phones. Cap the pill to the
+     row's width and ellipsize the name span below instead. */
+  max-width: 100%;
+  min-width: 0;
 }
-.vc .tool-pill .count { color: var(--vc-accent) !important; font-weight: 700; }
+.vc .tool-pill span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.vc .tool-pill .count { color: var(--vc-accent) !important; font-weight: 700; flex-shrink: 0; }
 .vc .tag {
   border-radius: var(--vc-radius-pill) !important;
   font-family: var(--vc-font-sans);
@@ -359,6 +385,17 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   color: var(--vc-fg-3);
   white-space: nowrap;
 }
+/* Same fix as dashboard.css's .vc-tab-h (#vcCostMeta etc.): the meta
+   column (here #vcProjectMeta) is content-sized in the middle 1fr track
+   and does not wrap, so on narrow screens it pushed past the viewport.
+   Drop to a single column so title and meta stack instead. */
+@media (max-width: 640px) {
+  .vc-tab-h {
+    grid-template-columns: 1fr;
+    row-gap: 6px;
+  }
+  .vc-tab-h-meta { justify-self: start; }
+}
 
 :root { --bg:#0f1117; --bg2:#1a1d27; --bg3:#242836; --border:#2d3348; --text:#e2e8f0; --text2:#94a3b8; --accent:#6366f1; --accent2:#818cf8; --green:#22c55e; --orange:#f59e0b; --red:#ef4444; --blue:#3b82f6; --purple:#a855f7; --cyan:#06b6d4; --amber:#f59e0b; }
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -399,6 +436,12 @@ a:hover { text-decoration:underline; }
 .info-row { display:flex; justify-content:space-between; padding:4px 0; font-size:13px; }
 .info-row .lbl { color:var(--text2); }
 .info-row .val { font-weight:600; }
+/* Long file paths (rendered as unbreakable <code>) can push this table
+   wider than a phone viewport; scroll the table horizontally rather than
+   let it overflow the page (there is no stacked-card collapse for this
+   table, unlike .data-table on the main dashboard, so plain auto-scroll
+   is the appropriate fallback here). */
+.file-table-scroll { width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .file-table { width:100%; border-collapse:collapse; font-size:13px; }
 .file-table th { text-align:left; padding:8px; color:var(--text2); font-size:11px; text-transform:uppercase; border-bottom:1px solid var(--border); }
 .file-table td { padding:6px 8px; border-bottom:1px solid var(--border); }
@@ -421,4 +464,7 @@ a:hover { text-decoration:underline; }
 .wf-filters { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
 .wf-filter { padding:4px 12px; font-size:11px; border:1px solid var(--border); background:var(--bg2); color:var(--text2); cursor:pointer; border-radius:4px; }
 .wf-filter.active { background:var(--accent); color:white; border-color:var(--accent); }
-@media (max-width:900px) { .kpi-grid { grid-template-columns:repeat(2,1fr); } .info-grid { grid-template-columns:1fr; } }
+/* .kpi-grid's own breakpoint lives above (.vc .kpi-grid, 960px/600px),
+   scoped high enough in specificity to actually win; this plain selector
+   never did. */
+@media (max-width:900px) { .info-grid { grid-template-columns:1fr; } }

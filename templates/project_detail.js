@@ -14,15 +14,18 @@ document.getElementById('kpiGrid').innerHTML =
   '<div class="kpi-card"><div class="label">'+pdl('kpi_tokens','Tokens')+'</div><div class="value" style="color:var(--purple)">'+fmtTokens(P.stats.total_tokens)+'</div></div>' +
   '<div class="kpi-card"><div class="label">'+pdl('kpi_est_cost','Est. Cost')+'</div><div class="value" style="color:var(--orange)">'+fmtUSD(P.stats.total_cost)+'</div></div>';
 
+// The name span is ellipsis-truncated in CSS (.vc .tool-pill span:first-child)
+// on narrow chips - a title attribute is the only way to still read the
+// full name (there is no scrollbar and no wrap on that span).
 document.getElementById('toolPills').innerHTML = Object.entries(P.tools).slice(0,20).map(([n,c]) =>
-  '<div class="tool-pill"><span>'+escHtml(n)+'</span><span class="count">'+c+'x</span></div>'
+  '<div class="tool-pill"><span title="'+escHtml(n)+'">'+escHtml(n)+'</span><span class="count">'+c+'x</span></div>'
 ).join('');
 
 if (Object.keys(P.skills).length>0) {
   document.getElementById('skillsSection').innerHTML =
     '<div class="tools-section"><h3>'+pdl('skills','Skills')+'</h3><div class="tool-pills">' +
     Object.entries(P.skills).map(([n,c]) =>
-      '<div class="tool-pill"><span>'+escHtml(n)+'</span><span class="count">'+c+'x</span></div>'
+      '<div class="tool-pill"><span title="'+escHtml(n)+'">'+escHtml(n)+'</span><span class="count">'+c+'x</span></div>'
     ).join('') + '</div></div>';
 }
 

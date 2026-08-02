@@ -856,13 +856,23 @@ body.vc-page > div[style*="text-align:center"] a {
 }
 /* Same fix as .vc-tab-h above: the meta column does not wrap on its own
    and can push past the viewport on narrow screens. Drop to a single
-   column so title and meta stack instead of overflowing. */
+   column so title and meta stack instead of overflowing.
+   Stacking alone is not enough for longer meta strings (e.g. "cache hit
+   · token mix · daily efficiency"): the item is still white-space: nowrap
+   with the grid default min-width: auto, so its automatic minimum size
+   is its full one-line content width and the 1fr track cannot shrink
+   below that. Let it wrap and drop the minimum so it actually stacks
+   onto multiple lines inside the viewport instead of pushing past it. */
 @media (max-width: 640px) {
   .vc-sect-h {
     grid-template-columns: 1fr;
     row-gap: 6px;
   }
-  .vc-sect-h-meta { justify-self: start; }
+  .vc-sect-h-meta {
+    justify-self: start;
+    white-space: normal;
+    min-width: 0;
+  }
 }
 .vc .vc-sect-h + .masonry-section,
 .vc .vc-sect-h + .chart-grid { margin-top: 0; }
@@ -1204,9 +1214,19 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 /* Chart containers */
 .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
 .chart-grid.full { grid-template-columns:1fr; }
-.chart-box { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; }
+/* min-width: 0 matters even for a lone canvas child: a bare <canvas> has a
+   browser-default width="300" attribute before Chart.js ever touches it,
+   and that counts as .chart-box's content-based automatic minimum size as
+   a grid item. Without this, the box (and the 1fr track under it) is
+   forced to at least ~300px + padding regardless of viewport, and by the
+   time Chart.js measures the container to size the canvas responsively it
+   is measuring a box that is already wrongly inflated to fit the canvas's
+   own pre-render default - a self-reinforcing loop. min-width: 0 breaks
+   the loop so the grid track (and the box) shrink to the real available
+   width, which is what Chart.js then correctly sizes the canvas to. */
+.chart-box { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; min-width: 0; }
 .chart-box h3 { font-size:15px; font-weight:600; margin-bottom:16px; color:var(--text); }
-.chart-box canvas { max-height:350px; }
+.chart-box canvas { max-height:350px; max-width: 100%; }
 .chart-box.tall canvas { max-height:500px; }
 /* Chart.js (responsive:true, maintainAspectRatio:false) sizes a canvas from
    its immediate parent's *current rendered height* (a plain

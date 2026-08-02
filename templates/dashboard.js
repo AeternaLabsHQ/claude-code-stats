@@ -929,6 +929,25 @@ function activateTabByName(name, updateHash) {
   if (target) target.classList.add('active');
   const vc = document.querySelector('.vc-tab[data-tab="' + name + '"]');
   if (vc) vc.classList.add('active');
+  // A swipe chart drawn while this tab was still display:none settles its
+  // canvas at 0x0 (Chart.js cannot measure a hidden container) and only
+  // picks up its real size once something forces a resize (same underlying
+  // issue as the insights sub-nav fix a bit further down, scoped here to
+  // just the swipe canvases in this tab instead of every chart on the page).
+  // Do this before the swipe-to-end call below, or its scrollWidth read
+  // still reflects the stale 0x0 layout and scrollLeft ends up clamped to
+  // 0 instead of the right edge.
+  if (target && window.Chart) {
+    target.querySelectorAll('.vc-chart-swipe canvas').forEach(cv => {
+      const c = Chart.getChart(cv);
+      if (c) { try { c.resize(); } catch (_) {} }
+    });
+  }
+  // Swipe-chart wrappers (see vcScrollChartsToEnd) may have been drawn while
+  // this tab was still display:none, in which case scrollWidth read 0 at
+  // render time and the earlier scroll-to-end was a no-op. Now that the tab
+  // is visible, redo it here.
+  if (target) vcScrollChartsToEnd(target);
   // Plan & Billing is inherently full-period (driven by D.plan, not the
   // filtered set F), so the range filter has no effect there: grey it out and
   // disable clicks while that tab is active.
@@ -1115,6 +1134,30 @@ const weekResetMarkerPlugin = {
   }
 };
 
+// ── Swipe wrapper for growing date-series charts ─────────────────────────
+// Applies to charts whose point count grows with the selected range (daily
+// cost by model, cumulative, daily messages): on a phone a single bar/point
+// would end up sub-pixel wide once weeks of data pile up. Each of those
+// charts sits in a .vc-chart-swipe > .vc-chart-swipe-inner > canvas wrapper;
+// this sets a data-driven minimum width on the inner element via a CSS
+// custom property that the swipe container's narrow-screen media query
+// reads (see dashboard.css). Outside that media query the property is
+// unused, so this is a no-op on wide screens.
+const VC_CHART_SWIPE_PX_PER_POINT = 8;
+function vcSetChartSwipeWidth(innerId, pointCount) {
+  const el = document.getElementById(innerId);
+  if (el) el.style.setProperty('--vc-chart-min-w', Math.round(pointCount * VC_CHART_SWIPE_PX_PER_POINT) + 'px');
+}
+// Jump swipe containers to their right (most recent) edge. scrollWidth on a
+// display:none ancestor always reads 0, so this must not be the only place
+// this runs: it is called here right after a chart renders (works when its
+// tab happens to be the active/visible one), and again from
+// activateTabByName once a tab is actually shown, which covers charts that
+// were drawn while their tab was still hidden.
+function vcScrollChartsToEnd(root) {
+  (root || document).querySelectorAll('.vc-chart-swipe').forEach(el => { el.scrollLeft = el.scrollWidth; });
+}
+
 // The two metric-switchable charts (daily by model + cumulative).
 // Separate from renderCosts() so the toggle can rebuild just these two.
 function renderCostCharts() {
@@ -1166,6 +1209,7 @@ function renderCostCharts() {
       scales: { x: { ...scaleDefaults.x, stacked: true }, y: { ...scaleDefaults.y, ticks: yTicks, stacked: true, title: { display: true, text: yTitle, color: window.__vcFg2 || '#5b6473' } } }
     }
   });
+  vcSetChartSwipeWidth('chartDailyCostInner', dates.length);
 
   charts.cumCost = new Chart(document.getElementById('chartCumCost'), {
     type: 'line',
@@ -1181,6 +1225,8 @@ function renderCostCharts() {
         tooltip: { callbacks: { label: ctx => costModeFmt(ctx.parsed.y) } } },
       scales: { x: scaleDefaults.x, y: { ...scaleDefaults.y, ticks: yTicks, title: { display: true, text: yTitle, color: window.__vcFg2 || '#5b6473' } } } }
   });
+  vcSetChartSwipeWidth('chartCumCostInner', cumRows.length);
+  vcScrollChartsToEnd(document.getElementById('tab-costs'));
 
   // API value by token type: follows the same USD|local|Tokens toggle as the
   // two charts above. cost_by_token_type is an all-time aggregate (no per-date
@@ -1538,6 +1584,8 @@ function renderActivity() {
         y1: { ...scaleDefaults.y, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: D.locale.activity.sessions_label, color: window.__vcFg2 || '#5b6473' } },
       } }
   });
+  vcSetChartSwipeWidth('chartDailyMsgsInner', F.daily_messages.length);
+  vcScrollChartsToEnd(document.getElementById('tab-activity'));
 
   const maxHourly = Math.max(...F.hourly_distribution.map(x => x.messages || 1));
   charts.hourly = new Chart(document.getElementById('chartHourly'), {

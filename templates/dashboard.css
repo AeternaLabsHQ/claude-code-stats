@@ -1189,6 +1189,20 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 .chart-box h3 { font-size:15px; font-weight:600; margin-bottom:16px; color:var(--text); }
 .chart-box canvas { max-height:350px; }
 .chart-box.tall canvas { max-height:500px; }
+/* Chart.js (responsive:true, maintainAspectRatio:false) sizes a canvas from
+   its immediate parent's *current rendered height* (a plain
+   getBoundingClientRect, not resolved recursively), clamped by the canvas's
+   own max-height. Canvas used to be a direct child of .chart-box, whose
+   auto height also included the <h3> title above it; that gave Chart.js a
+   starting height already close to the clamp. .vc-chart-swipe-inner (the
+   swipe wrapper's inner element, see .vc-chart-swipe below) contains
+   nothing but the canvas, so its own auto height never rises above the
+   canvas's un-styled 150px default and Chart.js never grows past that.
+   Give it a definite height matching what .chart-box canvas clamps to at
+   each width (350 here, 280 in the narrow-screen media query below) so
+   Chart.js gets the right target immediately, with no leftover gap between
+   canvas and wrapper. None of the three swipe-wrapped charts use .tall. */
+.vc-chart-swipe-inner { height: 350px; }
 
 /* Tables (legacy base; the SaaS look lives in the .vc-scoped block above
    and the dashboard always renders inside .vc, so this is just a sane
@@ -1335,6 +1349,34 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
   .plan-highlight { grid-template-columns:1fr; }
   .progress-stats { gap:12px; }
   .chart-box canvas { max-height:280px; }
+  /* Growing date-series charts (daily cost by model, cumulative, daily
+     messages): at phone widths a bar per day would end up sub-pixel wide,
+     so give the chart content a data-driven minimum width (set in JS via
+     --vc-chart-min-w on the inner wrapper) and let this box scroll
+     horizontally with the scrollbar hidden, matching the .tabs pattern
+     above. Not set outside this media query, so wide screens are unaffected. */
+  .vc-chart-swipe {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .vc-chart-swipe::-webkit-scrollbar { display: none; }
+  .vc-chart-swipe-inner {
+    min-width: var(--vc-chart-min-w, 0);
+    /* Match .chart-box canvas's max-height right above, so Chart.js's height
+       computation (see the base .vc-chart-swipe-inner rule) targets 280 here
+       instead of the desktop 350. */
+    height: 280px;
+  }
+  /* .chart-box is a CSS Grid item (parent .chart-grid), so its default
+     min-width:auto takes the swipe-inner's forced min-width as its own
+     content-based minimum and grows the whole box instead of letting
+     .vc-chart-swipe clip/scroll it. .chart-box:has(.data-table) above sidesteps
+     the same grid-blowout issue by putting overflow-x:auto on the grid item
+     itself instead; here the scroll container is one level deeper, so the
+     grid item needs an explicit min-width:0 to stop taking its size from it. */
+  .chart-box:has(.vc-chart-swipe) { min-width: 0; }
 }
 .vc .vc-idle-aggregate,
 #idleGapAggregateCard.vc-idle-aggregate {

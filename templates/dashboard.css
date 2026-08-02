@@ -807,6 +807,17 @@ body.vc-page > div[style*="text-align:center"] a {
   color: var(--vc-fg-3);
   white-space: nowrap;
 }
+/* The meta column (range/mode toggles, e.g. #vcCostMeta) is content-sized
+   inside the middle 1fr track and does not wrap on its own, so on narrow
+   screens it can push past the viewport instead of shrinking. Drop to a
+   single column so title and meta stack instead of overflowing. */
+@media (max-width: 640px) {
+  .vc-tab-h {
+    grid-template-columns: 1fr;
+    row-gap: 6px;
+  }
+  .vc-tab-h-meta { justify-self: start; }
+}
 
 /* Sub-section header inside a tab: slimmer than vc-tab-h, with a thin rule */
 .vc-sect-h {

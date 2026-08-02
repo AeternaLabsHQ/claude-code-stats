@@ -1,0 +1,1565 @@
+
+/* VC-SHARED:tokens:START */
+/* ================================================================
+   Design tokens - light and dark themes.
+   This VC-SHARED:tokens block is byte-identical in dashboard.css,
+   project_detail.css and session_detail.css; tools/check_css_tokens.py
+   enforces the parity as a pytest. ALWAYS make changes in all three
+   files at the same time.
+   The tokens deliberately live on .vc AND body.vc-page, NOT on :root:
+   - .vc stays the scope for components and custom.css overrides
+     (keep targeting overrides at the .vc level; they win because the
+     legacy remap below stores var(--vc-*) references that only get
+     resolved at the point of use).
+   - body.vc-page needs the tokens so the legacy var remap
+     (--green/--red/--amber/... -> var(--vc-*)) doesn't resolve as
+     guaranteed-invalid; without them, e.g. style="color:var(--green)"
+     renders in the normal text color.
+================================================================ */
+.vc, body.vc-page {
+  --vc-bg: #f5f6f8; --vc-panel: #ffffff;
+  --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #6b7280;
+  --vc-grid: #e7e9ee; --vc-grid-2: #e7e9ee;
+  --vc-accent: #c2562f; --vc-accent-rgb: 194,86,47; --vc-accent-soft: rgba(194,86,47,.10);
+  --vc-pos: #1f9d63; --vc-pos-soft: rgba(31,157,99,.12);
+  --vc-neg: #d24b3e; --vc-neg-soft: rgba(210,75,62,.12);
+  --vc-radius: 14px; --vc-radius-sm: 10px; --vc-radius-pill: 999px; --vc-radius-ctl: 9px;
+  --vc-shadow: 0 1px 2px rgba(20,22,28,.04), 0 8px 20px -12px rgba(20,22,28,.14);
+  --vc-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --vc-font-sans: 'Manrope', system-ui, sans-serif;
+  --vc-fs-2xs: 13px;
+  --vc-fs-xs:  14px;
+  --vc-fs-sm:  14px;
+  --vc-fs-md:  15px;
+  --vc-fs-base:16px;
+  --vc-fs-lg:  21px;
+  --vc-fs-xl:  25px;
+  --vc-fs-2xl: 30px;
+}
+.vc { font-family: var(--vc-font-sans); }
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) .vc, html:not(.theme-light) body.vc-page {
+    --vc-bg: #0e1014; --vc-panel: #181b21; --vc-grid: #262b33; --vc-grid-2: #262b33;
+    --vc-fg: #eef0f4; --vc-fg-2: #a8afbb; --vc-fg-3: #6b7380;
+    --vc-accent: #e27a51; --vc-accent-rgb: 226,122,81; --vc-accent-soft: rgba(226,122,81,.16);
+    --vc-pos: #34c77f; --vc-pos-soft: rgba(52,199,127,.16);
+    --vc-neg: #f0786b; --vc-neg-soft: rgba(240,120,107,.16);
+    --vc-shadow: 0 1px 2px rgba(0,0,0,.30), 0 10px 26px -14px rgba(0,0,0,.55);
+  }
+}
+html.theme-dark .vc, html.theme-dark body.vc-page {
+  --vc-bg: #0e1014; --vc-panel: #181b21; --vc-grid: #262b33; --vc-grid-2: #262b33;
+  --vc-fg: #eef0f4; --vc-fg-2: #a8afbb; --vc-fg-3: #6b7380;
+  --vc-accent: #e27a51; --vc-accent-rgb: 226,122,81; --vc-accent-soft: rgba(226,122,81,.16);
+  --vc-pos: #34c77f; --vc-pos-soft: rgba(52,199,127,.16);
+  --vc-neg: #f0786b; --vc-neg-soft: rgba(240,120,107,.16);
+  --vc-shadow: 0 1px 2px rgba(0,0,0,.30), 0 10px 26px -14px rgba(0,0,0,.55);
+}
+html.theme-light .vc, html.theme-light body.vc-page {
+  --vc-bg: #f5f6f8; --vc-panel: #ffffff; --vc-grid: #e7e9ee; --vc-grid-2: #e7e9ee;
+  --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #6b7280;
+  --vc-accent: #c2562f; --vc-accent-rgb: 194,86,47; --vc-accent-soft: rgba(194,86,47,.10);
+  --vc-pos: #1f9d63; --vc-pos-soft: rgba(31,157,99,.12);
+  --vc-neg: #d24b3e; --vc-neg-soft: rgba(210,75,62,.12);
+  --vc-shadow: 0 1px 2px rgba(20,22,28,.04), 0 8px 20px -12px rgba(20,22,28,.14);
+}
+.vc *, .vc *::before, .vc *::after { box-sizing: border-box; }
+body.vc-page * { box-sizing: border-box; }
+body.vc-page {
+  background: var(--vc-bg, #f5f6f8) !important;
+  color: var(--vc-fg, #14161c) !important;
+  font-family: var(--vc-font-sans, 'Manrope', system-ui, sans-serif) !important;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+body.vc-page.theme-dark, html.theme-dark body.vc-page { background: #0e1014 !important; color: #eef0f4 !important; }
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) body.vc-page { background: #0e1014 !important; color: #eef0f4 !important; }
+}
+html.theme-light body.vc-page { background: #f5f6f8 !important; color: #14161c !important; }
+
+/* Legacy var remap: dynamically rendered markup uses inline var(--bg),
+   var(--text), var(--accent), var(--green) etc.; here the old
+   names get mapped onto the design tokens so light/dark works
+   everywhere. Reference values (var(--vc-*)) instead of literals, where
+   a token exists - so custom.css overrides win at the point of use. */
+body.vc-page {
+  --bg: #f5f6f8; --bg2: #ffffff; --bg3: #eef0f3; --border: #e7e9ee;
+  --text: #14161c; --text2: #5b6473;
+  --accent: var(--vc-accent); --accent2: #cf6b45;
+  --green: var(--vc-pos); --orange: var(--vc-accent); --red: var(--vc-neg);
+  --blue: var(--vc-fg-2); --purple: var(--vc-fg-2); --cyan: var(--vc-fg-2); --amber: var(--vc-accent);
+}
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) body.vc-page {
+    --bg: #0e1014; --bg2: #181b21; --bg3: #1f242c; --border: #262b33;
+    --text: #eef0f4; --text2: #a8afbb;
+    --accent: var(--vc-accent); --accent2: #ec8b6a;
+    --green: var(--vc-pos); --orange: var(--vc-accent); --red: var(--vc-neg);
+    --blue: var(--vc-fg-2); --purple: var(--vc-fg-2); --cyan: var(--vc-fg-2); --amber: var(--vc-accent);
+  }
+}
+html.theme-dark body.vc-page {
+  --bg: #0e1014; --bg2: #181b21; --bg3: #1f242c; --border: #262b33;
+  --text: #eef0f4; --text2: #a8afbb;
+  --accent: var(--vc-accent); --accent2: #ec8b6a;
+  --green: var(--vc-pos); --orange: var(--vc-accent); --red: var(--vc-neg);
+  --blue: var(--vc-fg-2); --purple: var(--vc-fg-2); --cyan: var(--vc-fg-2); --amber: var(--vc-accent);
+}
+html.theme-light body.vc-page {
+  --bg: #f5f6f8; --bg2: #ffffff; --bg3: #eef0f3; --border: #e7e9ee;
+  --text: #14161c; --text2: #5b6473;
+  --accent: var(--vc-accent); --accent2: #cf6b45;
+  --green: var(--vc-pos); --orange: var(--vc-accent); --red: var(--vc-neg);
+  --blue: var(--vc-fg-2); --purple: var(--vc-fg-2); --cyan: var(--vc-fg-2); --amber: var(--vc-accent);
+}
+
+/* Anonymization blur */
+body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
+/* VC-SHARED:tokens:END */
+
+/* VC-SHARED:topbar:START */
+/* Top bar - byte-identical on all three pages
+   (tools/check_css_tokens.py). Markup everywhere:
+   div.vc.vc-top > div.vc-top-inner > (left | center or spacer | right).
+   The dashboard look is canonical; .vc-back/.vc-kv/.vc-checkbox don't
+   exist on every page, the rules are simply unused there. */
+.vc-top {
+  background: var(--vc-panel);
+  border-bottom: 1px solid var(--vc-grid);
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  color: var(--vc-fg-2);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.vc-top-inner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+}
+.vc-top-left { display: flex; align-items: center; gap: 10px; }
+.vc-brand-mark {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  background: var(--vc-accent);
+  border-radius: var(--vc-radius-pill);
+}
+.vc-brand-name { font-weight: 700; letter-spacing: 0.08em; color: var(--vc-fg); white-space: nowrap; }
+.vc-version { color: var(--vc-fg-3); font-size: var(--vc-fs-2xs); }
+.vc-back { color: var(--vc-accent); text-decoration: none; letter-spacing: 0.14em; text-transform: uppercase; font-size: var(--vc-fs-2xs); }
+.vc-back:hover { text-decoration: underline; }
+.vc-top-center { display: flex; gap: 24px; justify-self: center; }
+.vc-kv { display: inline-flex; gap: 6px; align-items: baseline; }
+.vc-k { color: var(--vc-fg-3); letter-spacing: 0.08em; font-size: 10px; text-transform: uppercase; }
+.vc-v { color: var(--vc-fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+.vc-top-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vc-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--vc-font-sans);
+  font-size: 10px;
+  color: var(--vc-fg-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+.vc-checkbox input { accent-color: var(--vc-accent); cursor: pointer; }
+.vc-icon-btn {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius-pill);
+  color: var(--vc-fg-2);
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  padding: 5px 11px;
+  cursor: pointer;
+  line-height: 1;
+}
+.vc-icon-btn:hover { color: var(--vc-fg); }
+.vc-f2-hint { font-family: var(--vc-font-sans); color: var(--vc-fg-3); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.vc-utc { color: var(--vc-fg-3); font-variant-numeric: tabular-nums; }
+@media (max-width: 960px) {
+  .vc-top-inner { grid-template-columns: 1fr; gap: 8px; }
+  .vc-top-center, .vc-top-right { justify-self: stretch; flex-wrap: wrap; }
+}
+/* VC-SHARED:topbar:END */
+
+/* ── KPI strip ─────────────────────────────────────────────────── */
+.vc-kpis-wrap {
+  background: transparent;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+/* Old "band" treatment removed: each KPI is now its own card, so the wrap
+   and inner just provide bottom spacing: no border, no shared-edge framing. */
+.vc-kpis-band {
+  margin-bottom: 24px;
+}
+.vc-kpis-band .vc-kpis-inner { padding: 0; }
+.vc-kpis-inner {
+  padding: 24px 0 0;
+}
+.vc-kpis {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr 1fr 1fr;
+  gap: 14px;
+}
+.vc-kpi {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius);
+  box-shadow: var(--vc-shadow);
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.vc-kpi-label {
+  font-family: var(--vc-font-sans);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--vc-fg-2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  /* Match the height of the primary label (which carries the delta badge) so
+     every value row starts at the same y and the big numbers share a baseline. */
+  min-height: 19px;
+}
+.vc-kpi-delta {
+  background: var(--vc-pos-soft);
+  color: var(--vc-pos);
+  border-radius: var(--vc-radius-pill);
+  padding: 2px 7px;
+  font-weight: 600;
+  font-size: 11px;
+}
+.vc-kpi-value {
+  font-family: var(--vc-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--vc-fg);
+  line-height: 1;
+  /* Bottom-align every value into a box as tall as the primary (36px) value, so
+     all the big numbers share one baseline with API EQUIVALENT regardless of
+     their own font size. */
+  display: flex;
+  align-items: flex-end;
+  min-height: 36px;
+}
+.vc-kpi-pct { font-size: var(--vc-fs-lg); color: var(--vc-fg-3); margin-left: 2px; }
+/* TOKENS tile: Out and In side by side, matching the other tiles' values
+   (30px) at ordinary desktop widths - the clamp below reaches its 30px cap
+   at ~1364px and holds it above that, then shrinks smoothly on narrower
+   windows so a fixed 30px never forces the tile wider than its column (a
+   flat 30px was measured to overflow at 1280px and below). A 2x2 grid
+   (values row over captions row) with content-sized columns keeps the
+   pair grouped at the left with a clear gap and the out/in captions under
+   each number. The value row is 36px tall and bottom-aligned so the
+   figures share the same baseline as API EQUIVALENT. */
+.vc-kpi-dual {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: 36px auto;
+  justify-content: start;
+  align-items: end;
+  column-gap: 12px;
+  row-gap: 4px;
+}
+.vc-kpi-dual-val {
+  font-family: var(--vc-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(19px, 2.2vw, 30px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--vc-fg);
+  line-height: 1;
+}
+.vc-kpi-dual-cap {
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--vc-fg-3);
+}
+.vc-kpi-primary .vc-kpi-value {
+  font-size: 36px;
+  color: var(--vc-accent);
+}
+.vc-kpi-sub {
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  color: var(--vc-fg-3);
+}
+.vc-kpi-sub b { font-weight: 600; color: var(--vc-fg-2); }
+@media (max-width: 960px) {
+  .vc-kpis { grid-template-columns: 1fr 1fr; }
+  /* When the KPI grid drops to 2 columns the primary KPI should span the
+     full width so it stays the dominant figure. */
+  .vc-kpi-primary { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  .vc-kpis { grid-template-columns: 1fr; }
+  /* Shrink the big dollar figures so they stop overflowing the 1-col cell. */
+  .vc-kpi-value { font-size: 24px; }
+  .vc-kpi-primary .vc-kpi-value { font-size: 28px; }
+  .vc-kpi-dual-val { font-size: 24px; }
+  .vc-kpi-value { min-height: 28px; }
+  .vc-kpi-dual { grid-template-rows: 28px auto; }
+}
+
+/* Heatmap polish */
+.vc .heatmap-cell {
+  border: 0 !important;
+  border-radius: 3px !important;
+}
+.vc .vc-heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--vc-font-mono);
+  font-size: var(--vc-fs-2xs);
+  color: var(--vc-fg-3);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-top: 12px;
+}
+/* --heatmap-cell-size is set in JS (syncHeatmapLegendSize in dashboard.js)
+   from the actual rendered .heatmap-cell width, which itself is not a
+   fixed CSS length - it's flex:1 1 0 across ~52 columns, so it scales
+   with viewport (measured ~4.5px at 430px wide, ~22.8px at 1400px). A
+   flat 12px legend swatch stopped matching the cells it is meant to key
+   once cell size became responsive; falls back to 12px before the first
+   sync (e.g. no JS) or if the heatmap has not rendered anything. */
+.vc .vc-heatmap-legend .cell {
+  width: var(--heatmap-cell-size, 12px); height: var(--heatmap-cell-size, 12px);
+  border: 1px solid var(--vc-grid);
+  border-radius: 3px !important;
+  background: rgba(var(--vc-accent-rgb), var(--legend-opacity, 0.5));
+}
+.vc .vc-heatmap-legend .cell[data-i="0.10"] { --legend-opacity: 0.10; }
+.vc .vc-heatmap-legend .cell[data-i="0.30"] { --legend-opacity: 0.30; }
+.vc .vc-heatmap-legend .cell[data-i="0.50"] { --legend-opacity: 0.50; }
+.vc .vc-heatmap-legend .cell[data-i="0.70"] { --legend-opacity: 0.70; }
+.vc .vc-heatmap-legend .cell[data-i="0.95"] { --legend-opacity: 0.95; }
+.vc .heatmap-container { padding: 18px; }
+
+/* ── Overrides for legacy components inside .vc scope ───────────────
+   Re-skins the existing chart-box, data-table, kpi-card, etc. with
+   the design tokens. This avoids a full markup rewrite while delivering
+   the current look. */
+.vc.container { background: var(--vc-bg); color: var(--vc-fg); }
+.vc h1, .vc h2, .vc h3, .vc h4, .vc h5 {
+  color: var(--vc-fg);
+  font-family: var(--vc-font-mono);
+  letter-spacing: 0.02em;
+}
+/* Normalize all in-content h3 (chart-box / billing-progress / sections /
+   info-card etc.) to the same scale: 11px uppercase 600
+   weight with wide letter-spacing. Avoids the 15px bold h3 in
+   .billing-progress that visually clashed with the 11px h3 elsewhere. */
+.vc h3 {
+  font-size: var(--vc-fs-xs) !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.14em !important;
+  margin-bottom: 14px;
+}
+.vc .container {
+  background: var(--vc-bg);
+  font-family: var(--vc-font-mono);
+}
+.vc .chart-box {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius);
+  box-shadow: var(--vc-shadow);
+  padding: 20px 22px 22px;
+  margin-bottom: 0;
+  font-family: var(--vc-font-mono);
+}
+.vc .chart-box h3 {
+  font-family: var(--vc-font-sans);
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em !important;
+  color: var(--vc-fg);
+  margin-bottom: 14px;
+}
+.vc .chart-box.tall canvas { max-height: 420px; }
+/* Uniform, compact size for all doughnut/pie charts. They render with
+   maintainAspectRatio:false, so the canvas fills this fixed box height
+   regardless of which chart-box (normal or .tall) wraps them. */
+.vc #chartWriteCategories,
+.vc #chartToolTokens,
+.vc #chartStorage,
+.vc #agentTypesChart,
+.vc #errorByCategoryChart {
+  height: 260px !important;
+  max-height: 260px !important;
+}
+.vc .chart-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 18px;
+}
+.vc .chart-grid:last-child { margin-bottom: 24px; }
+.vc .chart-grid.full { grid-template-columns: 1fr; }
+/* Standalone chart-boxes that are direct children of a subsection (e.g. Error
+   Overview, Task Overview) get their own bottom spacing: unlike grid/masonry
+   children, no gap applies to them. */
+.vc .vc-subsection > .chart-box { margin-bottom: 18px; }
+@media (max-width: 960px) {
+  .vc .chart-grid { grid-template-columns: 1fr; }
+}
+
+/* Masonry section: round-robin distributes children across N independent flex
+   columns so cards of differing heights don't force empty space below shorter
+   ones. JS in dashboard.js wraps the children in .masonry-col on load + resize. */
+.vc .masonry-section {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 24px;
+}
+.vc .masonry-section + .chart-grid,
+.vc .chart-grid + .masonry-section,
+.vc .masonry-section + .masonry-section { margin-top: 0; }
+.vc .masonry-col { display: flex; flex-direction: column; min-width: 0; gap: 18px; }
+@media (max-width: 960px) {
+  .vc .masonry-section { grid-template-columns: 1fr; }
+}
+
+/* Plan & Billing period stats: SaaS period-stats grid treatment */
+.vc .progress-stats { font-size: var(--vc-fs-xs); color: var(--vc-fg-2); }
+.vc .progress-stats .stat-item > span:first-child { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--vc-fg-3); }
+.vc .progress-stats .stat-val { font-weight: 700; font-size: 16px; color: var(--vc-fg); font-variant-numeric: tabular-nums; }
+
+/* In-progress period row: "running" marker + muted projected-ROI hint */
+.vc .period-running-badge {
+  font-family: var(--vc-font-sans); font-size: 9.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; font-weight: 700; white-space: nowrap;
+  color: var(--vc-accent); background: var(--vc-accent-soft);
+  padding: 1px 6px; border-radius: var(--vc-radius-pill); vertical-align: middle;
+}
+.vc .period-roi-proj {
+  font-family: var(--vc-font-mono); font-size: 0.85em; font-weight: 500;
+  color: var(--vc-fg-3); white-space: nowrap;
+}
+
+/* Tabs from legacy tabBar (#tabBar inside .vc scope, used as backup) */
+.vc .tabs { display: none; }  /* Hidden: we use .vc-nav-tabs instead */
+
+/* Tab content: no extra LR padding, .container already provides it,
+   and the KPI strip above uses the same 20px LR offset, so they line up. */
+.vc .tab-content { padding: 16px 0 0; }
+/* .container already has padding: 20px from legacy CSS; keep it so the
+   tab-content edge equals the visible KPI grid edge (both = max-1400 - 20). */
+
+/* Data tables */
+/* ── SaaS data tables ───────────────────────────────────────────────
+   Clean sans, tabular numerals, uppercase muted headers with a hairline,
+   comfortable row padding, accent-soft row hover. Numeric columns (.num)
+   right-aligned, first column left. */
+.vc .data-table,
+.vc table.data-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--vc-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+}
+.vc .data-table th,
+.vc .data-table td { text-align: left; }
+.vc .data-table th {
+  font-family: var(--vc-font-sans);
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--vc-fg-2);
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--vc-grid);
+  background: var(--vc-panel);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+.vc .data-table th.num,
+.vc .data-table td.num { text-align: right; }
+/* All data-table headers are sortable (universal). */
+.vc .data-table thead th { cursor: pointer; user-select: none; }
+.vc .data-table thead th:hover { color: var(--vc-fg); }
+.vc .data-table th.sort-asc::after { content:" \25B2"; font-size: 9px; color: var(--vc-accent); }
+.vc .data-table th.sort-desc::after { content:" \25BC"; font-size: 9px; color: var(--vc-accent); }
+.vc .data-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--vc-grid);
+  color: var(--vc-fg);
+  white-space: nowrap;
+}
+.vc .data-table tr:last-child td { border-bottom: none; }
+.vc .data-table tbody tr:hover td { background: var(--vc-accent-soft); }
+
+/* ── Mobile: dense tables → stacked labelled cards (ported saas.css) ──
+   Tables marked .responsive collapse to one card per row. The header row
+   is hidden; each cell shows its column name via data-label on the left
+   and the value on the right. The identifying cell (.primary) is the card
+   title. thead is display:none here, so the sticky .data-table th above is
+   moot in this layout. */
+@media (max-width: 760px) {
+  .vc table.responsive thead { display: none; }
+  .vc table.responsive,
+  .vc table.responsive tbody,
+  .vc table.responsive tr,
+  .vc table.responsive td { display: block; width: 100%; }
+  .vc table.responsive tr {
+    border: 1px solid var(--vc-grid);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    background: var(--vc-panel);
+    box-shadow: var(--vc-shadow);
+    overflow: hidden;
+  }
+  .vc table.responsive td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    text-align: right;
+    border: 0;
+    border-bottom: 1px solid var(--vc-grid);
+    padding: 9px 14px;
+    white-space: normal;
+  }
+  .vc table.responsive tr td:last-child { border-bottom: 0; }
+  .vc table.responsive td::before {
+    content: attr(data-label);
+    font-family: var(--vc-font-sans);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--vc-fg-2);
+    text-align: left;
+    flex-shrink: 0;
+  }
+  .vc table.responsive td.primary {
+    background: color-mix(in srgb, var(--vc-accent) 5%, transparent);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .vc table.responsive td.primary::before { content: ""; }
+}
+
+/* Horizontally-scrollable, resizable table (project table on Activity).
+   Wrapper scrolls when columns exceed its width; fixed layout lets each
+   column carry an explicit width and clip its content (Excel-style). */
+.vc .vc-table-scroll { width: 100%; overflow-x: auto; }
+.vc table.vc-resizable { table-layout: fixed; }
+.vc table.vc-resizable th { position: relative; overflow: hidden; text-overflow: ellipsis; }
+.vc table.vc-resizable td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc table.vc-resizable td a { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.vc .col-resizer {
+  position: absolute; top: 0; right: 0; width: 8px; height: 100%;
+  cursor: col-resize; user-select: none; z-index: 2;
+}
+.vc .col-resizer:hover { background: var(--vc-accent-soft); }
+/* On mobile the table collapses to stacked cards (table.responsive); undo the
+   fixed layout + inline pixel width and hard-cap everything to the viewport so
+   a wide column can't push the page sideways. */
+@media (max-width: 760px) {
+  .vc .vc-table-scroll { overflow-x: hidden; }
+  .vc table.vc-resizable { width: 100% !important; max-width: 100% !important; table-layout: auto !important; }
+  .vc table.vc-resizable th, .vc table.vc-resizable td { max-width: 100% !important; width: auto !important; }
+  .vc table.vc-resizable td { overflow: hidden; text-overflow: clip; white-space: normal; word-break: break-word; }
+  .vc table.vc-resizable td a { white-space: normal !important; max-width: 100% !important; display: inline; }
+}
+
+/* Plan highlight grid */
+/* Plan KPIs as individual cards (matching the rest of the page) with cheerful
+   tints: savings = green, ROI/plan = accent. */
+.vc .plan-highlight {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr;
+  gap: 14px;
+  border: 0;
+  background: transparent;
+  margin-bottom: 24px;
+}
+.vc .plan-highlight > div {
+  padding: 16px 18px;
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius);
+  box-shadow: var(--vc-shadow);
+  font-family: var(--vc-font-mono);
+  min-width: 0;
+}
+.vc .plan-highlight .plan-card-top { display: flex; align-items: center; gap: 8px; justify-content: space-between; min-height: 18px; }
+.vc .plan-highlight .label,
+.vc .plan-highlight > div > div:first-child {
+  font-size: var(--vc-fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--vc-fg-3);
+}
+.vc .plan-highlight .value,
+.vc .plan-highlight > div > div:nth-child(2) {
+  font-size: var(--vc-fs-xl);
+  font-weight: 600;
+  color: var(--vc-fg);
+  margin: 6px 0 4px;
+  font-feature-settings: 'tnum' 1;
+}
+.vc .plan-highlight .sub { font-size: var(--vc-fs-xs); color: var(--vc-fg-3); }
+/* Tinted cards + colored values */
+.vc .plan-highlight .savings {
+  background: linear-gradient(160deg, var(--vc-pos-soft), transparent 70%), var(--vc-panel);
+  border-color: color-mix(in srgb, var(--vc-pos) 28%, var(--vc-grid));
+}
+.vc .plan-highlight .savings .value { color: var(--vc-pos); }
+.vc .plan-highlight .roi {
+  background: linear-gradient(160deg, var(--vc-accent-soft), transparent 70%), var(--vc-panel);
+  border-color: color-mix(in srgb, var(--vc-accent) 28%, var(--vc-grid));
+}
+.vc .plan-highlight .roi .value { color: var(--vc-accent); }
+.vc .plan-highlight .plan-type .value { color: var(--vc-accent); }
+/* Live "active" badge on the current-plan card */
+.vc .plan-highlight .badge-live {
+  display: inline-flex; align-items: center; gap: 5px; font-family: var(--vc-font-sans);
+  font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
+  color: var(--vc-pos); background: var(--vc-pos-soft); padding: 3px 8px 3px 7px; border-radius: var(--vc-radius-pill);
+}
+.vc .plan-highlight .badge-live::before {
+  content: ""; width: 6px; height: 6px; border-radius: var(--vc-radius-pill); background: var(--vc-pos);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--vc-pos) 60%, transparent); animation: vc-livepulse 2.4s ease-out infinite;
+}
+@keyframes vc-livepulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--vc-pos) 55%, transparent); }
+  70% { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+/* Small colored delta chips (savings %, ROI factor) */
+.vc .plan-highlight .plan-delta {
+  font-family: var(--vc-font-mono); font-size: 11px; font-weight: 600;
+  padding: 2px 7px; border-radius: var(--vc-radius-pill); white-space: nowrap;
+}
+.vc .plan-highlight .plan-delta.pos { background: var(--vc-pos-soft); color: var(--vc-pos); }
+.vc .plan-highlight .plan-delta.accent { background: var(--vc-accent-soft); color: var(--vc-accent); }
+/* Same collapse behavior as .vc-kpis: the 5-col grid squeezes each card so
+   narrow that a nowrap plan-delta chip pushes past the viewport. Drop to
+   2 cols at 960px, 1 col at 600px. */
+@media (max-width: 960px) {
+  .vc .plan-highlight { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .vc .plan-highlight { grid-template-columns: 1fr; }
+}
+
+/* Misc / config / list / etc legacy */
+.vc .misc-stat-grid,
+.vc .config-grid {
+  font-family: var(--vc-font-mono);
+}
+
+/* Buttons */
+.vc button:not(.vc-tab):not(.vc-range-btn):not(.vc-icon-btn):not([data-sub]) {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-mono);
+  font-size: var(--vc-fs-xs);
+  padding: 6px 12px;
+  border-radius: 0;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+.vc button:not(.vc-tab):not(.vc-range-btn):not(.vc-icon-btn):not([data-sub]):hover {
+  background: var(--vc-accent-soft);
+  border-color: var(--vc-accent);
+}
+.vc button.active,
+.vc button:active {
+  background: var(--vc-accent);
+  border-color: var(--vc-accent);
+  color: var(--vc-bg);
+}
+
+/* Insights sub-nav: bordered shadowed pill group */
+.vc-subnav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px;
+  margin-bottom: 22px;
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius);
+  box-shadow: var(--vc-shadow);
+}
+.vc .vc-subnav button {
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vc-fg-2);
+  padding: 9px 15px;
+  border-radius: var(--vc-radius-ctl);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all .15s;
+}
+.vc .vc-subnav button:hover {
+  background: var(--vc-accent-soft);
+  color: var(--vc-fg);
+}
+.vc .vc-subnav button.on {
+  background: var(--vc-accent);
+  color: #fff;
+}
+.vc .vc-subnav button .ic {
+  font-family: var(--vc-font-mono);
+  font-size: 10px;
+  color: var(--vc-fg-3);
+}
+.vc .vc-subnav button.on .ic { color: inherit; }
+.vc-subsection[hidden] { display: none; }
+
+/* Inputs */
+.vc input[type="text"],
+.vc input[type="search"],
+.vc input[type="number"],
+.vc select {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  color: var(--vc-fg);
+  font-family: var(--vc-font-mono);
+  font-size: var(--vc-fs-xs);
+  padding: 5px 10px;
+  border-radius: 0;
+  outline: none;
+}
+.vc input::placeholder { color: var(--vc-fg-3); }
+.vc input:focus, .vc select:focus { border-color: var(--vc-accent); }
+
+/* Links */
+.vc a { color: var(--vc-accent); text-decoration: none; }
+.vc a:hover { text-decoration: underline; }
+
+/* Token tags / badges */
+.vc .badge,
+.vc .tag,
+.vc .source-label,
+.vc .model-tag {
+  background: transparent;
+  border: 1px solid var(--vc-grid);
+  border-radius: 0 !important;
+  color: var(--vc-fg-2);
+  font-family: var(--vc-font-mono);
+  font-size: var(--vc-fs-2xs);
+  padding: 1px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Footer text */
+body.vc-page > div[style*="text-align:center"] {
+  color: var(--vc-fg-3) !important;
+  font-family: var(--vc-font-mono);
+  font-size: var(--vc-fs-2xs);
+}
+body.vc-page > div[style*="text-align:center"] a {
+  color: var(--vc-accent) !important;
+}
+
+/* ── Shared components (panes, distbars, tables) ─────────────── */
+.vc-tab-h {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 8px;
+  font-family: var(--vc-font-mono);
+}
+.vc-tab-h-title {
+  font-family: var(--vc-font-sans);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--vc-fg);
+  white-space: nowrap;
+}
+.vc-tab-h-rule { display: none; }
+.vc-fullrange-hint {
+  font-family: var(--vc-font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--vc-fg-3);
+  margin-left: 8px;
+  vertical-align: middle;
+  white-space: nowrap;
+  cursor: help;
+}
+.vc-tab-h-meta {
+  font-family: var(--vc-font-sans);
+  font-size: var(--vc-fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vc-fg-3);
+  white-space: nowrap;
+}
+/* The meta column (range/mode toggles, e.g. #vcCostMeta) is content-sized
+   inside the middle 1fr track and does not wrap on its own, so on narrow
+   screens it can push past the viewport instead of shrinking. Drop to a
+   single column so title and meta stack instead of overflowing. */
+@media (max-width: 640px) {
+  .vc-tab-h {
+    grid-template-columns: 1fr;
+    row-gap: 6px;
+  }
+  .vc-tab-h-meta { justify-self: start; }
+}
+
+/* Sub-section header inside a tab: slimmer than vc-tab-h, with a thin rule */
+.vc-sect-h {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px 10px;
+  font-family: var(--vc-font-mono);
+}
+.vc-sect-h-title {
+  font-family: var(--vc-font-sans);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--vc-fg);
+  white-space: nowrap;
+}
+.vc-sect-h-rule { height: 0; border-top: 1px solid var(--vc-grid); }
+.vc-sect-h-meta {
+  font-family: var(--vc-font-sans);
+  font-size: var(--vc-fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vc-fg-3);
+  white-space: nowrap;
+}
+/* Same fix as .vc-tab-h above: the meta column does not wrap on its own
+   and can push past the viewport on narrow screens. Drop to a single
+   column so title and meta stack instead of overflowing.
+   Stacking alone is not enough for longer meta strings (e.g. "cache hit
+   · token mix · daily efficiency"): the item is still white-space: nowrap
+   with the grid default min-width: auto, so its automatic minimum size
+   is its full one-line content width and the 1fr track cannot shrink
+   below that. Let it wrap and drop the minimum so it actually stacks
+   onto multiple lines inside the viewport instead of pushing past it. */
+@media (max-width: 640px) {
+  .vc-sect-h {
+    grid-template-columns: 1fr;
+    row-gap: 6px;
+  }
+  .vc-sect-h-meta {
+    justify-self: start;
+    white-space: normal;
+    min-width: 0;
+  }
+}
+.vc .vc-sect-h + .masonry-section,
+.vc .vc-sect-h + .chart-grid { margin-top: 0; }
+
+/* Pane grid */
+.vc-pane-grid {
+  margin: 0 20px 24px;
+  display: grid;
+  gap: 18px;
+}
+.vc-pane-grid.cols-2 { grid-template-columns: 1.6fr 1fr; }
+.vc-pane-grid.cols-2-eq { grid-template-columns: 1fr 1fr; }
+.vc-pane-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.vc-pane-grid.full { grid-template-columns: 1fr; }
+.vc-pane {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius);
+  box-shadow: var(--vc-shadow);
+  padding: 20px 22px 22px;
+  min-width: 0;
+}
+.vc-pane h3 {
+  font-family: var(--vc-font-sans);
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em !important;
+  margin: 0 0 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--vc-fg);
+}
+.vc-pane h3 .meta { font-size: var(--vc-fs-2xs); color: var(--vc-fg-3); font-weight: normal; text-transform: none; letter-spacing: 0; }
+
+/* Distribution bars */
+.vc-distbar { display: flex; flex-direction: column; gap: 10px; }
+.vc-distbar-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 90px;
+  gap: 10px;
+  font-size: var(--vc-fs-xs);
+  align-items: center;
+  font-family: var(--vc-font-mono);
+}
+.vc-distbar-name { color: var(--vc-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vc-distbar-track {
+  height: 12px;
+  border: 1px solid var(--vc-grid);
+  background: var(--vc-bg);
+  position: relative;
+}
+.vc-distbar-fill {
+  height: 100%;
+  background: var(--vc-accent);
+}
+.vc-distbar-fill.s2 { background: var(--vc-fg-2); }
+.vc-distbar-fill.s3 { background: var(--vc-fg-3); }
+.vc-distbar-val { text-align: right; color: var(--vc-fg-2); font-feature-settings: 'tnum' 1; }
+
+/* Stat rows */
+.vc-stat-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--vc-grid);
+  font-size: var(--vc-fs-sm);
+  font-family: var(--vc-font-mono);
+}
+.vc-stat-row:last-child { border-bottom: none; }
+.vc-stat-row .k { color: var(--vc-fg-3); }
+.vc-stat-row .v { color: var(--vc-fg); font-feature-settings: 'tnum' 1; text-align: right; }
+.vc-stat-row .v.acc { color: var(--vc-accent); }
+
+/* Tables */
+.vc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--vc-font-mono);
+}
+.vc-table th {
+  font-size: var(--vc-fs-2xs);
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--vc-fg-3);
+  text-align: left;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--vc-grid);
+  background: var(--vc-bg);
+}
+.vc-table th.num { text-align: right; }
+.vc-table td {
+  font-size: var(--vc-fs-xs);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--vc-grid-2);
+  color: var(--vc-fg);
+}
+.vc-table td.num { text-align: right; font-feature-settings: 'tnum' 1; }
+.vc-table tr:last-child td { border-bottom: none; }
+.vc-table tr:hover td { background: var(--vc-accent-soft); }
+.vc-table .idx { width: 32px; color: var(--vc-fg-3); }
+.vc-table .vc-bar-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.vc-table .vc-bar-cell-pct { color: var(--vc-fg-2); font-feature-settings: 'tnum' 1; min-width: 40px; }
+.vc-table .vc-bar-cell-bar {
+  width: 80px;
+  height: 6px;
+  border: 1px solid var(--vc-grid);
+  background: var(--vc-bg);
+  position: relative;
+}
+.vc-table .vc-bar-cell-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--vc-accent);
+}
+
+.vc-tag {
+  display: inline-block;
+  border: 1px solid var(--vc-grid);
+  padding: 1px 6px;
+  font-family: var(--vc-font-mono);
+  font-size: var(--vc-fs-2xs);
+  margin-left: 6px;
+  color: var(--vc-fg-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.vc-tag.acc { color: var(--vc-accent); border-color: transparent; background: var(--vc-accent-soft); border-radius: var(--vc-radius-pill); padding: 2px 7px; letter-spacing: 0.08em; }
+
+/* Skills / Hooks lists (Workflows section): rows are inline flex space-between
+   built in JS. Let the name shrink and ellipsize so a long skill/hook name
+   can't push the card past the viewport on narrow screens; the count badge
+   keeps its size. */
+.vc #skillsList > div, .vc #hooksList > div { gap: 10px; min-width: 0; }
+.vc #skillsList > div > .anon-blur,
+.vc #hooksList > div > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc #hooksList > div > div .anon-blur { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc #skillsList .vc-tag, .vc #hooksList .vc-tag, .vc #hooksList .tool-tag { flex-shrink: 0; }
+
+/* Misc grid (Insights tab) */
+.vc-misc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.vc-misc {
+  padding: 16px 18px;
+  border-right: 1px solid var(--vc-grid);
+  border-bottom: 1px solid var(--vc-grid);
+  font-family: var(--vc-font-mono);
+}
+.vc-misc:nth-child(4n) { border-right: none; }
+.vc-misc:nth-last-child(-n+4) { border-bottom: none; }
+.vc-misc .v {
+  font-size: var(--vc-fs-xl);
+  font-weight: 500;
+  font-feature-settings: 'tnum' 1;
+  color: var(--vc-fg);
+  letter-spacing: -0.01em;
+}
+.vc-misc .v.acc { color: var(--vc-accent); }
+.vc-misc .l {
+  font-size: var(--vc-fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--vc-fg-3);
+  margin-top: 4px;
+}
+
+@media (max-width: 960px) {
+  .vc-pane-grid.cols-2,
+  .vc-pane-grid.cols-2-eq,
+  .vc-pane-grid.cols-3 { grid-template-columns: 1fr; }
+  .vc-misc-grid { grid-template-columns: repeat(2, 1fr); }
+  .vc-misc:nth-child(4n) { border-right: 1px solid var(--vc-grid); }
+  .vc-misc:nth-child(2n) { border-right: none; }
+}
+
+/* ── Primary nav ───────────────────────────────────────────────── */
+.vc-nav {
+  background: var(--vc-bg);
+  font-family: var(--vc-font-sans);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.vc-nav-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--vc-grid);
+}
+.vc-nav-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.vc-tab {
+  padding: 14px 22px;
+  font-family: var(--vc-font-sans);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--vc-fg-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--vc-radius-ctl);
+  cursor: pointer;
+  transition: all .15s;
+}
+.vc-tab:hover { background: var(--vc-accent-soft); color: var(--vc-fg); }
+.vc-tab.active { background: var(--vc-accent); color: #fff; }
+.vc-nav-right { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.vc-filter {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius-ctl);
+  padding: 0 10px;
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  height: 30px;
+  background: var(--vc-panel);
+}
+.vc-filter-prompt,
+.vc-filter .chev { color: var(--vc-accent); margin-right: 6px; font-weight: 600; }
+.vc-filter-input {
+  background: transparent;
+  border: none;
+  color: var(--vc-fg);
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  outline: none;
+  min-width: 140px;
+  width: 180px;
+}
+.vc-filter-input::placeholder { color: var(--vc-fg-3); }
+.vc-range {
+  display: flex;
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius-ctl);
+  height: 30px;
+  background: var(--vc-panel);
+  overflow: hidden;
+  transition: opacity .2s;
+}
+/* Plan & Billing is always full-period; the range filter has no effect there,
+   so it is greyed out and click-disabled while that tab is active. */
+.vc-range.is-muted {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.vc-range-btn {
+  padding: 8px 13px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--vc-grid);
+  color: var(--vc-fg-2);
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  height: 100%;
+  transition: all .15s;
+}
+.vc-range-btn:last-child { border-right: none; }
+.vc-range-btn:hover { color: var(--vc-fg); }
+.vc-range-btn.active { background: var(--vc-accent); color: #fff; }
+
+@media (max-width: 960px) {
+  .vc-nav-inner { flex-direction: column; padding: 0; align-items: stretch; }
+  .vc-nav-tabs { overflow-x: auto; padding: 0 12px; }
+  .vc-nav-right { padding: 12px; border-top: 1px solid var(--vc-grid); flex-wrap: wrap; justify-content: flex-start; }
+  /* Slimmer tabs so 5 of them usually fit one row; .vc-nav-tabs keeps overflow-x:auto fallback.
+     flex:1 lets the 5 tabs share the row width evenly instead of bunching left. */
+  .vc-tab { padding: 9px 12px; letter-spacing: 0.06em; flex: 1; }
+  .vc-f2-hint { display: none; }
+  .vc-utc { display: none; }
+  /* Let the quick-filter fill the wrapped nav-right row instead of a fixed 180px */
+  .vc-filter { flex: 1; }
+  .vc-filter-input { width: 100%; min-width: 0; }
+}
+
+/* ================================================================
+   Legacy theme below: keeps existing dashboard rendering intact
+   while the redesigned .vc components are progressively introduced.
+================================================================ */
+:root {
+  --bg: #0f1117;
+  --bg2: #1a1d27;
+  --bg3: #242836;
+  --border: #2d3348;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --accent: #6366f1;
+  --accent2: #818cf8;
+  --green: #22c55e;
+  --orange: #f59e0b;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --purple: #a855f7;
+  --cyan: #06b6d4;
+  --amber: #f59e0b;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-size:14px; }
+.header { background:var(--bg2); border-bottom:1px solid var(--border); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
+.header h1 { font-size:20px; font-weight:600; }
+.header h1 span { color:var(--accent2); }
+.header .meta { color:var(--text2); font-size:13px; }
+.time-filter { display:flex; gap:4px; }
+.time-filter button { background:var(--bg3); border:1px solid var(--border); color:var(--text2); padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
+.time-filter button:hover { color:var(--text); background:var(--bg3); border-color:var(--accent); }
+.time-filter button.active { background:var(--accent); color:white; border-color:var(--accent); }
+.container { max-width:1400px; margin:0 auto; padding:20px; }
+
+/* KPI Cards */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
+.kpi-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; }
+.kpi-card .label { color:var(--text2); font-size:12px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+.kpi-card .value { font-size:28px; font-weight:700; }
+.kpi-card .sub { color:var(--text2); font-size:12px; margin-top:4px; }
+.kpi-card.cost .value { color:var(--orange); }
+.kpi-card.sessions .value { color:var(--blue); }
+.kpi-card.messages .value { color:var(--green); }
+.kpi-card.tokens .value { color:var(--purple); }
+
+/* Tabs */
+.tabs { display:flex; gap:4px; margin-bottom:20px; background:var(--bg2); padding:4px; border-radius:10px; border:1px solid var(--border); }
+.tab-btn { flex:1; padding:10px 16px; background:transparent; border:none; color:var(--text2); font-size:14px; font-weight:500; cursor:pointer; border-radius:8px; transition:all .2s; }
+.tab-btn:hover { color:var(--text); background:var(--bg3); }
+.tab-btn.active { background:var(--accent); color:white; }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+/* Chart containers */
+.chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+.chart-grid.full { grid-template-columns:1fr; }
+/* min-width: 0 matters even for a lone canvas child: a bare <canvas> has a
+   browser-default width="300" attribute before Chart.js ever touches it,
+   and that counts as .chart-box's content-based automatic minimum size as
+   a grid item. Without this, the box (and the 1fr track under it) is
+   forced to at least ~300px + padding regardless of viewport, and by the
+   time Chart.js measures the container to size the canvas responsively it
+   is measuring a box that is already wrongly inflated to fit the canvas's
+   own pre-render default - a self-reinforcing loop. min-width: 0 breaks
+   the loop so the grid track (and the box) shrink to the real available
+   width, which is what Chart.js then correctly sizes the canvas to. */
+.chart-box { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; min-width: 0; }
+.chart-box h3 { font-size:15px; font-weight:600; margin-bottom:16px; color:var(--text); }
+.chart-box canvas { max-height:350px; max-width: 100%; }
+.chart-box.tall canvas { max-height:500px; }
+/* Chart.js (responsive:true, maintainAspectRatio:false) sizes a canvas from
+   its immediate parent's *current rendered height* (a plain
+   getBoundingClientRect, not resolved recursively), clamped by the canvas's
+   own max-height. Canvas used to be a direct child of .chart-box, whose
+   auto height also included the <h3> title above it; that gave Chart.js a
+   starting height already close to the clamp. .vc-chart-swipe-inner (the
+   swipe wrapper's inner element, see .vc-chart-swipe below) contains
+   nothing but the canvas, so its own auto height never rises above the
+   canvas's un-styled 150px default and Chart.js never grows past that.
+   Give it a definite height matching what .chart-box canvas clamps to at
+   each width (350 here, 280 in the narrow-screen media query below) so
+   Chart.js gets the right target immediately, with no leftover gap between
+   canvas and wrapper. None of the three swipe-wrapped charts use .tall. */
+.vc-chart-swipe-inner { height: 350px; }
+
+/* Tables (legacy base; the SaaS look lives in the .vc-scoped block above
+   and the dashboard always renders inside .vc, so this is just a sane
+   fallback for any non-.vc context). */
+.data-table { width:100%; border-collapse:collapse; }
+.data-table th { text-align:left; padding:10px 14px; font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.1em; font-weight:600; border-bottom:1px solid var(--border); white-space:nowrap; }
+.data-table.sortable th[data-sort] { cursor:pointer; user-select:none; }
+.data-table th.sort-asc::after { content:" \25B2"; font-size:9px; }
+.data-table th.sort-desc::after { content:" \25BC"; font-size:9px; }
+.data-table td { padding:10px 14px; border-bottom:1px solid var(--border); font-size:12.5px; }
+.data-table .num { text-align:right; font-variant-numeric:tabular-nums; }
+
+/* Session cards */
+.session-filters { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.session-filters select, .session-filters input {
+  height:38px; padding:0 12px; background:var(--vc-panel); border:1px solid var(--vc-grid); color:var(--vc-fg);
+  border-radius:var(--vc-radius-ctl); font-family:var(--vc-font-sans); font-size:12.5px;
+  transition:border-color .12s, background-color .12s;
+}
+.session-filters select { min-width:200px; cursor:pointer; }
+.session-filters select:hover, .session-filters input:hover { border-color:var(--vc-accent); }
+.session-filters input::placeholder { color:var(--vc-fg-3); }
+.session-filters input:focus, .session-filters select:focus { outline:none; border-color:var(--vc-accent); }
+.bulk-download-btn {
+  height:38px; padding:0 14px; font-family:var(--vc-font-sans); font-size:12px; font-weight:600;
+  border:1px solid var(--vc-grid); background:var(--vc-panel); color:var(--vc-fg); cursor:pointer;
+  border-radius:var(--vc-radius-ctl); transition:background-color .12s, border-color .12s, color .12s;
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.bulk-download-btn:hover:not(:disabled) { background:var(--vc-accent-soft); border-color:var(--vc-accent); color:var(--vc-accent); }
+.bulk-download-btn:disabled { opacity:0.5; cursor:not-allowed; }
+/* The primary "Download Sessions" action gets the accent treatment */
+#bulkDownloadBtn { background:var(--vc-accent); color:#fff; border-color:transparent; }
+#bulkDownloadBtn:hover:not(:disabled) { background:var(--vc-accent); color:#fff; border-color:transparent; filter:brightness(1.06); }
+.model-badge {
+  display:inline-block; padding:2px 8px; border-radius:var(--vc-radius-sm); font-family:var(--vc-font-mono);
+  font-size:11px; font-weight:600; background:var(--vc-accent-soft); color:var(--vc-accent); white-space:nowrap;
+}
+.model-badge.opus, .model-badge.sonnet, .model-badge.haiku { background:var(--vc-accent-soft); color:var(--vc-accent); }
+.source-badge {
+  display:inline-block; padding:2px 8px; border-radius:var(--vc-radius-sm); font-family:var(--vc-font-mono);
+  font-size:10px; font-weight:500; letter-spacing:0.3px; margin-left:6px; vertical-align:middle;
+}
+
+/* Plan Tab */
+.plan-highlight { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:24px; }
+.plan-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; }
+.plan-card .label { color:var(--text2); font-size:12px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+.plan-card .value { font-size:26px; font-weight:700; }
+.plan-card .sub { color:var(--text2); font-size:12px; margin-top:4px; }
+.plan-card.savings .value { color:var(--green); }
+.plan-card.roi .value { color:var(--cyan); }
+.plan-card.plan-type .value { color:var(--accent2); }
+.plan-card.api-cost .value { color:var(--orange); }
+.plan-card.paid .value { color:var(--accent); }
+
+.billing-progress { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:24px; }
+.billing-progress h3 { font-size:15px; font-weight:600; margin-bottom:16px; }
+.progress-bar-outer { position:relative; height:26px; border-radius:var(--vc-radius-pill); overflow:hidden; margin:6px 0 18px; background:color-mix(in srgb, var(--vc-fg-2) 12%, transparent); }
+.progress-bar-fill { position:absolute; inset:0; border-radius:var(--vc-radius-pill); background:linear-gradient(90deg, var(--vc-pos) 0%, var(--vc-accent) 55%, var(--vc-neg) 100%); transition:clip-path .5s; }
+.progress-bar-marker { position:absolute; top:0; bottom:0; width:2px; transform:translateX(-1px); background:color-mix(in srgb, var(--vc-fg) 75%, transparent); box-shadow:0 0 8px 1px color-mix(in srgb, var(--vc-fg) 35%, transparent); transition:left .5s; }
+.progress-bar-label { position:absolute; top:50%; transform:translate(-50%, -50%); padding:1px 7px; border-radius:var(--vc-radius-pill); background:color-mix(in srgb, var(--vc-bg) 78%, transparent); color:var(--vc-fg); font-family:var(--vc-font-mono); font-size:11px; font-weight:700; pointer-events:none; transition:left .5s; }
+.progress-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:14px 20px; color:var(--vc-fg-2); font-size:var(--vc-fs-xs); }
+.progress-stats .stat-item { display:flex; flex-direction:column; gap:3px; }
+.progress-stats .stat-item > span:first-child { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--vc-fg-3); }
+.progress-stats .stat-val { color:var(--vc-fg); font-weight:700; font-size:16px; font-variant-numeric:tabular-nums; }
+.progress-stats .stat-item.good .stat-val { color:var(--vc-pos); }
+.progress-stats .stat-item.accent .stat-val { color:var(--vc-accent); }
+
+/* Insights Tab */
+.config-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.config-item { padding:10px 14px; background:var(--bg3); border-radius:8px; }
+.config-item .ci-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+.config-item .ci-value { font-size:14px; font-weight:600; }
+.misc-stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.misc-stat { padding:16px; background:var(--bg3); border-radius:8px; text-align:center; }
+.misc-stat .ms-val { font-size:24px; font-weight:700; color:var(--accent2); }
+.misc-stat .ms-label { font-size:12px; color:var(--text2); margin-top:4px; }
+.sidebar-row { display:flex; justify-content:space-between; padding:4px 0; font-size:13px; }
+.sidebar-row .label { color:var(--text2); }
+.sidebar-row .label::after { content:':'; margin-right:0.5em; }
+.sidebar-row .val { font-weight:600; font-variant-numeric:tabular-nums; }
+.plugin-status { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+.plugin-status.active { background:rgba(34,197,94,0.2); color:var(--green); }
+.plugin-status.inactive { background:rgba(239,68,68,0.2); color:var(--red); }
+
+/* Activity Heatmap */
+.heatmap-container { margin-bottom:20px; }
+/* Columns are flex:1 1 0/min-width:0 (see .heatmap-col below), so the grid
+   always shrinks to fit its container and never needs to scroll. Keep
+   overflow visible (rather than auto) so the hover tooltip below, which is
+   position:absolute and can extend past the card's right edge, is not
+   clipped into a scrollbar. */
+.heatmap-scroll { overflow:visible; }
+.heatmap-grid { display:flex; gap:2px; width:100%; }
+.heatmap-col { display:flex; flex-direction:column; gap:2px; flex:1 1 0; min-width:0; }
+.heatmap-cell { width:100%; height:auto; aspect-ratio:1; border-radius:2px; position:relative; }
+.heatmap-cell:hover::after { content:attr(data-tip); position:absolute; bottom:18px; left:50%; transform:translateX(-50%); background:var(--bg2); border:1px solid var(--border); padding:4px 8px; border-radius:4px; font-size:11px; white-space:nowrap; z-index:10; color:var(--text); pointer-events:none; }
+/* Last few (most recent) week columns: centering the tooltip on the cell
+   would push it past the right edge of the viewport, since it is now free
+   to overflow the card (see .heatmap-scroll above). Anchor it to the
+   cell's right edge instead, so it only grows leftward. 5 columns is more
+   margin than the widest typical tooltip text (e.g. "2026-07-14: 617
+   messages") needs, even at the narrowest cell widths. */
+.heatmap-col:nth-last-child(-n+5) .heatmap-cell:hover::after { left:auto; right:0; transform:none; }
+.heatmap-labels { display:flex; flex-direction:column; gap:2px; width:24px; margin-right:4px; }
+.heatmap-labels span { flex:1 1 0; display:flex; align-items:center; font-size:10px; color:var(--text2); }
+.heatmap-legend { display:flex; align-items:center; gap:4px; margin-top:8px; justify-content:flex-end; font-size:11px; color:var(--text2); }
+.heatmap-legend .cell { width:13px; height:13px; border-radius:2px; }
+/* .heatmap-months is a sibling above the flex row that holds
+   .heatmap-labels + .heatmap-grid, so it starts at the scroll container's
+   left edge. padding-left re-creates the labels column's width plus its
+   margin-right, so the month bar lines up with the grid below it. */
+.heatmap-months { display:flex; width:100%; padding-left:28px; font-size:10px; color:var(--text2); margin-bottom:2px; }
+.heatmap-months span { text-align:center; min-width:0; }
+
+.tag { display:inline-block; padding:3px 10px; border-radius:6px; font-size:12px; font-weight:600; }
+
+@media (max-width:900px) {
+  .chart-grid { grid-template-columns:1fr; }
+  .kpi-grid { grid-template-columns:repeat(2,1fr); }
+  .config-grid { grid-template-columns:1fr; }
+  .misc-stat-grid { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:640px) {
+  .header { flex-wrap:wrap; gap:10px; padding:12px 16px; }
+  .header h1 { width:100%; font-size:17px; }
+  .header .meta { width:100%; order:10; }
+  .header label { font-size:11px; }
+  .header input[type="text"] { flex:1; min-width:0; width:auto; }
+  .time-filter { flex-wrap:wrap; }
+  .tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:2px; flex-wrap:nowrap; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tab-btn { flex:0 0 auto; padding:8px 12px; font-size:13px; white-space:nowrap; }
+  .container { padding:12px; }
+  .kpi-grid { grid-template-columns:1fr; }
+  .chart-box:has(.data-table) { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  /* No blanket min-width here anymore: every .data-table also carries
+     .responsive and collapses to stacked cards at 760px (see "Mobile:
+     dense tables" above), so none of them need a horizontal-scroll floor
+     at this narrower 640px breakpoint. A min-width clamped the collapsed
+     table wider than its .vc-table-scroll wrapper, which is what defeated
+     the card layout and left content clipped behind overflow-x:hidden. */
+  .session-filters { gap:8px; }
+  .session-filters select { min-width:0; flex:1; }
+  .session-filters input { flex:1; min-width:0; }
+  .config-grid { grid-template-columns:1fr; }
+  .misc-stat-grid { grid-template-columns:1fr; }
+  .plan-highlight { grid-template-columns:1fr; }
+  .progress-stats { gap:12px; }
+  .chart-box canvas { max-height:280px; }
+  /* Growing date-series charts (daily cost by model, cumulative, daily
+     messages): at phone widths a bar per day would end up sub-pixel wide,
+     so give the chart content a data-driven minimum width (set in JS via
+     --vc-chart-min-w on the inner wrapper) and let this box scroll
+     horizontally with the scrollbar hidden, matching the .tabs pattern
+     above. Not set outside this media query, so wide screens are unaffected. */
+  .vc-chart-swipe {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .vc-chart-swipe::-webkit-scrollbar { display: none; }
+  .vc-chart-swipe-inner {
+    min-width: var(--vc-chart-min-w, 0);
+    /* Match .chart-box canvas's max-height right above, so Chart.js's height
+       computation (see the base .vc-chart-swipe-inner rule) targets 280 here
+       instead of the desktop 350. */
+    height: 280px;
+  }
+  /* .chart-box is a CSS Grid item (parent .chart-grid), so its default
+     min-width:auto takes the swipe-inner's forced min-width as its own
+     content-based minimum and grows the whole box instead of letting
+     .vc-chart-swipe clip/scroll it. .chart-box:has(.data-table) above sidesteps
+     the same grid-blowout issue by putting overflow-x:auto on the grid item
+     itself instead; here the scroll container is one level deeper, so the
+     grid item needs an explicit min-width:0 to stop taking its size from it. */
+  .chart-box:has(.vc-chart-swipe) { min-width: 0; }
+}
+.vc .vc-idle-aggregate,
+#idleGapAggregateCard.vc-idle-aggregate {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  padding: 12px 16px; margin-bottom: 22px;
+  border: 1px solid var(--vc-grid); border-radius: var(--vc-radius-sm);
+  background: var(--vc-accent-soft);
+  font-family: var(--vc-font-mono); font-size: 12.5px; color: var(--vc-fg-2);
+  font-variant-numeric: tabular-nums;
+}
+.vc .vc-idle-aggregate .vc-k {
+  text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; color: var(--vc-fg-3);
+}
+.vc .vc-idle-aggregate .vc-v,
+.vc .vc-idle-aggregate b { color: var(--vc-fg); }
+.vc .vc-idle-aggregate .vc-idle-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vc-limits-section { margin: 20px 0; }
+.vc-limits-section h3 { margin-bottom: 12px; }
+.lim-rows { display: flex; flex-direction: column; gap: 2px; }
+.lim-row { display: grid; grid-template-columns: 180px 1fr 90px; align-items: center; gap: 14px; padding: 7px 0; }
+.lim-lbl { color: var(--vc-fg-2); font-family: var(--vc-font-mono); font-size: 12px; white-space: nowrap; }
+.lim-bar { position: relative; height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--vc-fg-2) 12%, transparent); }
+.lim-cnt { color: var(--vc-fg-3); text-align: right; font-family: var(--vc-font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lim-bar .evt { position: absolute; top: 1px; width: 6px; height: 10px; border-radius: 2px; transform: translateX(-50%); cursor: pointer; text-decoration: none; }
+/* Explicit = bold neg (real data). Heuristic = muted fg-2 (inferred,
+   visually subordinate). */
+.evt-explicit { background: var(--vc-neg); }
+.evt-heuristic-high { background: var(--vc-fg-2); }
+.evt-heuristic-med { background: var(--vc-fg-2); opacity: 0.55; }
+.lim-legend { margin-top: 12px; font-size: 11px; color: var(--vc-fg-2); }
+.lim-legend .evt { position: relative; display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: middle; transform: none; margin-right: 7px; }
+.lim-tip { margin-top: 6px; font-size: 12px; color: var(--vc-fg-3); }
+.vc-empty { color: var(--vc-fg-3); font-style: italic; }
+
+.plan-rec-table { border-collapse: collapse; width: 100%; margin-top: 8px; font-family: monospace; font-size: 13px; }
+.plan-rec-table th, .plan-rec-table td { border-bottom: 1px solid var(--border); padding: 4px 8px; text-align: right; }
+.plan-rec-table th:first-child, .plan-rec-table td.cyc-lbl { text-align: left; color: var(--text2); }
+.plan-rec-table td.over { color: var(--red); font-weight: 600; }
+.plan-rec-table td.under { color: var(--text2); }
+.plan-rec-table tr.plan-rec-totals td { border-top: 1px solid var(--border); padding-top: 6px; font-weight: 600; }
+.plan-rec-table tr.plan-rec-totals td.cyc-lbl { color: var(--text); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
+
+/* ── Mobile overflow safety for dense components ────────────────────────
+   On narrow screens these tend to overflow the viewport. Allow horizontal
+   scroll instead of clipping / pushing the layout wider than the screen. */
+@media (max-width: 600px) {
+  .vc .vc-table,
+  .plan-rec-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .lim-rows { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .lim-row { min-width: 360px; }
+  .vc-distbar-row { min-width: 280px; }
+  .vc-distbar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+.plan-rec-summary { margin-top: 16px; padding: 12px 16px; border-radius: var(--vc-radius-sm); border: 1px solid var(--vc-accent-soft); background: var(--vc-accent-soft); font-family: var(--vc-font-mono); font-size: 12px; color: var(--vc-fg-2); line-height: 1.6; }
+.plan-rec-summary > div { margin-bottom: 4px; }
+.plan-rec-summary > div:last-child { margin-bottom: 0; }
+.plan-rec-summary b { color: var(--vc-fg); }
+
+/* Currency toggle (USD / local) in the Plan tab meta: segmented control.
+   The buttons themselves carry inline styles (border / bg / color via tokens);
+   here we shape the group: collapse the gap and round + clip the container so
+   the two buttons read as one bordered segmented control. */
+#vcPlanMeta > span { gap: 0 !important; border-radius: var(--vc-radius-ctl); overflow: hidden; }
+#vcPlanMeta button { font-family: var(--vc-font-sans); font-size: 11px; letter-spacing: 0.04em; }
+#vcPlanMeta button + button { margin-left: -1px; }
+.plan-rec-cal { color: var(--vc-fg-3); font-size: 12px; }
+.plan-rec-disclaimer { margin-top: 16px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--vc-fg-2) 30%, transparent); border-radius: var(--vc-radius-sm); color: var(--vc-fg-2); font-size: 12px; background: color-mix(in srgb, var(--vc-fg-2) 6%, transparent); line-height: 1.6; }
+
+/* ── Recommendation card (promoted to top of Limits section) ──────── */
+.rec-card { position: relative; margin: 4px 0 8px; padding: 16px 18px; border-radius: var(--vc-radius-sm); font-family: var(--vc-font-mono); background: var(--vc-pos-soft); border: 1px solid color-mix(in srgb, var(--vc-pos) 30%, transparent); border-left: 3px solid var(--vc-pos); }
+.rec-card .vc-tag { position: absolute; top: 13px; right: 14px; }
+.rec-card-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--vc-fg-2); }
+.rec-card-value { font-size: 22px; font-weight: 600; color: var(--vc-pos); margin-top: 3px; }
+.rec-card-sub { font-size: 12px; color: var(--vc-fg-2); margin-top: 7px; line-height: 1.5; }
+.rec-card--none { background: color-mix(in srgb, var(--vc-fg-2) 8%, transparent); border-color: color-mix(in srgb, var(--vc-fg-2) 25%, transparent); border-left-color: var(--vc-fg-2); }
+.rec-card--none .rec-card-value { color: var(--vc-fg); font-size: 16px; }
+
+/* ── Per-cycle hit heatmap (replaces the plain hit tables) ────────── */
+/* 5h and weekly hit tables split the row into two equal halves, each table
+   centered within its half; collapses to a single centered column on narrow
+   viewports (see media query below).
+   justify-items: center here (an earlier version of this rule) sized each
+   .ph-block to its max-content width instead of the grid track: a
+   center-aligned grid item is not clamped to its track width by
+   min-width: 0 (that only lowers the automatic *minimum*, not the used
+   width), so the table could render wider than the viewport and the
+   overflow-x: auto safeguard below never saw a constrained box to scroll
+   within. justify-items: stretch makes .ph-block fill the track (a
+   definite width wins over content-based sizing regardless of
+   justify-items), and the visual centering moves to the children: the
+   title via text-align, the table via margin: auto capped at 100% so it
+   still centers when it fits and scrolls instead of overflowing when it
+   doesn't. */
+.ph-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 56px; align-items: start; justify-items: stretch; }
+.ph-block { min-width: 0; }
+.ph-tables .ph-title { margin-top: 4px; }
+.ph-title { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vc-pos); margin: 16px 0 6px; text-align: center; }
+/* font-size bumped vs the page's 12.5px sans tables because the mono face reads
+   visually smaller at the same px; 14px mono matches the surrounding text.
+   margin: 0 auto re-centers the table now that .ph-block stretches to the
+   full track width (see .ph-tables above); max-width: 100% keeps it from
+   ever rendering wider than that track, which is what lets overflow-x:
+   auto below actually engage instead of the table just pushing the page
+   wider. */
+.ph-table { border-collapse: separate; border-spacing: 0 4px; font-family: var(--vc-font-mono); font-size: 14px; margin: 0 auto; max-width: 100%; }
+.ph-table .ph-cell, .ph-table .ph-th { min-width: 56px; }
+.ph-table .ph-cyc { text-align: left; color: var(--vc-fg-2); white-space: nowrap; padding: 6px 4px 6px 4px; }
+.ph-th { text-align: right; padding: 2px 9px; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vc-fg-3); vertical-align: bottom; }
+.ph-th.rec { color: var(--vc-pos); }
+.ph-tag { display: inline-block; font-size: 9px; font-weight: 600; }
+.ph-tag.rec { color: var(--vc-pos); }
+.ph-tag.cur { color: var(--vc-fg-2); }
+.ph-gut { width: 20px; text-align: center; }
+.ph-arrow { font-weight: 700; font-size: 13px; line-height: 1; }
+.ph-arrow.down { color: var(--vc-pos); }
+.ph-arrow.up { color: var(--vc-accent); }
+.ph-cell { text-align: right; padding: 6px 9px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.ph-cell.h0 { color: color-mix(in srgb, var(--vc-fg-3) 55%, transparent); }
+.ph-cell.h1 { background: color-mix(in srgb, var(--vc-accent) 14%, transparent); color: color-mix(in srgb, var(--vc-accent) 78%, var(--vc-fg)); }
+.ph-cell.h2 { background: color-mix(in srgb, var(--vc-accent) 26%, transparent); color: color-mix(in srgb, var(--vc-accent) 92%, var(--vc-fg)); }
+.ph-cell.h3 { background: color-mix(in srgb, var(--vc-neg) 30%, transparent); color: color-mix(in srgb, var(--vc-neg) 88%, var(--vc-fg)); }
+.ph-cell.rec { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vc-pos) 30%, transparent); }
+.ph-cell.active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vc-fg-2) 24%, transparent); }
+.ph-cell.rec.active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vc-pos) 55%, transparent); }
+.ph-tot .ph-cell { background: transparent; box-shadow: none; font-weight: 600; padding-top: 9px; }
+.ph-tot .ph-cyc { text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; color: var(--vc-fg); padding-top: 9px; }
+.plan-rec-fineprint { margin-top: 16px; }
+@media (max-width: 860px) { .ph-tables { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .ph-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; } }
+.model-pricing-notice { margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--amber); border-radius: 3px; color: var(--text); font-size: 13px; background: rgba(176, 74, 47, 0.08); }
+.model-pricing-notice strong { font-weight: 600; }

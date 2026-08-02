@@ -1,0 +1,470 @@
+
+/* VC-SHARED:tokens:START */
+/* ================================================================
+   Design tokens - light and dark themes.
+   This VC-SHARED:tokens block is byte-identical in dashboard.css,
+   project_detail.css and session_detail.css; tools/check_css_tokens.py
+   enforces the parity as a pytest. ALWAYS make changes in all three
+   files at the same time.
+   The tokens deliberately live on .vc AND body.vc-page, NOT on :root:
+   - .vc stays the scope for components and custom.css overrides
+     (keep targeting overrides at the .vc level; they win because the
+     legacy remap below stores var(--vc-*) references that only get
+     resolved at the point of use).
+   - body.vc-page needs the tokens so the legacy var remap
+     (--green/--red/--amber/... -> var(--vc-*)) doesn't resolve as
+     guaranteed-invalid; without them, e.g. style="color:var(--green)"
+     renders in the normal text color.
+================================================================ */
+.vc, body.vc-page {
+  --vc-bg: #f5f6f8; --vc-panel: #ffffff;
+  --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #6b7280;
+  --vc-grid: #e7e9ee; --vc-grid-2: #e7e9ee;
+  --vc-accent: #c2562f; --vc-accent-rgb: 194,86,47; --vc-accent-soft: rgba(194,86,47,.10);
+  --vc-pos: #1f9d63; --vc-pos-soft: rgba(31,157,99,.12);
+  --vc-neg: #d24b3e; --vc-neg-soft: rgba(210,75,62,.12);
+  --vc-radius: 14px; --vc-radius-sm: 10px; --vc-radius-pill: 999px; --vc-radius-ctl: 9px;
+  --vc-shadow: 0 1px 2px rgba(20,22,28,.04), 0 8px 20px -12px rgba(20,22,28,.14);
+  --vc-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --vc-font-sans: 'Manrope', system-ui, sans-serif;
+  --vc-fs-2xs: 13px;
+  --vc-fs-xs:  14px;
+  --vc-fs-sm:  14px;
+  --vc-fs-md:  15px;
+  --vc-fs-base:16px;
+  --vc-fs-lg:  21px;
+  --vc-fs-xl:  25px;
+  --vc-fs-2xl: 30px;
+}
+.vc { font-family: var(--vc-font-sans); }
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) .vc, html:not(.theme-light) body.vc-page {
+    --vc-bg: #0e1014; --vc-panel: #181b21; --vc-grid: #262b33; --vc-grid-2: #262b33;
+    --vc-fg: #eef0f4; --vc-fg-2: #a8afbb; --vc-fg-3: #6b7380;
+    --vc-accent: #e27a51; --vc-accent-rgb: 226,122,81; --vc-accent-soft: rgba(226,122,81,.16);
+    --vc-pos: #34c77f; --vc-pos-soft: rgba(52,199,127,.16);
+    --vc-neg: #f0786b; --vc-neg-soft: rgba(240,120,107,.16);
+    --vc-shadow: 0 1px 2px rgba(0,0,0,.30), 0 10px 26px -14px rgba(0,0,0,.55);
+  }
+}
+html.theme-dark .vc, html.theme-dark body.vc-page {
+  --vc-bg: #0e1014; --vc-panel: #181b21; --vc-grid: #262b33; --vc-grid-2: #262b33;
+  --vc-fg: #eef0f4; --vc-fg-2: #a8afbb; --vc-fg-3: #6b7380;
+  --vc-accent: #e27a51; --vc-accent-rgb: 226,122,81; --vc-accent-soft: rgba(226,122,81,.16);
+  --vc-pos: #34c77f; --vc-pos-soft: rgba(52,199,127,.16);
+  --vc-neg: #f0786b; --vc-neg-soft: rgba(240,120,107,.16);
+  --vc-shadow: 0 1px 2px rgba(0,0,0,.30), 0 10px 26px -14px rgba(0,0,0,.55);
+}
+html.theme-light .vc, html.theme-light body.vc-page {
+  --vc-bg: #f5f6f8; --vc-panel: #ffffff; --vc-grid: #e7e9ee; --vc-grid-2: #e7e9ee;
+  --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #6b7280;
+  --vc-accent: #c2562f; --vc-accent-rgb: 194,86,47; --vc-accent-soft: rgba(194,86,47,.10);
+  --vc-pos: #1f9d63; --vc-pos-soft: rgba(31,157,99,.12);
+  --vc-neg: #d24b3e; --vc-neg-soft: rgba(210,75,62,.12);
+  --vc-shadow: 0 1px 2px rgba(20,22,28,.04), 0 8px 20px -12px rgba(20,22,28,.14);
+}
+.vc *, .vc *::before, .vc *::after { box-sizing: border-box; }
+body.vc-page * { box-sizing: border-box; }
+body.vc-page {
+  background: var(--vc-bg, #f5f6f8) !important;
+  color: var(--vc-fg, #14161c) !important;
+  font-family: var(--vc-font-sans, 'Manrope', system-ui, sans-serif) !important;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+body.vc-page.theme-dark, html.theme-dark body.vc-page { background: #0e1014 !important; color: #eef0f4 !important; }
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) body.vc-page { background: #0e1014 !important; color: #eef0f4 !important; }
+}
+html.theme-light body.vc-page { background: #f5f6f8 !important; color: #14161c !important; }
+
+/* Legacy var remap: dynamically rendered markup uses inline var(--bg),
+   var(--text), var(--accent), var(--green) etc.; here the old
+   names get mapped onto the design tokens so light/dark works
+   everywhere. Reference values (var(--vc-*)) instead of literals, where
+   a token exists - so custom.css overrides win at the point of use. */
+body.vc-page {
+  --bg: #f5f6f8; --bg2: #ffffff; --bg3: #eef0f3; --border: #e7e9ee;
+  --text: #14161c; --text2: #5b6473;
+  --accent: var(--vc-accent); --accent2: #cf6b45;
+  --green: var(--vc-pos); --orange: var(--vc-accent); --red: var(--vc-neg);
+  --blue: var(--vc-fg-2); --purple: var(--vc-fg-2); --cyan: var(--vc-fg-2); --amber: var(--vc-accent);
+}
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) body.vc-page {
+    --bg: #0e1014; --bg2: #181b21; --bg3: #1f242c; --border: #262b33;
+    --text: #eef0f4; --text2: #a8afbb;
+    --accent: var(--vc-accent); --accent2: #ec8b6a;
+    --green: var(--vc-pos); --orange: var(--vc-accent); --red: var(--vc-neg);
+    --blue: var(--vc-fg-2); --purple: var(--vc-fg-2); --cyan: var(--vc-fg-2); --amber: var(--vc-accent);
+  }
+}
+html.theme-dark body.vc-page {
+  --bg: #0e1014; --bg2: #181b21; --bg3: #1f242c; --border: #262b33;
+  --text: #eef0f4; --text2: #a8afbb;
+  --accent: var(--vc-accent); --accent2: #ec8b6a;
+  --green: var(--vc-pos); --orange: var(--vc-accent); --red: var(--vc-neg);
+  --blue: var(--vc-fg-2); --purple: var(--vc-fg-2); --cyan: var(--vc-fg-2); --amber: var(--vc-accent);
+}
+html.theme-light body.vc-page {
+  --bg: #f5f6f8; --bg2: #ffffff; --bg3: #eef0f3; --border: #e7e9ee;
+  --text: #14161c; --text2: #5b6473;
+  --accent: var(--vc-accent); --accent2: #cf6b45;
+  --green: var(--vc-pos); --orange: var(--vc-accent); --red: var(--vc-neg);
+  --blue: var(--vc-fg-2); --purple: var(--vc-fg-2); --cyan: var(--vc-fg-2); --amber: var(--vc-accent);
+}
+
+/* Anonymization blur */
+body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
+/* VC-SHARED:tokens:END */
+
+/* Re-skin legacy components inside .vc scope */
+.vc.header, .vc .header {
+  background: var(--vc-panel) !important;
+  border-bottom: 1px solid var(--vc-grid) !important;
+  font-family: var(--vc-font-sans);
+  padding: 14px 24px !important;
+}
+.vc .header h1 {
+  font-size: var(--vc-fs-lg) !important;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--vc-fg);
+  font-family: var(--vc-font-sans);
+}
+.vc .header-top a {
+  color: var(--vc-accent) !important;
+  font-family: var(--vc-font-sans);
+  font-size: var(--vc-fs-xs);
+  font-weight: 600;
+}
+.vc .container { background: var(--vc-bg); padding: 24px; }
+
+/* KPI cards: discrete SaaS cards */
+.vc .kpi-grid {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px !important;
+  margin-bottom: 24px !important;
+}
+.vc .kpi-card {
+  background: var(--vc-panel) !important;
+  border: 1px solid var(--vc-grid) !important;
+  border-radius: var(--vc-radius) !important;
+  box-shadow: var(--vc-shadow);
+  text-align: left !important;
+  padding: 18px 20px !important;
+  font-family: var(--vc-font-sans);
+  min-width: 0;
+}
+.vc .kpi-card .label {
+  color: var(--vc-fg-3) !important;
+  font-size: var(--vc-fs-2xs) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  margin-bottom: 8px !important;
+}
+.vc .kpi-card .value {
+  color: var(--vc-fg) !important;
+  font-size: var(--vc-fs-2xl) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em;
+  font-feature-settings: 'tnum' 1;
+}
+.vc .kpi-card .value.accent { color: var(--vc-accent) !important; }
+
+/* Collapse the 4-col KPI grid at the same breakpoints as the main
+   dashboard's .vc-kpis (960px -> 2 cols, 600px -> 1 col). Needs the .vc
+   prefix to match (and, by appearing later, win) the specificity of the
+   unconditional .vc .kpi-grid rule above; the legacy plain ".kpi-grid"
+   media rule further down in this file is lower-specificity and never
+   wins against that rule, which is why the grid never collapsed before. */
+@media (max-width: 960px) {
+  .vc .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .vc .kpi-grid { grid-template-columns: 1fr; }
+}
+
+/* Section / memory cards */
+.vc .tools-section, .vc .memory-card {
+  background: var(--vc-panel) !important;
+  border: 1px solid var(--vc-grid) !important;
+  border-radius: var(--vc-radius) !important;
+  box-shadow: var(--vc-shadow);
+  padding: 18px 20px !important;
+  margin-bottom: 16px;
+  font-family: var(--vc-font-sans);
+}
+.vc h3 {
+  font-size: var(--vc-fs-md) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em;
+  color: var(--vc-fg);
+  margin-bottom: 12px !important;
+}
+.vc h4 { color: var(--vc-fg-2) !important; font-family: var(--vc-font-sans); }
+
+/* Pills: accent-soft */
+.vc .tool-pill {
+  background: var(--vc-accent-soft) !important;
+  border: none !important;
+  border-radius: var(--vc-radius-pill) !important;
+  color: var(--vc-fg) !important;
+  padding: 4px 12px !important;
+  font-family: var(--vc-font-sans);
+  font-size: var(--vc-fs-xs);
+  font-weight: 500;
+  /* A tool/MCP name (e.g. "mcp__claude_ai_Higgsfield__generate_video") is
+     one unbreakable word; without a cap the pill grows to fit it instead
+     of wrapping, pushing past the viewport on phones. Cap the pill to the
+     row's width and ellipsize the name span below instead. */
+  max-width: 100%;
+  min-width: 0;
+}
+.vc .tool-pill span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.vc .tool-pill .count { color: var(--vc-accent) !important; font-weight: 700; flex-shrink: 0; }
+.vc .tag {
+  border-radius: var(--vc-radius-pill) !important;
+  font-family: var(--vc-font-sans);
+  font-weight: 600;
+}
+
+/* Model badge: accent-soft pill */
+.vc .model-badge {
+  background: var(--vc-accent-soft) !important;
+  border: none !important;
+  border-radius: var(--vc-radius-pill) !important;
+  color: var(--vc-accent) !important;
+  font-size: var(--vc-fs-2xs) !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 10px !important;
+  font-family: var(--vc-font-sans);
+}
+
+/* Tabs: pill nav (accent active) */
+.vc .proj-tabs {
+  border-bottom: none !important;
+  gap: 6px !important;
+  padding: 0 !important;
+}
+.vc .proj-tab {
+  font-size: var(--vc-fs-sm) !important;
+  color: var(--vc-fg-2) !important;
+  font-family: var(--vc-font-sans);
+  padding: 8px 16px !important;
+  font-weight: 600 !important;
+  border: none !important;
+  border-radius: var(--vc-radius-pill) !important;
+  margin-bottom: 0 !important;
+  transition: background-color .12s, color .12s;
+}
+.vc .proj-tab:hover { background: var(--vc-accent-soft) !important; color: var(--vc-fg) !important; }
+.vc .proj-tab.active {
+  color: #fff !important;
+  background: var(--vc-accent) !important;
+}
+
+/* Info grid: discrete rounded shadowed cards */
+.vc .info-grid { gap: 16px !important; margin-bottom: 16px !important; }
+.vc .info-card, .vc .info-grid > * {
+  background: var(--vc-panel) !important;
+  border: 1px solid var(--vc-grid) !important;
+  border-radius: var(--vc-radius) !important;
+  box-shadow: var(--vc-shadow);
+  padding: 16px 18px !important;
+  font-family: var(--vc-font-sans);
+  font-size: var(--vc-fs-sm);
+  color: var(--vc-fg);
+}
+.vc .info-row .lbl { color: var(--vc-fg-2) !important; }
+.vc .info-row .val { color: var(--vc-fg) !important; }
+.vc .memory-content { color: var(--vc-fg-2) !important; font-family: var(--vc-font-sans); font-size: var(--vc-fs-sm); }
+
+/* VC-SHARED:topbar:START */
+/* Top bar - byte-identical on all three pages
+   (tools/check_css_tokens.py). Markup everywhere:
+   div.vc.vc-top > div.vc-top-inner > (left | center or spacer | right).
+   The dashboard look is canonical; .vc-back/.vc-kv/.vc-checkbox don't
+   exist on every page, the rules are simply unused there. */
+.vc-top {
+  background: var(--vc-panel);
+  border-bottom: 1px solid var(--vc-grid);
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  color: var(--vc-fg-2);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.vc-top-inner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+}
+.vc-top-left { display: flex; align-items: center; gap: 10px; }
+.vc-brand-mark {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  background: var(--vc-accent);
+  border-radius: var(--vc-radius-pill);
+}
+.vc-brand-name { font-weight: 700; letter-spacing: 0.08em; color: var(--vc-fg); white-space: nowrap; }
+.vc-version { color: var(--vc-fg-3); font-size: var(--vc-fs-2xs); }
+.vc-back { color: var(--vc-accent); text-decoration: none; letter-spacing: 0.14em; text-transform: uppercase; font-size: var(--vc-fs-2xs); }
+.vc-back:hover { text-decoration: underline; }
+.vc-top-center { display: flex; gap: 24px; justify-self: center; }
+.vc-kv { display: inline-flex; gap: 6px; align-items: baseline; }
+.vc-k { color: var(--vc-fg-3); letter-spacing: 0.08em; font-size: 10px; text-transform: uppercase; }
+.vc-v { color: var(--vc-fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+.vc-top-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vc-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--vc-font-sans);
+  font-size: 10px;
+  color: var(--vc-fg-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+.vc-checkbox input { accent-color: var(--vc-accent); cursor: pointer; }
+.vc-icon-btn {
+  background: var(--vc-panel);
+  border: 1px solid var(--vc-grid);
+  border-radius: var(--vc-radius-pill);
+  color: var(--vc-fg-2);
+  font-family: var(--vc-font-sans);
+  font-size: 11.5px;
+  padding: 5px 11px;
+  cursor: pointer;
+  line-height: 1;
+}
+.vc-icon-btn:hover { color: var(--vc-fg); }
+.vc-f2-hint { font-family: var(--vc-font-sans); color: var(--vc-fg-3); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.vc-utc { color: var(--vc-fg-3); font-variant-numeric: tabular-nums; }
+@media (max-width: 960px) {
+  .vc-top-inner { grid-template-columns: 1fr; gap: 8px; }
+  .vc-top-center, .vc-top-right { justify-self: stretch; flex-wrap: wrap; }
+}
+/* VC-SHARED:topbar:END */
+
+/* Tab header (page-local: padding follows the .container inset,
+   typography follows the dashboard canon from dashboard.css .vc-tab-h-title) */
+.vc-tab-h {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0 8px;
+  font-family: var(--vc-font-mono);
+}
+.vc-tab-h-title {
+  font-family: var(--vc-font-sans);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--vc-fg);
+  white-space: nowrap;
+}
+.vc-tab-h-rule { display: none; }
+.vc-tab-h-meta {
+  font-family: var(--vc-font-sans);
+  font-size: var(--vc-fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vc-fg-3);
+  white-space: nowrap;
+}
+/* Same fix as dashboard.css's .vc-tab-h (#vcCostMeta etc.): the meta
+   column (here #vcProjectMeta) is content-sized in the middle 1fr track
+   and does not wrap, so on narrow screens it pushed past the viewport.
+   Drop to a single column so title and meta stack instead. */
+@media (max-width: 640px) {
+  .vc-tab-h {
+    grid-template-columns: 1fr;
+    row-gap: 6px;
+  }
+  .vc-tab-h-meta { justify-self: start; }
+}
+
+:root { --bg:#0f1117; --bg2:#1a1d27; --bg3:#242836; --border:#2d3348; --text:#e2e8f0; --text2:#94a3b8; --accent:#6366f1; --accent2:#818cf8; --green:#22c55e; --orange:#f59e0b; --red:#ef4444; --blue:#3b82f6; --purple:#a855f7; --cyan:#06b6d4; --amber:#f59e0b; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-size:14px; }
+a { color:var(--accent2); text-decoration:none; }
+a:hover { text-decoration:underline; }
+.header { background:var(--bg2); border-bottom:1px solid var(--border); padding:16px 24px; max-width:1400px; margin:0 auto; }
+.header-top { display:flex; align-items:center; gap:16px; margin-bottom:4px; }
+.header h1 { font-size:20px; font-weight:600; }
+.container { max-width:1400px; margin:0 auto; padding:20px; }
+.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+.kpi-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; text-align:center; }
+.kpi-card .label { color:var(--text2); font-size:12px; text-transform:uppercase; margin-bottom:8px; }
+.kpi-card .value { font-size:28px; font-weight:700; }
+.tools-section { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:24px; }
+.tools-section h3 { font-size:15px; font-weight:600; margin-bottom:12px; }
+.tool-pills { display:flex; flex-wrap:wrap; gap:8px; }
+.tool-pill { background:var(--bg3); padding:4px 12px; border-radius:16px; font-size:12px; display:flex; align-items:center; gap:6px; }
+.tool-pill .count { color:var(--cyan); font-weight:600; }
+.model-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+.model-badge.opus { background:rgba(168,85,247,0.2); color:var(--purple); }
+.model-badge.sonnet { background:rgba(59,130,246,0.2); color:var(--blue); }
+.model-badge.haiku { background:rgba(34,197,94,0.2); color:var(--green); }
+.proj-tabs { display:flex; gap:0; margin-bottom:24px; border-bottom:2px solid var(--border); }
+.proj-tab { padding:10px 20px; font-size:14px; font-weight:600; border:none; background:transparent; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; }
+.proj-tab.active { color:var(--accent2); border-bottom-color:var(--accent); }
+.proj-tab-content { display:none; }
+.proj-tab-content.active { display:block; }
+.memory-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:24px; }
+.memory-card h3 { font-size:15px; margin-bottom:12px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+.memory-card h3::before { content:'\25b6'; font-size:10px; transition:transform 0.2s; }
+.memory-card.expanded h3::before { transform:rotate(90deg); }
+.memory-content { display:none; font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-word; color:var(--text2); max-height:500px; overflow-y:auto; }
+.memory-card.expanded .memory-content { display:block; }
+.info-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
+.info-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:16px; }
+.info-card h4 { font-size:13px; color:var(--text2); text-transform:uppercase; margin-bottom:8px; }
+.info-row { display:flex; justify-content:space-between; padding:4px 0; font-size:13px; }
+.info-row .lbl { color:var(--text2); }
+.info-row .val { font-weight:600; }
+/* Long file paths (rendered as unbreakable <code>) can push this table
+   wider than a phone viewport; scroll the table horizontally rather than
+   let it overflow the page (there is no stacked-card collapse for this
+   table, unlike .data-table on the main dashboard, so plain auto-scroll
+   is the appropriate fallback here). */
+.file-table-scroll { width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.file-table { width:100%; border-collapse:collapse; font-size:13px; }
+.file-table th { text-align:left; padding:8px; color:var(--text2); font-size:11px; text-transform:uppercase; border-bottom:1px solid var(--border); }
+.file-table td { padding:6px 8px; border-bottom:1px solid var(--border); }
+.file-table td:not(:first-child) { text-align:center; font-variant-numeric:tabular-nums; }
+.tag { display:inline-block; padding:3px 10px; border-radius:6px; font-size:12px; font-weight:600; margin:2px; }
+.workflow-timeline { position:relative; padding-left:24px; }
+.workflow-timeline::before { content:''; position:absolute; left:8px; top:0; bottom:0; width:2px; background:var(--border); }
+.wf-entry { position:relative; margin-bottom:6px; padding:4px 0 4px 16px; font-size:12px; }
+.wf-entry::before { content:''; position:absolute; left:-20px; top:8px; width:10px; height:10px; border-radius:50%; }
+.wf-entry.read::before { background:var(--blue); }
+.wf-entry.edit::before { background:var(--cyan); }
+.wf-entry.write::before { background:var(--green); }
+.wf-entry.git_commit::before { background:var(--orange); }
+.wf-entry.git_push::before { background:var(--amber); }
+.wf-entry.git_pr::before { background:var(--purple); }
+.wf-entry.agent::before { background:var(--accent); }
+.wf-entry .path { color:var(--text2); font-family:monospace; font-size:11px; }
+.wf-entry .msg { color:var(--text); }
+.wf-entry .ts { color:var(--text2); font-size:10px; margin-left:8px; }
+.wf-filters { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+.wf-filter { padding:4px 12px; font-size:11px; border:1px solid var(--border); background:var(--bg2); color:var(--text2); cursor:pointer; border-radius:4px; }
+.wf-filter.active { background:var(--accent); color:white; border-color:var(--accent); }
+/* .kpi-grid's own breakpoint lives above (.vc .kpi-grid, 960px/600px),
+   scoped high enough in specificity to actually win; this plain selector
+   never did. */
+@media (max-width:900px) { .info-grid { grid-template-columns:1fr; } }

@@ -1,25 +1,32 @@
 {
   "language": "en",
   "display_name": "",
-  "source_label": "",
+  "source_label": "current",
+  "week_anchor": "mon",
+  "hide_session_flow": false,
   "plan_history": [
     {
       "plan": "Pro",
       "start": "2025-01-01",
       "end": "2025-01-31",
-      "cost_eur": 18.00,
+      "cost_local": 18.00,
+      "currency_symbol": "$",
       "cost_usd": 20.00,
-      "billing_day": null
+      "billing_day": 1,
+      "billing_cycle": "monthly"
     },
     {
-      "plan": "Max",
+      "plan": "Max 5x",
       "start": "2025-02-01",
       "end": null,
-      "cost_eur": 87.61,
-      "cost_usd": 93.00,
-      "billing_day": 1
+      "cost_local": 100.00,
+      "currency_symbol": "$",
+      "cost_usd": 100.00,
+      "billing_day": 1,
+      "billing_cycle": "monthly"
     }
   ],
+  "plan_capacity_override_pro_usd": null,
   "migration": {
     "enabled": false,
     "label": "",

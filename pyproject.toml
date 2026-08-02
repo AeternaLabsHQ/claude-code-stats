@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claudestats-core"
+version = "1.0.0"
+description = "Calibrated claude-stats domain logic (cost, cache, limits, attribution) as a library"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["claudestats_core"]

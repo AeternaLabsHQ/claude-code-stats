@@ -1,12 +1,18 @@
 # Generated output
 public/
 
-# Legacy output location (before public/ migration)
-dashboard.html
-dashboard_data.json
+# Legacy output location (before public/ migration) — anchored to root only
+/dashboard.html
+/dashboard_data.json
 
 # Personal config (copy config.example.json to config.json)
 config.json
+
+# Secrets (copy .env.example to .env)
+.env
+
+# Calibration outputs (user-specific sampling results)
+tools/calibration.json
 
 # Personal deployment scripts
 update_dashboard.sh
@@ -29,3 +35,9 @@ __pycache__/
 
 # Superpowers brainstorming artifacts
 .superpowers/
+
+# Local-only: symlinked playwright for headless smoke-test (tools/smoke_shot.mjs)
+node_modules/
+
+.golden/
+*.egg-info/

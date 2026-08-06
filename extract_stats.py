@@ -969,8 +969,8 @@ def extract_session_messages(session_id, project_dir_name):
 
     # Same stream-split collapse as the stats pass, so the detail transcript
     # shows one bubble per response (all its text/tools together) with the
-    # response's real cost, not one fragmented bubble per content block each
-    # stamped with the repeated full usage.
+    # response's real cost (final usage from its last line), not one
+    # fragmented bubble per content block each stamped with a partial usage.
     _tid_to_tool = {}       # tool_use id -> tool name, for tool_result errors
     _last_mode = None       # dedupe mode markers: emit only on change
     _last_perm = None       # dedupe permission-mode markers: emit only on change

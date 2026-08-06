@@ -41,12 +41,30 @@ class MergeStreamedAssistantTest(unittest.TestCase):
             ["thinking", "text", "tool_use"],
         )
 
-    def test_usage_taken_once_from_first(self):
+    def test_usage_taken_once_not_summed(self):
         entries = [_assist("msg_A", THINK, output_tokens=500),
                    _assist("msg_A", TOOL, output_tokens=500)]
         out = _merge_streamed_assistant_entries(entries)
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0]["message"]["usage"]["output_tokens"], 500)
+
+    def test_usage_taken_from_last_line(self):
+        # Streamed responses grow output_tokens across their lines; only the
+        # last line carries the response's final usage. Taking the first line
+        # undercounts output tokens 1.5-4x (measured on real transcripts).
+        entries = [_assist("msg_A", THINK, output_tokens=9),
+                   _assist("msg_A", TEXT, output_tokens=120),
+                   _assist("msg_A", TOOL, output_tokens=414)]
+        out = _merge_streamed_assistant_entries(entries)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["message"]["usage"]["output_tokens"], 414)
+
+    def test_later_line_without_usage_keeps_previous(self):
+        a = _assist("msg_A", THINK, output_tokens=250)
+        b = _assist("msg_A", TOOL)
+        b["message"].pop("usage")
+        out = _merge_streamed_assistant_entries([a, b])
+        self.assertEqual(out[0]["message"]["usage"]["output_tokens"], 250)
 
     def test_different_ids_not_merged(self):
         entries = [_assist("msg_A", TEXT), _assist("msg_B", TEXT)]

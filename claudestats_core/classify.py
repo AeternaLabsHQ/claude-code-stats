@@ -71,12 +71,17 @@ def _merge_streamed_assistant_entries(entries: list) -> list:
 
     Claude Code writes ONE JSONL line per assistant content block
     (thinking / text / each tool_use). Every line of a single response
-    shares the same message.id and repeats the identical final `usage`
-    object. Counting per line therefore multiplies tokens / cost / calls /
-    message counts by the number of content blocks. We merge consecutive
-    assistant lines with the same message.id into a single entry (content
-    blocks concatenated, usage/timestamp/uuid kept from the first line) so
-    downstream accounting sees one response = one entry, exactly once.
+    shares the same message.id and carries a `usage` object, but the
+    usages are NOT identical: output_tokens grows across the lines and
+    only the LAST line holds the response's final total (input/cache
+    fields are near-constant). Counting per line therefore multiplies
+    tokens / cost / calls / message counts by the number of content
+    blocks, while keeping only the first line's usage undercounts output
+    tokens 1.5-4x. We merge assistant lines with the same message.id into
+    a single entry (content blocks concatenated, timestamp/uuid kept from
+    the first line, usage overwritten by each later line that has one) so
+    downstream accounting sees one response = one entry with its final
+    usage, exactly once.
 
     message.id is globally unique per API response, so all rows of one
     response are merged into the single entry at its first occurrence, even
@@ -95,9 +100,13 @@ def _merge_streamed_assistant_entries(entries: list) -> list:
             continue
         mid = (e.get("message") or {}).get("id")
         if mid and mid in targets:
+            later_msg = e.get("message") or {}
             targets[mid]["message"]["content"].extend(
-                (e.get("message") or {}).get("content", []) or []
+                later_msg.get("content", []) or []
             )
+            later_usage = later_msg.get("usage")
+            if isinstance(later_usage, dict):
+                targets[mid]["message"]["usage"] = later_usage
             continue
         # first sighting of this response: shallow-copy so input stays intact
         copy = dict(e)

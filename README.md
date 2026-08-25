@@ -168,6 +168,8 @@ See [`config.example.json`](config.example.json) for all options:
 | `source_label`       | `string` | `"current"` | Label for the local `~/.claude` source in session metadata                   |
 | `week_anchor`        | `string` | `"mon"`     | Weekday (`"mon"`..`"sun"`) your weekly rate limit resets on; sets the weekly bucketing for the limits tracker and the week markers on the charts |
 | `hide_session_flow`  | `bool`   | `false`     | Hide the Session Flow visualization (for screenshots/recordings)             |
+| `palette`            | `string` | `"default"` | Chart color palette (`"default"` or `"colorblind"`); the colorblind palette is validated for red-green color vision deficiency and hatches same-family model versions in the daily chart |
+| `favicon`            | `string` | `"terracotta"` | Favicon color (`"terracotta"` or `"indigo"`)                              |
 | `plan_history`       | `array`  | `[]`        | Your subscription plan history                                               |
 | `plan_capacity_override_pro_usd` | `number` | `null` | Manual per-window USD capacity of the Pro tier for the plan recommendation; overrides the empirical calibration (Max 5x / 20x scale ×5 / ×20) |
 | `migration.enabled`  | `bool`   | `false`     | Enable data from a migration backup                                          |

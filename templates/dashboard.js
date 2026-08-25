@@ -59,16 +59,6 @@ function vcCatColor(i) { return VCShared.catColor(i); }
 // Per-model color: family hue + version step, ranked over the full model
 // list so a date filter never repaints the survivors.
 function vcModelColor(modelName) { return VCShared.modelColor(modelName, D.models); }
-// Fill for stacked model bars: in the colorblind palette, steps 2 and 4 of
-// a family are hatched (45 / 135 degrees) so same-hue versions differ in
-// texture, not only in lightness. Default palette: plain color.
-function vcModelFill(modelName) {
-  const color = vcModelColor(modelName);
-  if (!VCShared.isCvdPalette()) return color;
-  const s = VCShared.modelStep(modelName, D.models);
-  if (!s || s.step === 1 || s.step === 3) return color;
-  return VCShared.patternFill(color, s.step === 2 ? 45 : 135);
-}
 
 // Initial placeholders; setupVcChartDefaults() (called below) immediately
 // overwrites these with the resolved --vc-fg-3 / --vc-grid tokens.
@@ -1109,7 +1099,7 @@ function renderCostCharts() {
       datasets: models.map(m => ({
         label: m,
         data: dailySrc.map(d => conv(d[m] || 0, d.date)),
-        backgroundColor: vcModelFill(m),
+        backgroundColor: vcModelColor(m),
         borderColor: _vcLiveVar('--vc-panel', '#ffffff'),
         borderWidth: 1,
         borderRadius: 0,

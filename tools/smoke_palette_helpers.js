@@ -17,7 +17,6 @@ const store = {
   '--vc-model-haiku-1': '#c00001', '--vc-model-fable-1': '#d00001',
   '--vc-model-unknown': '#777777',
 };
-let cvdOn = false;
 // <html> class list with real add/remove, so vcInitThemePage's applyTheme and
 // the click handler's theme lookup see each other.
 const htmlClasses = new Set();
@@ -31,7 +30,7 @@ global.window = {};
 global.document = {
   documentElement: {
     classList: {
-      contains: (c) => (c === 'palette-cvd' ? cvdOn : htmlClasses.has(c)),
+      contains: (c) => htmlClasses.has(c),
       add: (...cs) => cs.forEach((c) => htmlClasses.add(c)),
       remove: (...cs) => cs.forEach((c) => htmlClasses.delete(c)),
     },
@@ -91,11 +90,6 @@ assert.strictEqual(S.seriesColor(5), '#111111');
 assert.strictEqual(S.hexRgba('#ff0000', 0.5), 'rgba(255,0,0,0.5)');
 assert.strictEqual(S.hexRgba('#f00', 1), 'rgba(255,0,0,1)');
 assert.strictEqual(S.hexRgba('rgb(1,2,3)', 0.5), 'rgb(1,2,3)');
-
-assert.strictEqual(S.isCvdPalette(), false);
-cvdOn = true;
-assert.strictEqual(S.isCvdPalette(), true);
-assert.strictEqual(S.patternFill('#a00002', 45), '#a00002', 'no canvas context -> plain color');
 
 // vcInitThemePage: the optional callback fires on a click-applied change only.
 // No stored vc-theme and no matchMedia in the stub, so the initial theme is

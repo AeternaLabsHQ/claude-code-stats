@@ -185,39 +185,6 @@
     return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   }
 
-  function isCvdPalette() {
-    try { return document.documentElement.classList.contains('palette-cvd'); }
-    catch (e) { return false; }
-  }
-
-  // Hatched fill for the colorblind palette: panel-colored diagonal lines
-  // over `color` so two lightness steps of one family differ in texture,
-  // not only in tone. Returns the plain color where canvas is unavailable.
-  function patternFill(color, angle) {
-    try {
-      const size = 8;
-      const c = document.createElement('canvas');
-      c.width = size; c.height = size;
-      const x = c.getContext && c.getContext('2d');
-      if (!x) return color;
-      x.fillStyle = color; x.fillRect(0, 0, size, size);
-      x.strokeStyle = token('--vc-panel', '#ffffff');
-      x.lineWidth = 2; x.lineCap = 'square';
-      x.beginPath();
-      if (angle === 135) {
-        x.moveTo(-2, size + 2); x.lineTo(size + 2, -2);
-        x.moveTo(-2, 2); x.lineTo(2, -2);
-        x.moveTo(size - 2, size + 2); x.lineTo(size + 2, size - 2);
-      } else {
-        x.moveTo(-2, -2); x.lineTo(size + 2, size + 2);
-        x.moveTo(size - 2, -2); x.lineTo(size + 2, 2);
-        x.moveTo(-2, size - 2); x.lineTo(2, size + 2);
-      }
-      x.stroke();
-      return x.createPattern(c, 'repeat') || color;
-    } catch (e) { return color; }
-  }
-
   window.VCShared = {
     localeCode: localeCode,
     escHtml: escHtml,
@@ -235,7 +202,5 @@
     modelColor: modelColor,
     seriesColor: seriesColor,
     hexRgba: hexRgba,
-    isCvdPalette: isCvdPalette,
-    patternFill: patternFill,
   };
 })();

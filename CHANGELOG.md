@@ -5,7 +5,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Added
-- A dedicated colorblind chart palette (validated for protanopia and deuteranopia, with hatched fills for same-family model versions), enabled with `"palette": "colorblind"` in `config.json`. (#19)
+- A dedicated colorblind chart palette (validated for protanopia and deuteranopia), enabled with `"palette": "colorblind"` in `config.json`. (#19)
 - The favicon now ships with the repo (SVG plus PNG fallback) and is written to `public/` on every build; `"favicon": "indigo"` in `config.json` selects the previous indigo look.
 - All chart colors are CSS tokens (`--vc-cat-*`, `--vc-model-*`, `--vc-series-*`), so `custom.css` can recolor every chart; see `custom.css.example`.
 

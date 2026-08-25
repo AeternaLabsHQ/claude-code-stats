@@ -99,9 +99,9 @@ HISTORY_JSONL = CLAUDE_DIR / "history.jsonl"
 SOURCE_LABEL = CONFIG.get("source_label", "current")
 
 # Chart palette: "default" (the standard palette, tuned for normal vision) or
-# "colorblind" (a dedicated palette validated for protan/deutan vision,
-# with hatched fills on same-family model stacks). The build stamps the
-# choice as a class on <html>; the CSS tokens in templates/*.css switch on it.
+# "colorblind" (a dedicated palette validated for protan/deutan vision).
+# The build stamps the choice as a class on <html>; the CSS tokens in
+# templates/*.css switch on it.
 PALETTE_CHOICES = ("default", "colorblind")
 PALETTE = str(CONFIG.get("palette", "default")).strip().lower()
 if PALETTE not in PALETTE_CHOICES:

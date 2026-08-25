@@ -469,14 +469,17 @@ const wc = sess.write_categories || {};
 // Colors = categorical slots 0..5 in WC_CAT_ORDER, the same tokens the
 // dashboard's write-categories doughnut uses, so a category renders
 // identically on both pages (and follows custom.css / the colorblind palette).
+// They stay var() references instead of resolved hex values: these colors only
+// ever land in inline styles, so the browser re-resolves them by itself when
+// the theme toggle swaps the class on <html>.
 const WC_L = (window.__LOCALE__ && window.__LOCALE__.costs) || {};
 const WC_DEF = [
-  ['screen_text',           WC_L.wc_screen_text           || 'Final Answers',      VCShared.catColor(0)],
-  ['screen_text_narration', WC_L.wc_screen_text_narration || 'Pre-Tool Narration', VCShared.catColor(1)],
-  ['thinking',              WC_L.wc_thinking              || 'Thinking',           VCShared.catColor(2)],
-  ['file_writes',           WC_L.wc_file_writes           || 'File Writes',        VCShared.catColor(3)],
-  ['bash_commands',         WC_L.wc_bash_commands         || 'Bash Commands',      VCShared.catColor(4)],
-  ['tool_inputs',           WC_L.wc_tool_inputs           || 'Other Tool Inputs',  VCShared.catColor(5)],
+  ['screen_text',           WC_L.wc_screen_text           || 'Final Answers',      'var(--vc-cat-1)'],
+  ['screen_text_narration', WC_L.wc_screen_text_narration || 'Pre-Tool Narration', 'var(--vc-cat-2)'],
+  ['thinking',              WC_L.wc_thinking              || 'Thinking',           'var(--vc-cat-3)'],
+  ['file_writes',           WC_L.wc_file_writes           || 'File Writes',        'var(--vc-cat-4)'],
+  ['bash_commands',         WC_L.wc_bash_commands         || 'Bash Commands',      'var(--vc-cat-5)'],
+  ['tool_inputs',           WC_L.wc_tool_inputs           || 'Other Tool Inputs',  'var(--vc-cat-6)'],
 ];
 const wcTotal = WC_DEF.reduce((s, [k]) => s + (wc[k] || 0), 0);
 if (wcTotal > 0) {
@@ -547,7 +550,10 @@ sideHtml += '<div class="sidebar-card"><h4>Metadata</h4>' +
   '</div>';
 sideEl.innerHTML = sideHtml;
 
-// Output-Token Share doughnut (per-session)
+// Output-Token Share doughnut (per-session). Chart.js stores resolved
+// colors, so the instance is kept for the theme toggle to re-tint (see the
+// vcInitThemePage callback at the bottom of this file).
+let sessionTokensChart = null;
 if (hasTokenAttribution && typeof Chart !== 'undefined') {
   const sortedTools = Object.entries(toolTokens)
     .map(([name, v]) => ({name, output_tokens: v.output_tokens||0}))
@@ -560,7 +566,7 @@ if (hasTokenAttribution && typeof Chart !== 'undefined') {
   if (reasoningOut > 0) { labels.push('Reasoning'); values.push(reasoningOut); }
   const canvas = document.getElementById('chartSessionTokens');
   if (canvas && values.length > 0) {
-    new Chart(canvas, {
+    sessionTokensChart = new Chart(canvas, {
       type: 'doughnut',
       data: {
         labels,
@@ -1896,7 +1902,21 @@ document.addEventListener('keydown', function(e) {
 });
 
 (function() {
-  VCShared.vcInitThemePage();
+  // A theme switch only swaps the class on <html>; anything that resolved a
+  // palette token into a stored color (Chart.js datasets, the arc separator
+  // default) has to be re-read here, or the charts keep the old theme's
+  // colors until the page is reloaded.
+  VCShared.vcInitThemePage(function() {
+    const panel = VCShared.token('--vc-panel', '#ffffff');
+    if (typeof Chart !== 'undefined' && Chart.defaults.elements.arc) {
+      Chart.defaults.elements.arc.borderColor = panel;
+    }
+    const ds = sessionTokensChart && sessionTokensChart.data.datasets[0];
+    if (!ds) return;
+    ds.backgroundColor = sessionTokensChart.data.labels.map((_, i) => VCShared.catColor(i));
+    ds.borderColor = panel;
+    sessionTokensChart.update('none');
+  });
 
   // Anon-blur the session title (it's typically a project-derived title with potentially unpredictable text)
   const titleEl = document.getElementById('sessionTitle');

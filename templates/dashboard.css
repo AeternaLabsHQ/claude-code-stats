@@ -261,6 +261,12 @@ html.palette-cvd .vc, html.palette-cvd body.vc-page {
 @media (prefers-color-scheme: dark) {
   /* PALETTE:cvd:dark-media */
   html.palette-cvd:not(.theme-light) .vc, html.palette-cvd:not(.theme-light) body.vc-page {
+    /* Repeats the base dark accent: html.palette-cvd .vc above also matches
+       in dark mode (same specificity as html.theme-dark .vc, declared later),
+       so without this the colorblind light accent cascades into dark. */
+    --vc-accent: #e27a51;
+    --vc-accent-rgb: 226,122,81;
+    --vc-accent-soft: rgba(226,122,81,.16);
     --vc-cat-1: #e27a51;
     --vc-cat-2: #0a96d6;
     --vc-cat-3: #767700;
@@ -299,6 +305,12 @@ html.palette-cvd .vc, html.palette-cvd body.vc-page {
 }
 /* PALETTE:cvd:dark */
 html.palette-cvd.theme-dark .vc, html.palette-cvd.theme-dark body.vc-page {
+  /* Repeats the base dark accent: html.palette-cvd .vc above also matches
+     in dark mode (same specificity as html.theme-dark .vc, declared later),
+     so without this the colorblind light accent cascades into dark. */
+  --vc-accent: #e27a51;
+  --vc-accent-rgb: 226,122,81;
+  --vc-accent-soft: rgba(226,122,81,.16);
   --vc-cat-1: #e27a51;
   --vc-cat-2: #0a96d6;
   --vc-cat-3: #767700;

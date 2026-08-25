@@ -89,7 +89,7 @@ function setupVcChartDefaults() {
   const fg3 = v('--vc-fg-3', '#918a7a');
   const grid = v('--vc-grid', '#d8d2c4');
   const grid2 = v('--vc-grid-2', '#e8e3d6');
-  const accent = v('--vc-accent', '#b04a2f');
+  const accent = v('--vc-accent', '#888888');
   const panel = v('--vc-panel', '#fbfaf6');
   // Font: read --vc-font-sans (SaaS 'Manrope'), take first family, strip quotes.
   const fontFam = (v('--vc-font-sans', "'Manrope', system-ui, sans-serif").split(',')[0] || 'Manrope').replace(/['"]/g, '').trim() || 'Manrope';
@@ -715,7 +715,6 @@ function renderToolTokenChart() {
       datasets: [{
         data: values,
         backgroundColor: labels.map((_, i) => vcCatColor(i)),
-        borderWidth: 0,
       }],
     },
     options: {

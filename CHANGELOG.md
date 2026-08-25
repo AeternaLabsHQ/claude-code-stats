@@ -14,7 +14,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - Doughnut segments and stacked bars are separated by a thin panel-colored gap.
 
 ### Fixed
-- Switching the theme now repaints bar and line fills instead of leaving them in the previous theme's colors until the next filter change.
+- Switching the theme now repaints the charts on the dashboard and the session pages instead of leaving them in the previous theme's colors until the next filter change.
 - `Opus 5` and `Sonnet 5` no longer share a color with older versions of their family. (#19)
 
 ## [1.0.0] - 2026-07-31

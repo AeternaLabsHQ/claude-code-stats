@@ -18,16 +18,32 @@ const store = {
   '--vc-model-unknown': '#777777',
 };
 let cvdOn = false;
+// <html> class list with real add/remove, so vcInitThemePage's applyTheme and
+// the click handler's theme lookup see each other.
+const htmlClasses = new Set();
+// Theme toggle stub: captures the click handler so the test can fire it.
+let clickHandler = null;
+const themeToggle = {
+  innerHTML: '',
+  addEventListener: (type, fn) => { if (type === 'click') clickHandler = fn; },
+};
 global.window = {};
 global.document = {
-  documentElement: { classList: { contains: (c) => c === 'palette-cvd' && cvdOn } },
+  documentElement: {
+    classList: {
+      contains: (c) => (c === 'palette-cvd' ? cvdOn : htmlClasses.has(c)),
+      add: (...cs) => cs.forEach((c) => htmlClasses.add(c)),
+      remove: (...cs) => cs.forEach((c) => htmlClasses.delete(c)),
+    },
+  },
   body: {},
   querySelector: () => ({}),
   createElement: () => ({ getContext: () => null }),
-  getElementById: () => null,
+  getElementById: (id) => (id === 'vcThemeToggle' ? themeToggle : null),
 };
 global.getComputedStyle = () => ({ getPropertyValue: (n) => store[n] || '' });
 global.localStorage = { getItem: () => null, setItem() {} };
+global.setInterval = () => 0;  // vcInitThemePage starts a UTC clock; don't hang the run
 
 eval(fs.readFileSync(path.join(__dirname, '..', 'templates', 'components', 'shared_helpers.js'), 'utf8'));
 const S = global.window.VCShared;
@@ -80,5 +96,18 @@ assert.strictEqual(S.isCvdPalette(), false);
 cvdOn = true;
 assert.strictEqual(S.isCvdPalette(), true);
 assert.strictEqual(S.patternFill('#a00002', 45), '#a00002', 'no canvas context -> plain color');
+
+// vcInitThemePage: the optional callback fires on a click-applied change only.
+// No stored vc-theme and no matchMedia in the stub, so the initial theme is
+// light and the first click switches to dark.
+let seenTheme = null;
+S.vcInitThemePage((t) => { seenTheme = t; });
+assert.strictEqual(seenTheme, null, 'the initial apply must not fire onChange');
+assert.ok(typeof clickHandler === 'function', 'toggle click handler registered');
+clickHandler();
+assert.strictEqual(seenTheme, 'dark', 'onChange gets the new theme name');
+clickHandler = null;
+assert.doesNotThrow(() => S.vcInitThemePage(), 'callback is optional');
+assert.doesNotThrow(() => clickHandler(), 'toggling without a callback is fine');
 
 console.log('smoke_palette_helpers: OK');

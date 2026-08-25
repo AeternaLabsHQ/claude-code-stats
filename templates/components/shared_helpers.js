@@ -77,7 +77,11 @@
 
   // Theme toggle + UTC clock for the two detail pages. The dashboard keeps
   // its own theme wiring (it additionally refreshes charts on toggle).
-  function vcInitThemePage() {
+  // onChange (optional) fires after a click-applied theme change with the
+  // new theme name. Charts that resolved palette tokens into fixed colors
+  // at render time use it to re-tint; the initial apply does not fire it,
+  // nothing has rendered yet at that point.
+  function vcInitThemePage(onChange) {
     function prefersDark() {
       try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
       catch (e) { return false; }
@@ -98,6 +102,7 @@
         const n = cur === 'dark' ? 'light' : 'dark';
         localStorage.setItem('vc-theme', n);
         applyTheme(n);
+        if (typeof onChange === 'function') onChange(n);
       });
     }
     function utc() {

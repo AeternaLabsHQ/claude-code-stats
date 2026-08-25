@@ -2,7 +2,7 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-08-25
 
 ### Added
 - A dedicated colorblind chart palette (validated for protanopia and deuteranopia, with wide lightness steps between versions of one model family), enabled with `"palette": "colorblind"` in `config.json`. (#19)

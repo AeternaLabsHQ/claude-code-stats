@@ -8,6 +8,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 - A dedicated colorblind chart palette (validated for protanopia and deuteranopia, with wide lightness steps between versions of one model family), enabled with `"palette": "colorblind"` in `config.json`. (#19)
 - The favicon now ships with the repo (SVG plus PNG fallback) and is written to `public/` on every build; `"favicon": "indigo"` in `config.json` selects the previous indigo look.
 - All chart colors are CSS tokens (`--vc-cat-*`, `--vc-model-*`, `--vc-series-*`), so `custom.css` can recolor every chart; see `custom.css.example`.
+- A legacy palette preset in `custom.css.example` that restores the pre-1.1.0 chart colors, and a palette guide with a comparison image in the README.
 
 ### Changed
 - The default chart palette is more distinguishable: eight categorical hues in a validated order, one hue per model family with four lightness steps per version, and a status pair that no longer collides with the accent. Per-model colors are now derived automatically, so new model releases need no color table entry. (#19)

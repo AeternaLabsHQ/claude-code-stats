@@ -173,3 +173,88 @@ html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#34d399; --vc-
 html.theme-light .vc, html.theme-light body.vc-page { --vc-accent:#6366f1; --vc-accent-rgb:99,102,241; --vc-accent-soft:rgba(99,102,241,.10); --accent:#6366f1; }
 html.theme-dark  .vc, html.theme-dark  body.vc-page { --vc-accent:#818cf8; --vc-accent-rgb:129,140,248; --vc-accent-soft:rgba(129,140,248,.18); --accent:#818cf8; }
 */
+
+
+/* ============================================================
+   LEGACY PALETTE (chart colors before 1.1.0)
+   Restores the earth-tone chart colors used before this release.
+   NOT validated for color vision deficiency - that gap is why the
+   defaults changed. The old per-version shades ran out after 2-4
+   versions, so older versions share the last shade. To activate,
+   uncomment both rule blocks below in `public/custom.css`.
+   ============================================================ */
+
+/*
+html.theme-light .vc, html.theme-light body.vc-page {
+  --vc-cat-1: #c4623f;
+  --vc-cat-2: #7aa589;
+  --vc-cat-3: #cda43f;
+  --vc-cat-4: #a8442a;
+  --vc-cat-5: #6f8f9e;
+  --vc-cat-6: #9b7bb0;
+  --vc-cat-7: #4f7a5f;
+  --vc-cat-8: #d98b6a;
+  --vc-cat-n1: #8a8175;
+  --vc-cat-n2: #b8966a;
+  --vc-model-opus-1: #c95a3a;
+  --vc-model-opus-2: #b04a2f;
+  --vc-model-opus-3: #8e3b25;
+  --vc-model-opus-4: #6e2d1c;
+  --vc-model-sonnet-1: #5b8a7a;
+  --vc-model-sonnet-2: #467267;
+  --vc-model-sonnet-3: #345b54;
+  --vc-model-sonnet-4: #345b54;
+  --vc-model-haiku-1: #c89a4a;
+  --vc-model-haiku-2: #a37b35;
+  --vc-model-haiku-3: #a37b35;
+  --vc-model-haiku-4: #a37b35;
+  --vc-model-fable-1: #c46786;
+  --vc-model-fable-2: #c46786;
+  --vc-model-fable-3: #c46786;
+  --vc-model-fable-4: #c46786;
+  --vc-model-unknown: #7a766b;
+  --vc-series-1: #4d4a42;
+  --vc-series-2: #918a7a;
+  --vc-series-soft: #f1d9cd;
+  --vc-pos: #1f9d63;
+  --vc-pos-soft: rgba(31,157,99,.12);
+  --vc-neg: #d24b3e;
+  --vc-neg-soft: rgba(210,75,62,.12);
+}
+html.theme-dark .vc, html.theme-dark body.vc-page {
+  --vc-cat-1: #c4623f;
+  --vc-cat-2: #7aa589;
+  --vc-cat-3: #cda43f;
+  --vc-cat-4: #a8442a;
+  --vc-cat-5: #6f8f9e;
+  --vc-cat-6: #9b7bb0;
+  --vc-cat-7: #4f7a5f;
+  --vc-cat-8: #d98b6a;
+  --vc-cat-n1: #8a8175;
+  --vc-cat-n2: #b8966a;
+  --vc-model-opus-1: #e88a66;
+  --vc-model-opus-2: #d97757;
+  --vc-model-opus-3: #bb5e3f;
+  --vc-model-opus-4: #9d4a30;
+  --vc-model-sonnet-1: #7eb09e;
+  --vc-model-sonnet-2: #629581;
+  --vc-model-sonnet-3: #487a67;
+  --vc-model-sonnet-4: #487a67;
+  --vc-model-haiku-1: #d4a55c;
+  --vc-model-haiku-2: #b48742;
+  --vc-model-haiku-3: #b48742;
+  --vc-model-haiku-4: #b48742;
+  --vc-model-fable-1: #d98fa8;
+  --vc-model-fable-2: #d98fa8;
+  --vc-model-fable-3: #d98fa8;
+  --vc-model-fable-4: #d98fa8;
+  --vc-model-unknown: #9e9a8c;
+  --vc-series-1: #b3ad9b;
+  --vc-series-2: #76705f;
+  --vc-series-soft: #2c1c14;
+  --vc-pos: #34c77f;
+  --vc-pos-soft: rgba(52,199,127,.16);
+  --vc-neg: #f0786b;
+  --vc-neg-soft: rgba(240,120,107,.16);
+}
+*/

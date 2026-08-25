@@ -177,6 +177,18 @@ See [`config.example.json`](config.example.json) for all options:
 | `migration.dir`      | `string` | `null`      | Path to migration backup directory                                           |
 | `additional_sources` | `array`  | `[]`        | Extra `~/.claude` directories to merge (multi-user)                          |
 
+### Palettes
+
+All chart colors are CSS tokens, and the dashboard ships two validated palettes:
+
+- `default` - more distinguishable than before, one hue per model family, with lightness steps per version
+- `colorblind` - validated for protanopia and deuteranopia, with wide lightness steps between versions, activated with `"palette": "colorblind"`
+- the legacy preset - the previous colors, restored by uncommenting the "LEGACY PALETTE" block in `public/custom.css.example` into `public/custom.css` (no rebuild needed)
+
+![Chart palettes: default and colorblind, light and dark, with a red-green deficiency simulation](docs/images/palettes.png)
+
+If you want your own palette, see `custom.css.example` for every token name. `"favicon": "indigo"` restores the previous favicon look.
+
 ### Plan History
 
 Each entry in `plan_history` represents a subscription period:

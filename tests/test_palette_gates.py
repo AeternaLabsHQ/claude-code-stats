@@ -53,5 +53,44 @@ class RealCssGatesTest(unittest.TestCase):
                 self.assertEqual(missing, set(), f"{pal}/{var}")
 
 
+class KeySymmetryTest(unittest.TestCase):
+    """cvd:light has no theme class, so it also applies in dark mode."""
+
+    def _blocks(self):
+        chart = {"--vc-cat-1": "#b04a2f", "--vc-cat-2": "#0a96d6"}
+        return {(pal, mode): dict(chart)
+                for pal in ("default", "cvd") for mode in ("light", "dark")}
+
+    def test_symmetric_blocks_pass(self):
+        self.assertEqual(pc.check_key_symmetry(self._blocks()), [])
+
+    def test_light_only_accent_is_reported(self):
+        blocks = self._blocks()
+        blocks[("cvd", "light")]["--vc-accent"] = "#b04a2f"
+        problems = pc.check_key_symmetry(blocks)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("cvd", problems[0])
+        self.assertIn("--vc-accent", problems[0])
+
+    def test_missing_block_is_left_to_the_variant_pairing(self):
+        blocks = self._blocks()
+        del blocks[("cvd", "dark")]
+        self.assertEqual(pc.check_key_symmetry(blocks), [])
+
+
+class AccentInvariantTest(unittest.TestCase):
+    def test_accent_equal_to_cat_1_passes(self):
+        palettes = {("cvd", "dark"): {"--vc-accent": "#E27A51", "--vc-cat-1": "#e27a51"},
+                    "_blocks": {}}
+        self.assertEqual(pc.check_accent_invariant(palettes), [])
+
+    def test_accent_differing_from_cat_1_is_reported(self):
+        palettes = {("cvd", "dark"): {"--vc-accent": "#b04a2f", "--vc-cat-1": "#e27a51"},
+                    "_blocks": {}}
+        problems = pc.check_accent_invariant(palettes)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("accent must equal cat-1", problems[0])
+
+
 if __name__ == "__main__":
     unittest.main()

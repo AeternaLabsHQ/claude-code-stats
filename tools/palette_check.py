@@ -139,6 +139,55 @@ def load_palettes(css_text):
 
 
 # -- gates -----------------------------------------------------------------------
+def check_key_symmetry(blocks):
+    """Light and dark blocks of an override palette must carry the same keys.
+
+    For cvd this is a cascade guard, not just tidiness: the light selector
+    (html.palette-cvd .vc) carries no theme class, so it also matches in dark
+    mode, where it has the same specificity as html.theme-dark .vc and is
+    declared later in the file. A key present only in cvd:light therefore
+    wins in dark mode too - exactly how the colorblind light accent used to
+    leak into the dark theme. For default it is a completeness check: its
+    .vc selector is the weakest of the three and cannot leak, but both modes
+    must still define the full chart token set.
+
+    base is exempt: its .vc block legitimately carries theme-invariant
+    structural tokens (radius, font, font sizes) that the theme variants
+    never redeclare.
+    """
+    problems = []
+    for pal in ("default", "cvd"):
+        ka, kb = (pal, "light"), (pal, "dark")
+        if ka not in blocks or kb not in blocks:
+            continue  # a missing block is reported by the variant pairing in run_gates
+        light_only = sorted(set(blocks[ka]) - set(blocks[kb]))
+        dark_only = sorted(set(blocks[kb]) - set(blocks[ka]))
+        if light_only or dark_only:
+            problems.append(
+                f"{pal}: light/dark key sets differ, a light-only key also applies "
+                f"in dark mode (light-only: {', '.join(light_only) or 'none'}; "
+                f"dark-only: {', '.join(dark_only) or 'none'})")
+    return problems
+
+
+def check_accent_invariant(palettes):
+    """--vc-accent and --vc-cat-1 are the same color in every palette/mode.
+
+    Slot 1 of the categorical palette is the brand accent; charts and UI
+    chrome are supposed to agree on it. A mismatch means one of the two was
+    restepped without the other.
+    """
+    problems = []
+    for key, t in palettes.items():
+        if key == "_blocks":
+            continue
+        pal, mode = key
+        accent, cat1 = t["--vc-accent"], t["--vc-cat-1"]
+        if accent.lower() != cat1.lower():
+            problems.append(f"{pal}/{mode}: accent must equal cat-1 ({accent} vs {cat1})")
+    return problems
+
+
 def run_gates(palettes):
     problems = []
     blocks = palettes["_blocks"]
@@ -160,6 +209,8 @@ def run_gates(palettes):
                     va = blocks[ka].get(k, "(missing)")
                     vb = blocks[kb].get(k, "(missing)")
                     problems.append(f"{pal}/{a} vs {b}: {k} differs ({va} vs {vb})")
+    problems += check_key_symmetry(blocks)
+    problems += check_accent_invariant(palettes)
 
     for key, t in palettes.items():
         if key == "_blocks":

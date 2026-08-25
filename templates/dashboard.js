@@ -1057,6 +1057,21 @@ function vcSetChartSwipeWidth(innerId, pointCount) {
 function vcScrollChartsToEnd(root) {
   (root || document).querySelectorAll('.vc-chart-swipe').forEach(el => { el.scrollLeft = el.scrollWidth; });
 }
+// Run fn (a full chart rebuild, e.g. applyFilter) without losing the user's
+// horizontal scroll position on the swipe containers: renderCostCharts()/
+// renderActivity() end by calling vcScrollChartsToEnd, which unconditionally
+// snaps every .vc-chart-swipe back to its rightmost edge. That is desired
+// right after a filter change (new data, scroll to the latest point) but not
+// when the rebuild is only re-tinting existing data (the theme toggle). The
+// .vc-chart-swipe wrappers are static DOM (see dashboard.html), so only the
+// canvases inside them get destroyed/recreated by fn, and snapshotting by
+// element reference across the call is safe.
+function vcWithScrollPreserved(fn) {
+  const els = Array.from(document.querySelectorAll('.vc-chart-swipe'));
+  const saved = els.map(el => el.scrollLeft);
+  fn();
+  els.forEach((el, i) => { el.scrollLeft = saved[i]; });
+}
 
 // The two metric-switchable charts (daily by model + cumulative).
 // Separate from renderCosts() so the toggle can rebuild just these two.
@@ -2557,7 +2572,7 @@ function renderAgentsTab() {
   if (errorByCatChartInstance) errorByCatChartInstance.destroy();
   if (ebc.length > 0) {
     // Error categories: lead with the negative/error color, then cycle the
-    // earth-tone categorical palette for the remaining slices.
+    // categorical palette (token/theme-driven) for the remaining slices.
     const errColors = ebc.map((_, i) => i === 0 ? _vcLiveVar('--vc-neg', '#888888') : vcCatColor(i - 1));
     errorByCatChartInstance = new Chart(document.getElementById('errorByCategoryChart'), {
       type: 'doughnut',
@@ -2905,7 +2920,11 @@ document.addEventListener('keydown', function(e) {
     applyVcTheme(next);
     // Rebuild every chart so fills read the new theme's palette tokens
     // (applyVcTheme only re-syncs scales, legends and doughnut borders).
-    if (typeof applyFilter === 'function') applyFilter(currentDays, currentProjectFilter);
+    // Wrapped so the rebuild's vcScrollChartsToEnd calls don't discard the
+    // user's scroll position on the swipe charts (see vcWithScrollPreserved).
+    if (typeof applyFilter === 'function') {
+      vcWithScrollPreserved(() => applyFilter(currentDays, currentProjectFilter));
+    }
   });
 
   // Generated-at timestamp (replaces the old live UTC clock)

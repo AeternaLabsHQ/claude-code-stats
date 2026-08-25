@@ -98,7 +98,7 @@ HISTORY_JSONL = CLAUDE_DIR / "history.jsonl"
 
 SOURCE_LABEL = CONFIG.get("source_label", "current")
 
-# Chart palette: "default" (earth-tone, tuned for normal vision) or
+# Chart palette: "default" (the standard palette, tuned for normal vision) or
 # "colorblind" (a dedicated palette validated for protan/deutan vision,
 # with hatched fills on same-family model stacks). The build stamps the
 # choice as a class on <html>; the CSS tokens in templates/*.css switch on it.
@@ -1270,9 +1270,12 @@ def build_inline_html(data_json):
     """
     html = _get_html_template()
     html = _inject_locale(html, LOCALE)
+    # Resolve __HTML_CLASSES__ before injecting the data: session text can
+    # contain the literal placeholder, and replacing afterwards would rewrite
+    # it. (__VERSION__ carries the same latent quirk on a far rarer string.)
+    html = html.replace('__HTML_CLASSES__', _html_classes())
     html = html.replace('"__DATA_PLACEHOLDER__"', data_json)
     html = html.replace('__VERSION__', VERSION)
-    html = html.replace('__HTML_CLASSES__', _html_classes())
     return html
 
 

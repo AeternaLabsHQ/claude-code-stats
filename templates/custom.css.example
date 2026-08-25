@@ -59,9 +59,9 @@ html.theme-light body.vc-page {
   --text2:   #5b6473;
   --accent:  #c2562f;
   --accent2: #cf6b45;
-  --green:   #1f9d63;
+  --green:   #0c5805;
   --orange:  #c2562f;
-  --red:     #d24b3e;
+  --red:     #83054a;
   --blue:    #5b6473;
   --purple:  #5b6473;
   --cyan:    #5b6473;
@@ -94,13 +94,36 @@ html.theme-dark body.vc-page {
   --text2:   #a8afbb;
   --accent:  #e27a51;
   --accent2: #ec8b6a;
-  --green:   #34c77f;
+  --green:   #7cbe80;
   --orange:  #e27a51;
-  --red:     #f0786b;
+  --red:     #fa72c8;
   --blue:    #a8afbb;
   --purple:  #a8afbb;
   --cyan:    #a8afbb;
   --amber:   #e27a51;
+}
+*/
+
+
+/* ---------- CHART PALETTE TOKENS (defaults, for reference) ----------
+   All chart colors are tokens too, read live by the charts, so you can
+   ship your own palette here (no rebuild needed). Values below are the
+   light-theme defaults; set the html.theme-dark .vc variants alongside.
+   With config.json "palette": "colorblind" the page carries
+   html.palette-cvd, so target html.palette-cvd.theme-light .vc etc.
+   Categorical slots (fixed order, used by doughnuts and multi-series bars): */
+/*
+html.theme-light .vc {
+  --vc-cat-1: #c2562f; --vc-cat-2: #556dc6; --vc-cat-3: #5c8311; --vc-cat-4: #8a2b60;
+  --vc-cat-5: #039256; --vc-cat-6: #9258ad; --vc-cat-7: #c68206; --vc-cat-8: #1479c1;
+  --vc-cat-n1: #62573e; --vc-cat-n2: #89939e;
+  --vc-model-opus-1: #c2562f; --vc-model-opus-2: #d26f4d; --vc-model-opus-3: #e18869; --vc-model-opus-4: #f1a085;
+  --vc-model-sonnet-1: #0a8d83; --vc-model-sonnet-2: #3f9e94; --vc-model-sonnet-3: #5fafa6; --vc-model-sonnet-4: #7dc1b8;
+  --vc-model-haiku-1: #635e01; --vc-model-haiku-2: #7c7934; --vc-model-haiku-3: #969458; --vc-model-haiku-4: #b2b07c;
+  --vc-model-fable-1: #9a4c95; --vc-model-fable-2: #ad66a8; --vc-model-fable-3: #c07fba; --vc-model-fable-4: #d399cd;
+  --vc-model-unknown: #4e5966;
+  --vc-series-1: #4d4a42; --vc-series-2: #788b98; --vc-series-soft: #f1d9cd;
+  --vc-pos: #0c5805; --vc-pos-soft: rgba(12,88,5,.10); --vc-neg: #83054a; --vc-neg-soft: rgba(131,5,74,.10);
 }
 */
 

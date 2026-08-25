@@ -4,6 +4,8 @@
   "source_label": "current",
   "week_anchor": "mon",
   "hide_session_flow": false,
+  "palette": "default",
+  "favicon": "terracotta",
   "plan_history": [
     {
       "plan": "Pro",

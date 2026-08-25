@@ -34,7 +34,8 @@ Highlights:
 - **Limits & plan recommendation (beta)** - Detects rate-limit and server-overload events from transcripts, 5-hour rolling-window tracker, empirically calibrated plan-tier suggestion
 - **Per-tool token attribution** - Output tokens and cost broken out by tool per session, plus a separate reasoning bucket; live-recomputed donut on the dashboard
 - **Privacy** - F2 anonymization mode for screenshots, `--no-memories` flag to exclude project memory content
-- **Theming** - Light / dark / system theme, optional `custom.css` recolors the UI and charts live without touching source
+- **Accessibility** - A colorblind chart palette (`"palette": "colorblind"`), validated for red-green color vision deficiency; every chart color is a CSS token, see [Palettes](#palettes)
+- **Theming** - Light / dark / system theme, optional `custom.css` recolors the UI and charts live without touching source; a legacy preset restores the pre-1.1.0 chart colors
 - **Multi-user / migration** - Merge multiple `~/.claude` directories or import data from old machines; automatic session deduplication
 
 <details>
@@ -168,12 +169,26 @@ See [`config.example.json`](config.example.json) for all options:
 | `source_label`       | `string` | `"current"` | Label for the local `~/.claude` source in session metadata                   |
 | `week_anchor`        | `string` | `"mon"`     | Weekday (`"mon"`..`"sun"`) your weekly rate limit resets on; sets the weekly bucketing for the limits tracker and the week markers on the charts |
 | `hide_session_flow`  | `bool`   | `false`     | Hide the Session Flow visualization (for screenshots/recordings)             |
+| `palette`            | `string` | `"default"` | Chart color palette (`"default"` or `"colorblind"`); the colorblind palette is validated for red-green color vision deficiency, see [Palettes](#palettes) |
+| `favicon`            | `string` | `"terracotta"` | Favicon color (`"terracotta"` or `"indigo"`)                              |
 | `plan_history`       | `array`  | `[]`        | Your subscription plan history                                               |
 | `plan_capacity_override_pro_usd` | `number` | `null` | Manual per-window USD capacity of the Pro tier for the plan recommendation; overrides the empirical calibration (Max 5x / 20x scale ×5 / ×20) |
 | `migration.enabled`  | `bool`   | `false`     | Enable data from a migration backup                                          |
 | `migration.label`    | `string` | `""`        | Label for migrated sessions (e.g. `"archive:laptop"`)                        |
 | `migration.dir`      | `string` | `null`      | Path to migration backup directory                                           |
 | `additional_sources` | `array`  | `[]`        | Extra `~/.claude` directories to merge (multi-user)                          |
+
+### Palettes
+
+All chart colors are CSS tokens, and the dashboard ships two validated palettes:
+
+- `default` - more distinguishable than before, one hue per model family, with lightness steps per version
+- `colorblind` - validated for protanopia and deuteranopia, with wide lightness steps between versions, activated with `"palette": "colorblind"`
+- the legacy preset - the previous colors, restored by uncommenting the "LEGACY PALETTE" block in `public/custom.css.example` into `public/custom.css` (no rebuild needed)
+
+![Chart palettes: default and colorblind, light and dark, with a red-green deficiency simulation](docs/images/palettes.png)
+
+If you want your own palette, see `custom.css.example` for every token name. `"favicon": "indigo"` restores the previous favicon look.
 
 ### Plan History
 

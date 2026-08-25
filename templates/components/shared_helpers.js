@@ -77,7 +77,11 @@
 
   // Theme toggle + UTC clock for the two detail pages. The dashboard keeps
   // its own theme wiring (it additionally refreshes charts on toggle).
-  function vcInitThemePage() {
+  // onChange (optional) fires after a click-applied theme change with the
+  // new theme name. Charts that resolved palette tokens into fixed colors
+  // at render time use it to re-tint; the initial apply does not fire it,
+  // nothing has rendered yet at that point.
+  function vcInitThemePage(onChange) {
     function prefersDark() {
       try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
       catch (e) { return false; }
@@ -98,6 +102,7 @@
         const n = cur === 'dark' ? 'light' : 'dark';
         localStorage.setItem('vc-theme', n);
         applyTheme(n);
+        if (typeof onChange === 'function') onChange(n);
       });
     }
     function utc() {
@@ -107,6 +112,77 @@
     }
     utc();
     setInterval(utc, 1000);
+  }
+
+  // ── Chart palette layer ───────────────────────────────────────────
+  // Every chart color is a CSS custom property on .vc / body.vc-page
+  // (templates/*.css, VC-SHARED:tokens block). JS reads them live so the
+  // light/dark theme, the colorblind palette (html.palette-cvd, set by the
+  // build from config.json "palette") and custom.css overrides all apply
+  // without duplicating hex values here. The only fallback is a neutral.
+  const NEUTRAL = '#888888';
+
+  function token(name, fallback) {
+    if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') return fallback;
+    try {
+      const probe = document.querySelector('.vc') || document.body || document.documentElement;
+      const val = getComputedStyle(probe).getPropertyValue(name).trim();
+      return val || fallback;
+    } catch (e) { return fallback; }
+  }
+
+  // Categorical slots in fixed order; ranks past 8 fall into the two
+  // neutral tail slots and stay there (never cycle back to slot 1).
+  function catColor(i) {
+    i = Math.max(0, Number(i) || 0);
+    if (i < 8) return token('--vc-cat-' + (i + 1), NEUTRAL);
+    return token(i === 8 ? '--vc-cat-n1' : '--vc-cat-n2', NEUTRAL);
+  }
+
+  const FAMILY_RE = /\b(fable|opus|sonnet|haiku)\b\s*(\d+(?:\.\d+)?)?/i;
+  function parseModel(name) {
+    const m = FAMILY_RE.exec(String(name == null ? '' : name));
+    if (!m) return null;
+    return { family: m[1].toLowerCase(), version: m[2] != null ? parseFloat(m[2]) : null };
+  }
+
+  // Family = hue, version rank = lightness step: the newest version of a
+  // family is step 1, older ones recede; everything older than the four
+  // most recent shares step 4. Rank is computed over the full model list
+  // (D.models), not the filtered subset, so colors do not shift with filters.
+  function modelStep(name, allModels) {
+    const p = parseModel(name);
+    if (!p) return null;
+    if (p.version == null) return { family: p.family, step: 1 };
+    const versions = [];
+    (allModels || []).forEach(function(n) {
+      const q = parseModel(n);
+      if (q && q.family === p.family && q.version != null && versions.indexOf(q.version) < 0) versions.push(q.version);
+    });
+    if (versions.indexOf(p.version) < 0) versions.push(p.version);
+    versions.sort(function(a, b) { return b - a; });
+    return { family: p.family, step: Math.min(versions.indexOf(p.version) + 1, 4) };
+  }
+
+  function modelColor(name, allModels) {
+    const s = modelStep(name, allModels);
+    if (!s) return token('--vc-model-unknown', NEUTRAL);
+    return token('--vc-model-' + s.family + '-' + s.step, NEUTRAL);
+  }
+
+  // Neutral series palette: rank 0 is the accent, 1-2 neutrals, 3 a soft fill.
+  const SERIES_TOKENS = ['--vc-accent', '--vc-series-1', '--vc-series-2', '--vc-series-soft'];
+  function seriesColor(rank) {
+    return token(SERIES_TOKENS[((Number(rank) || 0) % 4 + 4) % 4], NEUTRAL);
+  }
+
+  function hexRgba(color, alpha) {
+    if (typeof color !== 'string' || color[0] !== '#') return color;
+    let hex = color.slice(1);
+    if (hex.length === 3) hex = hex.split('').map(function(c) { return c + c; }).join('');
+    if (hex.length !== 6) return color;
+    const r = parseInt(hex.substr(0, 2), 16), g = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   }
 
   window.VCShared = {
@@ -119,5 +195,12 @@
     effStyle: effStyle,
     vcAnonNote: vcAnonNote,
     vcInitThemePage: vcInitThemePage,
+    token: token,
+    catColor: catColor,
+    parseModel: parseModel,
+    modelStep: modelStep,
+    modelColor: modelColor,
+    seriesColor: seriesColor,
+    hexRgba: hexRgba,
   };
 })();

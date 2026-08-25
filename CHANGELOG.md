@@ -2,6 +2,22 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-25
+
+### Added
+- A dedicated colorblind chart palette (validated for protanopia and deuteranopia, with wide lightness steps between versions of one model family), enabled with `"palette": "colorblind"` in `config.json`. (#19)
+- The favicon now ships with the repo (SVG plus PNG fallback) and is written to `public/` on every build; `"favicon": "indigo"` in `config.json` selects the previous indigo look.
+- All chart colors are CSS tokens (`--vc-cat-*`, `--vc-model-*`, `--vc-series-*`), so `custom.css` can recolor every chart; see `custom.css.example`.
+- A legacy palette preset in `custom.css.example` that restores the pre-1.1.0 chart colors, and a palette guide with a comparison image in the README.
+
+### Changed
+- The default chart palette is more distinguishable: eight categorical hues in a validated order, one hue per model family with four lightness steps per version, and a status pair that no longer collides with the accent. Per-model colors are now derived automatically, so new model releases need no color table entry. (#19)
+- Doughnut segments and stacked bars are separated by a thin panel-colored gap.
+
+### Fixed
+- Switching the theme now repaints the charts on the dashboard and the session pages instead of leaving them in the previous theme's colors until the next filter change.
+- `Opus 5` and `Sonnet 5` no longer share a color with older versions of their family. (#19)
+
 ## [1.0.0] - 2026-07-31
 
 First stable release. Consolidates the dashboard into five focused tabs with a light and dark theme, adds a currency and token metric toggle, cache anomaly detection, and a calibrated plan recommendation, and re-bases every time series on the day the work actually happened. It also corrects several cost and rate calculations that were wrong in 0.8.x.

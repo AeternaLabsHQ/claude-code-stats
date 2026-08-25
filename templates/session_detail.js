@@ -25,6 +25,23 @@ const modelClass = VCShared.modelClass;
 const cacheEff = VCShared.calcCacheEff;
 const effStyle = VCShared.effStyle;
 
+// Apply the persisted/system theme class BEFORE any palette token is read,
+// so getComputedStyle sees the right light/dark values at render time.
+try {
+  const _saved = localStorage.getItem('vc-theme');
+  const _prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const _initTheme = (_saved === 'light' || _saved === 'dark') ? _saved : (_prefersDark ? 'dark' : 'light');
+  document.documentElement.classList.remove('theme-light', 'theme-dark');
+  document.documentElement.classList.add('theme-' + _initTheme);
+} catch (e) {}
+
+// Doughnut/pie segment separators: match the panel so segments blend in
+// (Chart.js defaults to a white arc border, which leaks on dark themes).
+if (typeof Chart !== 'undefined' && Chart.defaults.elements.arc) {
+  Chart.defaults.elements.arc.borderColor = VCShared.token('--vc-panel', '#ffffff');
+  Chart.defaults.elements.arc.borderWidth = 2;
+}
+
 function renderIdleGapPanel(sess) {
   const igs = sess.idle_gap_summary;
   if (!igs) return '';
@@ -449,16 +466,20 @@ if (hasTokenAttribution) {
 // Output by activity (stacked bar): char-heuristic attribution of output_tokens
 // across visible text / narration / thinking / file writes / bash / other tools.
 const wc = sess.write_categories || {};
-// Colors = _VC_CAT[0..5] from dashboard.js in WC_CAT_ORDER (keep in sync),
-// so the same category renders identically on dashboard and session page.
+// Colors = categorical slots 0..5 in WC_CAT_ORDER, the same tokens the
+// dashboard's write-categories doughnut uses, so a category renders
+// identically on both pages (and follows custom.css / the colorblind palette).
+// They stay var() references instead of resolved hex values: these colors only
+// ever land in inline styles, so the browser re-resolves them by itself when
+// the theme toggle swaps the class on <html>.
 const WC_L = (window.__LOCALE__ && window.__LOCALE__.costs) || {};
 const WC_DEF = [
-  ['screen_text',           WC_L.wc_screen_text           || 'Final Answers',      '#c4623f'],
-  ['screen_text_narration', WC_L.wc_screen_text_narration || 'Pre-Tool Narration', '#7aa589'],
-  ['thinking',              WC_L.wc_thinking              || 'Thinking',           '#cda43f'],
-  ['file_writes',           WC_L.wc_file_writes           || 'File Writes',        '#a8442a'],
-  ['bash_commands',         WC_L.wc_bash_commands         || 'Bash Commands',      '#6f8f9e'],
-  ['tool_inputs',           WC_L.wc_tool_inputs           || 'Other Tool Inputs',  '#9b7bb0'],
+  ['screen_text',           WC_L.wc_screen_text           || 'Final Answers',      'var(--vc-cat-1)'],
+  ['screen_text_narration', WC_L.wc_screen_text_narration || 'Pre-Tool Narration', 'var(--vc-cat-2)'],
+  ['thinking',              WC_L.wc_thinking              || 'Thinking',           'var(--vc-cat-3)'],
+  ['file_writes',           WC_L.wc_file_writes           || 'File Writes',        'var(--vc-cat-4)'],
+  ['bash_commands',         WC_L.wc_bash_commands         || 'Bash Commands',      'var(--vc-cat-5)'],
+  ['tool_inputs',           WC_L.wc_tool_inputs           || 'Other Tool Inputs',  'var(--vc-cat-6)'],
 ];
 const wcTotal = WC_DEF.reduce((s, [k]) => s + (wc[k] || 0), 0);
 if (wcTotal > 0) {
@@ -529,7 +550,10 @@ sideHtml += '<div class="sidebar-card"><h4>Metadata</h4>' +
   '</div>';
 sideEl.innerHTML = sideHtml;
 
-// Output-Token Share doughnut (per-session)
+// Output-Token Share doughnut (per-session). Chart.js stores resolved
+// colors, so the instance is kept for the theme toggle to re-tint (see the
+// vcInitThemePage callback at the bottom of this file).
+let sessionTokensChart = null;
 if (hasTokenAttribution && typeof Chart !== 'undefined') {
   const sortedTools = Object.entries(toolTokens)
     .map(([name, v]) => ({name, output_tokens: v.output_tokens||0}))
@@ -540,17 +564,15 @@ if (hasTokenAttribution && typeof Chart !== 'undefined') {
   const values = sortedTools.map(t => t.output_tokens);
   const reasoningOut = sess.reasoning_output_tokens || 0;
   if (reasoningOut > 0) { labels.push('Reasoning'); values.push(reasoningOut); }
-  const palette = ['#10b981','#06b6d4','#6366f1','#f59e0b','#ef4444','#a855f7','#ec4899','#84cc16','#14b8a6','#f97316','#3b82f6','#eab308','#94a3b8'];
   const canvas = document.getElementById('chartSessionTokens');
   if (canvas && values.length > 0) {
-    new Chart(canvas, {
+    sessionTokensChart = new Chart(canvas, {
       type: 'doughnut',
       data: {
         labels,
         datasets: [{
           data: values,
-          backgroundColor: labels.map((_, i) => palette[i % palette.length]),
-          borderWidth: 0,
+          backgroundColor: labels.map((_, i) => VCShared.catColor(i)),
         }],
       },
       options: {
@@ -1880,7 +1902,21 @@ document.addEventListener('keydown', function(e) {
 });
 
 (function() {
-  VCShared.vcInitThemePage();
+  // A theme switch only swaps the class on <html>; anything that resolved a
+  // palette token into a stored color (Chart.js datasets, the arc separator
+  // default) has to be re-read here, or the charts keep the old theme's
+  // colors until the page is reloaded.
+  VCShared.vcInitThemePage(function() {
+    const panel = VCShared.token('--vc-panel', '#ffffff');
+    if (typeof Chart !== 'undefined' && Chart.defaults.elements.arc) {
+      Chart.defaults.elements.arc.borderColor = panel;
+    }
+    const ds = sessionTokensChart && sessionTokensChart.data.datasets[0];
+    if (!ds) return;
+    ds.backgroundColor = sessionTokensChart.data.labels.map((_, i) => VCShared.catColor(i));
+    ds.borderColor = panel;
+    sessionTokensChart.update('none');
+  });
 
   // Anon-blur the session title (it's typically a project-derived title with potentially unpredictable text)
   const titleEl = document.getElementById('sessionTitle');

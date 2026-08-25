@@ -16,13 +16,14 @@
      guaranteed-invalid; without them, e.g. style="color:var(--green)"
      renders in the normal text color.
 ================================================================ */
+/* PALETTE:base:light */
 .vc, body.vc-page {
   --vc-bg: #f5f6f8; --vc-panel: #ffffff;
   --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #6b7280;
   --vc-grid: #e7e9ee; --vc-grid-2: #e7e9ee;
   --vc-accent: #c2562f; --vc-accent-rgb: 194,86,47; --vc-accent-soft: rgba(194,86,47,.10);
-  --vc-pos: #1f9d63; --vc-pos-soft: rgba(31,157,99,.12);
-  --vc-neg: #d24b3e; --vc-neg-soft: rgba(210,75,62,.12);
+  --vc-pos: #0c5805; --vc-pos-soft: rgba(12,88,5,.10);
+  --vc-neg: #83054a; --vc-neg-soft: rgba(131,5,74,.10);
   --vc-radius: 14px; --vc-radius-sm: 10px; --vc-radius-pill: 999px; --vc-radius-ctl: 9px;
   --vc-shadow: 0 1px 2px rgba(20,22,28,.04), 0 8px 20px -12px rgba(20,22,28,.14);
   --vc-font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -38,31 +39,354 @@
 }
 .vc { font-family: var(--vc-font-sans); }
 @media (prefers-color-scheme: dark) {
+  /* PALETTE:base:dark-media */
   html:not(.theme-light) .vc, html:not(.theme-light) body.vc-page {
     --vc-bg: #0e1014; --vc-panel: #181b21; --vc-grid: #262b33; --vc-grid-2: #262b33;
     --vc-fg: #eef0f4; --vc-fg-2: #a8afbb; --vc-fg-3: #6b7380;
     --vc-accent: #e27a51; --vc-accent-rgb: 226,122,81; --vc-accent-soft: rgba(226,122,81,.16);
-    --vc-pos: #34c77f; --vc-pos-soft: rgba(52,199,127,.16);
-    --vc-neg: #f0786b; --vc-neg-soft: rgba(240,120,107,.16);
+    --vc-pos: #7cbe80; --vc-pos-soft: rgba(124,190,128,.16);
+    --vc-neg: #fa72c8; --vc-neg-soft: rgba(250,114,200,.16);
     --vc-shadow: 0 1px 2px rgba(0,0,0,.30), 0 10px 26px -14px rgba(0,0,0,.55);
   }
 }
+/* PALETTE:base:dark */
 html.theme-dark .vc, html.theme-dark body.vc-page {
   --vc-bg: #0e1014; --vc-panel: #181b21; --vc-grid: #262b33; --vc-grid-2: #262b33;
   --vc-fg: #eef0f4; --vc-fg-2: #a8afbb; --vc-fg-3: #6b7380;
   --vc-accent: #e27a51; --vc-accent-rgb: 226,122,81; --vc-accent-soft: rgba(226,122,81,.16);
-  --vc-pos: #34c77f; --vc-pos-soft: rgba(52,199,127,.16);
-  --vc-neg: #f0786b; --vc-neg-soft: rgba(240,120,107,.16);
+  --vc-pos: #7cbe80; --vc-pos-soft: rgba(124,190,128,.16);
+  --vc-neg: #fa72c8; --vc-neg-soft: rgba(250,114,200,.16);
   --vc-shadow: 0 1px 2px rgba(0,0,0,.30), 0 10px 26px -14px rgba(0,0,0,.55);
 }
+/* PALETTE:base:light-forced */
 html.theme-light .vc, html.theme-light body.vc-page {
   --vc-bg: #f5f6f8; --vc-panel: #ffffff; --vc-grid: #e7e9ee; --vc-grid-2: #e7e9ee;
   --vc-fg: #14161c; --vc-fg-2: #5b6473; --vc-fg-3: #6b7280;
   --vc-accent: #c2562f; --vc-accent-rgb: 194,86,47; --vc-accent-soft: rgba(194,86,47,.10);
-  --vc-pos: #1f9d63; --vc-pos-soft: rgba(31,157,99,.12);
-  --vc-neg: #d24b3e; --vc-neg-soft: rgba(210,75,62,.12);
+  --vc-pos: #0c5805; --vc-pos-soft: rgba(12,88,5,.10);
+  --vc-neg: #83054a; --vc-neg-soft: rgba(131,5,74,.10);
   --vc-shadow: 0 1px 2px rgba(20,22,28,.04), 0 8px 20px -12px rgba(20,22,28,.14);
 }
+
+/* ================================================================
+   Chart palette tokens. Read live by templates/components/shared_helpers.js
+   (VCShared.catColor / modelColor / seriesColor); never duplicated in JS.
+   - --vc-cat-1..8: categorical slots in a fixed, validated order; n1/n2
+     are the neutral tail for ranks 9 and 10+.
+   - --vc-model-<family>-1..4: family hue, step 1 = newest version.
+   - --vc-series-1/2/soft: neutral companions to the accent.
+   The default set targets normal vision (tools/palette_check.py gates
+   distinctness and contrast); the html.palette-cvd set below is validated
+   for protan/deutan vision and selected via config.json "palette".
+   PALETTE:* markers are parsed by tools/palette_check.py.
+================================================================ */
+/* PALETTE:default:light */
+.vc, body.vc-page {
+  --vc-cat-1: #c2562f;
+  --vc-cat-2: #556dc6;
+  --vc-cat-3: #5c8311;
+  --vc-cat-4: #8a2b60;
+  --vc-cat-5: #039256;
+  --vc-cat-6: #9258ad;
+  --vc-cat-7: #c68206;
+  --vc-cat-8: #1479c1;
+  --vc-cat-n1: #62573e;
+  --vc-cat-n2: #89939e;
+  --vc-model-opus-1: #c2562f;
+  --vc-model-opus-2: #d26f4d;
+  --vc-model-opus-3: #e18869;
+  --vc-model-opus-4: #f1a085;
+  --vc-model-sonnet-1: #0a8d83;
+  --vc-model-sonnet-2: #3f9e94;
+  --vc-model-sonnet-3: #5fafa6;
+  --vc-model-sonnet-4: #7dc1b8;
+  --vc-model-haiku-1: #635e01;
+  --vc-model-haiku-2: #7c7934;
+  --vc-model-haiku-3: #969458;
+  --vc-model-haiku-4: #b2b07c;
+  --vc-model-fable-1: #9a4c95;
+  --vc-model-fable-2: #ad66a8;
+  --vc-model-fable-3: #c07fba;
+  --vc-model-fable-4: #d399cd;
+  --vc-model-unknown: #4e5966;
+  --vc-series-1: #4d4a42;
+  --vc-series-2: #788b98;
+  --vc-series-soft: #f1d9cd;
+}
+@media (prefers-color-scheme: dark) {
+  /* PALETTE:default:dark-media */
+  html:not(.theme-light) .vc, html:not(.theme-light) body.vc-page {
+    --vc-cat-1: #e27a51;
+    --vc-cat-2: #667fda;
+    --vc-cat-3: #659734;
+    --vc-cat-4: #ab4a7d;
+    --vc-cat-5: #2ba567;
+    --vc-cat-6: #a46ac0;
+    --vc-cat-7: #c68206;
+    --vc-cat-8: #3e89d7;
+    --vc-cat-n1: #74674f;
+    --vc-cat-n2: #98a3ae;
+    --vc-model-opus-1: #e27a51;
+    --vc-model-opus-2: #c06541;
+    --vc-model-opus-3: #9f5132;
+    --vc-model-opus-4: #803e24;
+    --vc-model-sonnet-1: #1fa89c;
+    --vc-model-sonnet-2: #179086;
+    --vc-model-sonnet-3: #0e7970;
+    --vc-model-sonnet-4: #05625b;
+    --vc-model-haiku-1: #8e8700;
+    --vc-model-haiku-2: #7a7408;
+    --vc-model-haiku-3: #686206;
+    --vc-model-haiku-4: #565105;
+    --vc-model-fable-1: #c467bd;
+    --vc-model-fable-2: #ab59a5;
+    --vc-model-fable-3: #934c8d;
+    --vc-model-fable-4: #7b3f77;
+    --vc-model-unknown: #6b727a;
+    --vc-series-1: #bcb6a4;
+    --vc-series-2: #627482;
+    --vc-series-soft: #2c1c14;
+  }
+}
+/* PALETTE:default:dark */
+html.theme-dark .vc, html.theme-dark body.vc-page {
+  --vc-cat-1: #e27a51;
+  --vc-cat-2: #667fda;
+  --vc-cat-3: #659734;
+  --vc-cat-4: #ab4a7d;
+  --vc-cat-5: #2ba567;
+  --vc-cat-6: #a46ac0;
+  --vc-cat-7: #c68206;
+  --vc-cat-8: #3e89d7;
+  --vc-cat-n1: #74674f;
+  --vc-cat-n2: #98a3ae;
+  --vc-model-opus-1: #e27a51;
+  --vc-model-opus-2: #c06541;
+  --vc-model-opus-3: #9f5132;
+  --vc-model-opus-4: #803e24;
+  --vc-model-sonnet-1: #1fa89c;
+  --vc-model-sonnet-2: #179086;
+  --vc-model-sonnet-3: #0e7970;
+  --vc-model-sonnet-4: #05625b;
+  --vc-model-haiku-1: #8e8700;
+  --vc-model-haiku-2: #7a7408;
+  --vc-model-haiku-3: #686206;
+  --vc-model-haiku-4: #565105;
+  --vc-model-fable-1: #c467bd;
+  --vc-model-fable-2: #ab59a5;
+  --vc-model-fable-3: #934c8d;
+  --vc-model-fable-4: #7b3f77;
+  --vc-model-unknown: #6b727a;
+  --vc-series-1: #bcb6a4;
+  --vc-series-2: #627482;
+  --vc-series-soft: #2c1c14;
+}
+/* PALETTE:default:light-forced */
+html.theme-light .vc, html.theme-light body.vc-page {
+  --vc-cat-1: #c2562f;
+  --vc-cat-2: #556dc6;
+  --vc-cat-3: #5c8311;
+  --vc-cat-4: #8a2b60;
+  --vc-cat-5: #039256;
+  --vc-cat-6: #9258ad;
+  --vc-cat-7: #c68206;
+  --vc-cat-8: #1479c1;
+  --vc-cat-n1: #62573e;
+  --vc-cat-n2: #89939e;
+  --vc-model-opus-1: #c2562f;
+  --vc-model-opus-2: #d26f4d;
+  --vc-model-opus-3: #e18869;
+  --vc-model-opus-4: #f1a085;
+  --vc-model-sonnet-1: #0a8d83;
+  --vc-model-sonnet-2: #3f9e94;
+  --vc-model-sonnet-3: #5fafa6;
+  --vc-model-sonnet-4: #7dc1b8;
+  --vc-model-haiku-1: #635e01;
+  --vc-model-haiku-2: #7c7934;
+  --vc-model-haiku-3: #969458;
+  --vc-model-haiku-4: #b2b07c;
+  --vc-model-fable-1: #9a4c95;
+  --vc-model-fable-2: #ad66a8;
+  --vc-model-fable-3: #c07fba;
+  --vc-model-fable-4: #d399cd;
+  --vc-model-unknown: #4e5966;
+  --vc-series-1: #4d4a42;
+  --vc-series-2: #788b98;
+  --vc-series-soft: #f1d9cd;
+}
+
+/* Colorblind palette (config.json "palette": "colorblind" -> html.palette-cvd).
+   Overrides the chart tokens AND --vc-pos/--vc-neg. Custom.css overrides for
+   this palette must target html.palette-cvd.theme-light .vc etc. */
+/* PALETTE:cvd:light */
+html.palette-cvd .vc, html.palette-cvd body.vc-page {
+  --vc-accent: #b04a2f;
+  --vc-accent-rgb: 176,74,47;
+  --vc-accent-soft: rgba(176,74,47,.10);
+  --vc-cat-1: #b04a2f;
+  --vc-cat-2: #0a96d6;
+  --vc-cat-3: #959609;
+  --vc-cat-4: #aa4c93;
+  --vc-cat-5: #bf7101;
+  --vc-cat-6: #3074ca;
+  --vc-cat-7: #0e8c41;
+  --vc-cat-8: #885abb;
+  --vc-cat-n1: #52462e;
+  --vc-cat-n2: #767e8a;
+  --vc-model-opus-1: #a94429;
+  --vc-model-opus-2: #c46349;
+  --vc-model-opus-3: #e37f64;
+  --vc-model-opus-4: #ff9e83;
+  --vc-model-sonnet-1: #2348a1;
+  --vc-model-sonnet-2: #446cc4;
+  --vc-model-sonnet-3: #6b91e2;
+  --vc-model-sonnet-4: #95b7fd;
+  --vc-model-haiku-1: #00775c;
+  --vc-model-haiku-2: #3e9076;
+  --vc-model-haiku-3: #66a992;
+  --vc-model-haiku-4: #91c1af;
+  --vc-model-fable-1: #9256b3;
+  --vc-model-fable-2: #aa6ecd;
+  --vc-model-fable-3: #c386e7;
+  --vc-model-fable-4: #df9eff;
+  --vc-model-unknown: #89939e;
+  --vc-series-1: #4d4a42;
+  --vc-series-2: #8194a2;
+  --vc-series-soft: #f1d9cd;
+  --vc-pos: #076798;
+  --vc-pos-soft: rgba(7,103,152,.10);
+  --vc-neg: #850e32;
+  --vc-neg-soft: rgba(133,14,50,.10);
+}
+@media (prefers-color-scheme: dark) {
+  /* PALETTE:cvd:dark-media */
+  html.palette-cvd:not(.theme-light) .vc, html.palette-cvd:not(.theme-light) body.vc-page {
+    /* Repeats the base dark accent: html.palette-cvd .vc above also matches
+       in dark mode (same specificity as html.theme-dark .vc, declared later),
+       so without this the colorblind light accent cascades into dark. */
+    --vc-accent: #e27a51;
+    --vc-accent-rgb: 226,122,81;
+    --vc-accent-soft: rgba(226,122,81,.16);
+    --vc-cat-1: #e27a51;
+    --vc-cat-2: #0a96d6;
+    --vc-cat-3: #767700;
+    --vc-cat-4: #c15d9f;
+    --vc-cat-5: #d37e07;
+    --vc-cat-6: #4d84df;
+    --vc-cat-7: #2e9e52;
+    --vc-cat-8: #956ed2;
+    --vc-cat-n1: #b8b4a6;
+    --vc-cat-n2: #626c7e;
+    --vc-model-opus-1: #e27a51;
+    --vc-model-opus-2: #bd6441;
+    --vc-model-opus-3: #994f32;
+    --vc-model-opus-4: #6f402d;
+    --vc-model-sonnet-1: #2b97ff;
+    --vc-model-sonnet-2: #1a7dd9;
+    --vc-model-sonnet-3: #1d65ab;
+    --vc-model-sonnet-4: #1f4e7d;
+    --vc-model-haiku-1: #11ae89;
+    --vc-model-haiku-2: #069071;
+    --vc-model-haiku-3: #007359;
+    --vc-model-haiku-4: #025743;
+    --vc-model-fable-1: #ac80c6;
+    --vc-model-fable-2: #9169aa;
+    --vc-model-fable-3: #755687;
+    --vc-model-fable-4: #594466;
+    --vc-model-unknown: #757168;
+    --vc-series-1: #bcb6a4;
+    --vc-series-2: #627482;
+    --vc-series-soft: #2c1c14;
+    --vc-pos: #27b8fc;
+    --vc-pos-soft: rgba(39,184,252,.16);
+    --vc-neg: #ff71bb;
+    --vc-neg-soft: rgba(255,113,187,.16);
+  }
+}
+/* PALETTE:cvd:dark */
+html.palette-cvd.theme-dark .vc, html.palette-cvd.theme-dark body.vc-page {
+  /* Repeats the base dark accent: html.palette-cvd .vc above also matches
+     in dark mode (same specificity as html.theme-dark .vc, declared later),
+     so without this the colorblind light accent cascades into dark. */
+  --vc-accent: #e27a51;
+  --vc-accent-rgb: 226,122,81;
+  --vc-accent-soft: rgba(226,122,81,.16);
+  --vc-cat-1: #e27a51;
+  --vc-cat-2: #0a96d6;
+  --vc-cat-3: #767700;
+  --vc-cat-4: #c15d9f;
+  --vc-cat-5: #d37e07;
+  --vc-cat-6: #4d84df;
+  --vc-cat-7: #2e9e52;
+  --vc-cat-8: #956ed2;
+  --vc-cat-n1: #b8b4a6;
+  --vc-cat-n2: #626c7e;
+  --vc-model-opus-1: #e27a51;
+  --vc-model-opus-2: #bd6441;
+  --vc-model-opus-3: #994f32;
+  --vc-model-opus-4: #6f402d;
+  --vc-model-sonnet-1: #2b97ff;
+  --vc-model-sonnet-2: #1a7dd9;
+  --vc-model-sonnet-3: #1d65ab;
+  --vc-model-sonnet-4: #1f4e7d;
+  --vc-model-haiku-1: #11ae89;
+  --vc-model-haiku-2: #069071;
+  --vc-model-haiku-3: #007359;
+  --vc-model-haiku-4: #025743;
+  --vc-model-fable-1: #ac80c6;
+  --vc-model-fable-2: #9169aa;
+  --vc-model-fable-3: #755687;
+  --vc-model-fable-4: #594466;
+  --vc-model-unknown: #757168;
+  --vc-series-1: #bcb6a4;
+  --vc-series-2: #627482;
+  --vc-series-soft: #2c1c14;
+  --vc-pos: #27b8fc;
+  --vc-pos-soft: rgba(39,184,252,.16);
+  --vc-neg: #ff71bb;
+  --vc-neg-soft: rgba(255,113,187,.16);
+}
+/* PALETTE:cvd:light-forced */
+html.palette-cvd.theme-light .vc, html.palette-cvd.theme-light body.vc-page {
+  --vc-accent: #b04a2f;
+  --vc-accent-rgb: 176,74,47;
+  --vc-accent-soft: rgba(176,74,47,.10);
+  --vc-cat-1: #b04a2f;
+  --vc-cat-2: #0a96d6;
+  --vc-cat-3: #959609;
+  --vc-cat-4: #aa4c93;
+  --vc-cat-5: #bf7101;
+  --vc-cat-6: #3074ca;
+  --vc-cat-7: #0e8c41;
+  --vc-cat-8: #885abb;
+  --vc-cat-n1: #52462e;
+  --vc-cat-n2: #767e8a;
+  --vc-model-opus-1: #a94429;
+  --vc-model-opus-2: #c46349;
+  --vc-model-opus-3: #e37f64;
+  --vc-model-opus-4: #ff9e83;
+  --vc-model-sonnet-1: #2348a1;
+  --vc-model-sonnet-2: #446cc4;
+  --vc-model-sonnet-3: #6b91e2;
+  --vc-model-sonnet-4: #95b7fd;
+  --vc-model-haiku-1: #00775c;
+  --vc-model-haiku-2: #3e9076;
+  --vc-model-haiku-3: #66a992;
+  --vc-model-haiku-4: #91c1af;
+  --vc-model-fable-1: #9256b3;
+  --vc-model-fable-2: #aa6ecd;
+  --vc-model-fable-3: #c386e7;
+  --vc-model-fable-4: #df9eff;
+  --vc-model-unknown: #89939e;
+  --vc-series-1: #4d4a42;
+  --vc-series-2: #8194a2;
+  --vc-series-soft: #f1d9cd;
+  --vc-pos: #076798;
+  --vc-pos-soft: rgba(7,103,152,.10);
+  --vc-neg: #850e32;
+  --vc-neg-soft: rgba(133,14,50,.10);
+}
+
 .vc *, .vc *::before, .vc *::after { box-sizing: border-box; }
 body.vc-page * { box-sizing: border-box; }
 body.vc-page {

@@ -46,129 +46,19 @@ const fmtTokens = VCShared.fmtTokens;
 const escHtml = VCShared.escHtml;
 
 
-// Single-accent palette. Values mirror the CSS custom
-// properties on .vc and are kept in sync with the dark/light theme
-// via a refresh on theme toggle. Hardcoded fallback ensures chart
-// dataset declarations at module-load time always have a real color.
-const _VC_PALETTE_LIGHT = ['#b04a2f', '#4d4a42', '#918a7a', '#f1d9cd'];
-const _VC_PALETTE_DARK  = ['#d97757', '#b3ad9b', '#76705f', '#2c1c14'];
-
-// Single categorical palette for multi-series doughnut/bar charts. Earth-tone
-// family (terracotta / sage / ochre / clay …) matching the SaaS reskin; replaces
-// the old bright slate/rainbow/hsl() loops.
-const _VC_CAT = ['#c4623f', '#7aa589', '#cda43f', '#a8442a', '#6f8f9e',
-  '#9b7bb0', '#4f7a5f', '#d98b6a', '#8a8175', '#b8966a'];
-
-function vcCurrentPalette() {
-  if (typeof document !== 'undefined') {
-    const cls = document.documentElement.classList;
-    if (cls.contains('theme-dark')) return _VC_PALETTE_DARK;
-    if (cls.contains('theme-light')) return _VC_PALETTE_LIGHT;
-    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return _VC_PALETTE_DARK;
-  }
-  return _VC_PALETTE_LIGHT;
-}
-// Live token reader: returns the currently-applied value of a --vc-* custom
-// property (scoped to .vc, falling back to :root), or `fallback` if unreadable.
-// Lets a custom.css accent override actually recolor the charts at runtime.
-function _vcLiveVar(name, fallback) {
-  if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') return fallback;
-  try {
-    const probe = document.querySelector('.vc') || document.documentElement;
-    const val = getComputedStyle(probe).getPropertyValue(name).trim();
-    return val || fallback;
-  } catch { return fallback; }
-}
-// Live accent: prefer the runtime --vc-accent (so custom.css overrides win),
-// fall back to the theme-aware hardcoded palette slot 0.
-function vcAccentLive() {
-  return _vcLiveVar('--vc-accent', vcCurrentPalette()[0]);
-}
-function vcColor(rank) {
-  const p = vcCurrentPalette();
-  // Slot 0 is the accent: read the live token so custom.css overrides apply.
-  if (rank % p.length === 0) return vcAccentLive();
-  return p[rank % p.length];
-}
-function vcRgba(rank, alpha) {
-  return _vcHexRgba(vcColor(rank), alpha);
-}
-// Convert a #rrggbb (or #rgb) color to an rgba() string. Non-hex inputs
-// (already rgb()/oklch/etc.) are returned unchanged.
-function _vcHexRgba(color, alpha) {
-  if (typeof color !== 'string' || color[0] !== '#') return color;
-  let hex = color.slice(1);
-  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-  if (hex.length !== 6) return color;
-  const r = parseInt(hex.substr(0,2), 16);
-  const g = parseInt(hex.substr(2,2), 16);
-  const b = parseInt(hex.substr(4,2), 16);
-  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
-}
-
-// Per-model chart palette built around three on-brand
-// earth-tone hues (terracotta / sage / ochre) so families are clearly
-// distinguishable, with three lightness steps per family for versions.
-// Unknown / unmatched models fall back to a neutral warm gray.
-const _VC_MODEL_LIGHT = {
-  'Fable 5':    '#c46786',
-  'Opus 4.8':   '#c95a3a',
-  'Opus 4.7':   '#b04a2f',
-  'Opus 4.6':   '#8e3b25',
-  'Opus 4.5':   '#6e2d1c',
-  'Sonnet 4.6': '#5b8a7a',
-  'Sonnet 4.5': '#467267',
-  'Sonnet 4.0': '#345b54',
-  'Haiku 4.5':  '#c89a4a',
-  'Haiku 3.5':  '#a37b35',
-  'Unknown':    '#7a766b',
-};
-const _VC_MODEL_DARK = {
-  'Fable 5':    '#d98fa8',
-  'Opus 4.8':   '#e88a66',
-  'Opus 4.7':   '#d97757',
-  'Opus 4.6':   '#bb5e3f',
-  'Opus 4.5':   '#9d4a30',
-  'Sonnet 4.6': '#7eb09e',
-  'Sonnet 4.5': '#629581',
-  'Sonnet 4.0': '#487a67',
-  'Haiku 4.5':  '#d4a55c',
-  'Haiku 3.5':  '#b48742',
-  'Unknown':    '#9e9a8c',
-};
-const _VC_FAMILY_FALLBACK_LIGHT = { fable: '#c46786', opus: '#b04a2f', sonnet: '#5b8a7a', haiku: '#c89a4a' };
-const _VC_FAMILY_FALLBACK_DARK  = { fable: '#d98fa8', opus: '#d97757', sonnet: '#7eb09e', haiku: '#d4a55c' };
-function vcModelColor(modelName) {
-  const isDark = vcCurrentPalette() === _VC_PALETTE_DARK;
-  const map = isDark ? _VC_MODEL_DARK : _VC_MODEL_LIGHT;
-  const fam = isDark ? _VC_FAMILY_FALLBACK_DARK : _VC_FAMILY_FALLBACK_LIGHT;
-  if (!modelName) return map['Unknown'];
-  if (map[modelName]) return map[modelName];
-  const lower = String(modelName).toLowerCase();
-  if (lower.includes('fable'))  return fam.fable;
-  if (lower.includes('opus'))   return fam.opus;
-  if (lower.includes('sonnet')) return fam.sonnet;
-  if (lower.includes('haiku'))  return fam.haiku;
-  return map['Unknown'];
-}
-
-const SOURCE_COLORS = [
-  {bg:vcRgba(1, 0.15), fg:vcColor(1)},
-  {bg:'rgba(6,182,212,0.15)', fg:vcColor(2)},
-  {bg:'rgba(168,85,247,0.15)', fg:'#a855f7'},
-  {bg:'rgba(34,197,94,0.15)', fg:'#22c55e'},
-  {bg:'rgba(239,68,68,0.15)', fg:'#ef4444'},
-  {bg:'rgba(59,130,246,0.15)', fg:'#3b82f6'},
-  {bg:'rgba(236,72,153,0.15)', fg:'#ec4899'},
-];
-const _sourceColorMap = {};
-function sourceColor(label) {
-  if (!_sourceColorMap[label]) {
-    let h = 0; for (let i = 0; i < label.length; i++) h = ((h << 5) - h + label.charCodeAt(i)) | 0;
-    _sourceColorMap[label] = SOURCE_COLORS[Math.abs(h) % SOURCE_COLORS.length];
-  }
-  return _sourceColorMap[label];
-}
+// Chart colors are CSS tokens (templates/*.css, VC-SHARED:tokens) read live
+// through the VCShared palette layer, so light/dark, the colorblind palette
+// (html.palette-cvd) and custom.css overrides all apply without a rebuild.
+// Thin wrappers keep the historical names used across this file.
+function _vcLiveVar(name, fallback) { return VCShared.token(name, fallback); }
+function vcAccentLive() { return VCShared.token('--vc-accent', '#888888'); }
+function vcColor(rank) { return VCShared.seriesColor(rank); }
+function _vcHexRgba(color, alpha) { return VCShared.hexRgba(color, alpha); }
+function vcRgba(rank, alpha) { return _vcHexRgba(vcColor(rank), alpha); }
+function vcCatColor(i) { return VCShared.catColor(i); }
+// Per-model color: family hue + version step, ranked over the full model
+// list so a date filter never repaints the survivors.
+function vcModelColor(modelName) { return VCShared.modelColor(modelName, D.models); }
 
 // Initial placeholders; setupVcChartDefaults() (called below) immediately
 // overwrites these with the resolved --vc-fg-3 / --vc-grid tokens.
@@ -189,7 +79,7 @@ function setupVcChartDefaults() {
   const fg3 = v('--vc-fg-3', '#918a7a');
   const grid = v('--vc-grid', '#d8d2c4');
   const grid2 = v('--vc-grid-2', '#e8e3d6');
-  const accent = v('--vc-accent', '#b04a2f');
+  const accent = v('--vc-accent', '#888888');
   const panel = v('--vc-panel', '#fbfaf6');
   // Font: read --vc-font-sans (SaaS 'Manrope'), take first family, strip quotes.
   const fontFam = (v('--vc-font-sans', "'Manrope', system-ui, sans-serif").split(',')[0] || 'Manrope').replace(/['"]/g, '').trim() || 'Manrope';
@@ -733,7 +623,7 @@ function renderToolUsageChart() {
       type: 'bar',
       data: { labels: tools.map(t => t.name),
         datasets: [{ label: D.locale.insights.tool_calls, data: tools.map(t => t.count),
-          backgroundColor: tools.map((_, i) => _VC_CAT[i % _VC_CAT.length]), borderRadius: 0 }] },
+          backgroundColor: tools.map((_, i) => vcCatColor(i)), borderRadius: 0 }] },
       options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
         plugins: { legend: { display: false } },
         scales: { x: { ...scaleDefaults.x, title: { display: true, text: D.locale.insights.tool_calls, color: window.__vcFg2 || '#5b6473' } },
@@ -750,7 +640,7 @@ const WC_LABELS = {
   bash_commands: D.locale.costs.wc_bash_commands,
   tool_inputs: D.locale.costs.wc_tool_inputs,
 };
-// Stable per-category index into the earth-tone _VC_CAT palette (replaces the
+// Stable per-category index into the categorical palette (replaces the
 // old bright slate/rainbow hex map so colors track the categorical theme).
 const WC_CAT_ORDER = ['screen_text', 'screen_text_narration', 'thinking', 'file_writes', 'bash_commands', 'tool_inputs'];
 
@@ -771,9 +661,8 @@ function renderWriteCategoriesChart() {
         data: summary.map(e => e.output_tokens),
         backgroundColor: summary.map((e, i) => {
           const idx = WC_CAT_ORDER.indexOf(e.category);
-          return _VC_CAT[(idx >= 0 ? idx : i) % _VC_CAT.length];
+          return vcCatColor(idx >= 0 ? idx : i);
         }),
-        borderWidth: 0,
       }],
     },
     options: {
@@ -807,8 +696,6 @@ function renderToolTokenChart() {
   }
   if (values.length === 0) return;
 
-  const palette = _VC_CAT;
-
   const canvas = document.getElementById('chartToolTokens');
   if (!canvas) return;
   charts.toolTokens = new Chart(canvas, {
@@ -817,8 +704,7 @@ function renderToolTokenChart() {
       labels,
       datasets: [{
         data: values,
-        backgroundColor: labels.map((_, i) => palette[i % palette.length]),
-        borderWidth: 0,
+        backgroundColor: labels.map((_, i) => vcCatColor(i)),
       }],
     },
     options: {
@@ -1160,6 +1046,21 @@ function vcSetChartSwipeWidth(innerId, pointCount) {
 function vcScrollChartsToEnd(root) {
   (root || document).querySelectorAll('.vc-chart-swipe').forEach(el => { el.scrollLeft = el.scrollWidth; });
 }
+// Run fn (a full chart rebuild, e.g. applyFilter) without losing the user's
+// horizontal scroll position on the swipe containers: renderCostCharts()/
+// renderActivity() end by calling vcScrollChartsToEnd, which unconditionally
+// snaps every .vc-chart-swipe back to its rightmost edge. That is desired
+// right after a filter change (new data, scroll to the latest point) but not
+// when the rebuild is only re-tinting existing data (the theme toggle). The
+// .vc-chart-swipe wrappers are static DOM (see dashboard.html), so only the
+// canvases inside them get destroyed/recreated by fn, and snapshotting by
+// element reference across the call is safe.
+function vcWithScrollPreserved(fn) {
+  const els = Array.from(document.querySelectorAll('.vc-chart-swipe'));
+  const saved = els.map(el => el.scrollLeft);
+  fn();
+  els.forEach((el, i) => { el.scrollLeft = saved[i]; });
+}
 
 // The two metric-switchable charts (daily by model + cumulative).
 // Separate from renderCosts() so the toggle can rebuild just these two.
@@ -1199,6 +1100,8 @@ function renderCostCharts() {
         label: m,
         data: dailySrc.map(d => conv(d[m] || 0, d.date)),
         backgroundColor: vcModelColor(m),
+        borderColor: _vcLiveVar('--vc-panel', '#ffffff'),
+        borderWidth: 1,
         borderRadius: 0,
       }))
     },
@@ -1221,7 +1124,7 @@ function renderCostCharts() {
       labels: cumRows.map(r => r.date),
       datasets: [{ label: mode === 'tokens' ? L.cumulative_tokens_label : L.cumulative_label,
         data: (() => { let acc = 0; return cumRows.map(r => { acc += conv(r.total || 0, r.date); return acc; }); })(),
-        borderColor: vcColor(1), backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 2 }]
+        borderColor: vcColor(1), backgroundColor: vcRgba(1, 0.1), fill: true, tension: 0.3, pointRadius: 2 }]
     },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false },
@@ -1469,8 +1372,8 @@ function renderCosts() {
       data: {
         labels: flushDates,
         datasets: [
-          { label: LF.legend_gap || 'TTL/idle-gap flushes', data: flushDates.map(d => flushByDate[d].gap), backgroundColor: vcRgba(2, 0.45), borderRadius: 0 },
-          { label: LF.legend_nogap || 'No-gap anomalies', data: flushDates.map(d => flushByDate[d].nogap), backgroundColor: vcColor(0), borderRadius: 0 },
+          { label: LF.legend_gap || 'TTL/idle-gap flushes', data: flushDates.map(d => flushByDate[d].gap), backgroundColor: vcRgba(2, 0.45), borderColor: _vcLiveVar('--vc-panel', '#ffffff'), borderWidth: 1, borderRadius: 0 },
+          { label: LF.legend_nogap || 'No-gap anomalies', data: flushDates.map(d => flushByDate[d].nogap), backgroundColor: vcColor(0), borderColor: _vcLiveVar('--vc-panel', '#ffffff'), borderWidth: 1, borderRadius: 0 },
         ]
       },
       options: {
@@ -1649,9 +1552,13 @@ function renderProjectTable(sortKey, sortDir) {
     const dispPName = anonMode ? anonName(p.name) : p.name;
     const nameCell = (!anonMode && slug) ? '<a href="projects/'+slug+'.html">'+escHtml(dispPName)+'</a>' : escHtml(dispPName);
     const sourceCell = (p.sources || []).map(function(src) {
-      const c = sourceColor(src);
+      // Stable per-source badge color: hash the label into the categorical
+      // palette so the same source always gets the same swatch.
+      let h = 0; for (let i = 0; i < src.length; i++) h = ((h << 5) - h + src.charCodeAt(i)) | 0;
+      const fg = vcCatColor(Math.abs(h) % 8);
+      const bg = _vcHexRgba(fg, 0.15);
       const lbl = anonMode ? anonSource(src) : src;
-      return '<span class="source-badge" style="background:'+c.bg+';color:'+c.fg+'">'+escHtml(lbl)+'</span>';
+      return '<span class="source-badge" style="background:'+bg+';color:'+fg+'">'+escHtml(lbl)+'</span>';
     }).join(' ');
     const cells = [
       {html: nameCell, cls: 'primary', label: 'Project'},
@@ -2032,7 +1939,7 @@ function renderPlan() {
     data: {
       labels: periodLabels,
       datasets: [
-        {label: D.locale.plan.api_cost_label, data: plan.periods.map(p => planMoneyValue(p, 'api_cost') || 0), backgroundColor: _vcHexRgba(_vcLiveVar('--vc-pos', '#1f9d63'), 0.82), borderRadius: 4},
+        {label: D.locale.plan.api_cost_label, data: plan.periods.map(p => planMoneyValue(p, 'api_cost') || 0), backgroundColor: _vcHexRgba(_vcLiveVar('--vc-pos', '#888888'), 0.82), borderRadius: 4},
         {label: D.locale.plan.plan_cost_label, data: plan.periods.map(p => planMoneyValue(p, 'plan_cost') || 0), backgroundColor: vcRgba(0, 0.82), borderRadius: 4},
       ]
     },
@@ -2415,7 +2322,7 @@ function renderInsights() {
       type: 'doughnut',
       data: { labels: storageItems.map(s => s.name),
         datasets: [{ data: storageItems.map(s => s.size_mb),
-          backgroundColor: storageItems.map((_, i) => _VC_CAT[i % _VC_CAT.length]), borderWidth: 0 }] },
+          backgroundColor: storageItems.map((_, i) => vcCatColor(i)) }] },
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { position: 'right', labels: { color: window.__vcFg2 || '#4d4a42', padding: 8, font: { size: 11 } } },
           tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.raw + ' MB' } } } }
@@ -2564,7 +2471,7 @@ function renderAgentsTab() {
       type: 'doughnut',
       data: {
         labels: atd.map(d => d.type),
-        datasets: [{ data: atd.map(d => d.count), backgroundColor: atd.map((_, i) => _VC_CAT[i % _VC_CAT.length]) }]
+        datasets: [{ data: atd.map(d => d.count), backgroundColor: atd.map((_, i) => vcCatColor(i)) }]
       },
       options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:window.__vcFg2||'#4d4a42',font:{size:11}} } } }
     });
@@ -2617,8 +2524,8 @@ function renderAgentsTab() {
         '<span class="tag" style="background:rgba(99,102,241,0.15);color:var(--accent2)">\u25B6 '+(tasks.in_progress||0)+' in progress</span>' +
         '<span class="tag" style="background:rgba(148,163,184,0.15);color:var(--text2)">\u25CB '+(tasks.pending||0)+' pending</span>' +
       '</div>';
-    const posCol = _vcLiveVar('--vc-pos', '#1f9d63');
-    const mutedCol = _vcLiveVar('--vc-fg-3', '#918a7a');
+    const posCol = _vcLiveVar('--vc-pos', '#888888');
+    const mutedCol = _vcLiveVar('--vc-fg-3', '#888888');
     taskDonutChartInstance = new Chart(document.getElementById('taskDonut'), {
       type: 'doughnut',
       data: { labels:['Completed','Pending','In Progress'], datasets:[{data:[tasks.completed,tasks.pending||0,tasks.in_progress||0], backgroundColor:[posCol, mutedCol, vcColor(0)]}] },
@@ -2632,7 +2539,7 @@ function renderAgentsTab() {
   const errEl = document.getElementById('errorOverview');
   const catLabels = {'rejected':EL.cat_rejected,'file_not_found':EL.cat_file_not_found,'edit_not_unique':EL.cat_edit_not_unique,'edit_no_match':EL.cat_edit_no_match,'stale_read':EL.cat_stale_read,'permission_denied':EL.cat_permission_denied,'timeout':EL.cat_timeout,'command_not_found':EL.cat_command_not_found,'exit_code':EL.cat_exit_code,'syntax_error':EL.cat_syntax_error,'import_error':EL.cat_import_error,'hook_error':EL.cat_hook_error,'edit_failed':EL.cat_edit_failed,'rate_limit':EL.cat_rate_limit,'server_overload':EL.cat_server_overload,'auth':EL.cat_auth,'server_error':EL.cat_server_error,'connection':EL.cat_connection,'invalid_request':EL.cat_invalid_request,'content_filter':EL.cat_content_filter,'other':EL.cat_other};
   const srcLabels = {'backend':EL.src_backend,'tool':EL.src_tool,'hook':EL.src_hook,'rejected':EL.src_rejected,'user':EL.src_user};
-  const srcColors = {'backend':_VC_CAT[5],'tool':_vcLiveVar('--vc-neg','#d24b3e'),'hook':_VC_CAT[2],'rejected':_VC_CAT[0],'user':_vcLiveVar('--vc-fg-3','#918a7a')};
+  const srcColors = {'backend':vcCatColor(5),'tool':_vcLiveVar('--vc-neg','#888888'),'hook':vcCatColor(2),'rejected':vcCatColor(0),'user':_vcLiveVar('--vc-fg-3','#888888')};
   const bySrc = es.by_source || [];
   const srcLine = bySrc.length ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">' + bySrc.map(s =>
       '<span style="font-size:12px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+(srcColors[s.source]||'#999')+';margin-right:4px"></span>'+(srcLabels[s.source]||s.source)+' <b>'+s.count+'</b></span>'
@@ -2654,8 +2561,8 @@ function renderAgentsTab() {
   if (errorByCatChartInstance) errorByCatChartInstance.destroy();
   if (ebc.length > 0) {
     // Error categories: lead with the negative/error color, then cycle the
-    // earth-tone categorical palette for the remaining slices.
-    const errColors = ebc.map((_, i) => i === 0 ? _vcLiveVar('--vc-neg', '#d24b3e') : _VC_CAT[(i - 1) % _VC_CAT.length]);
+    // categorical palette (token/theme-driven) for the remaining slices.
+    const errColors = ebc.map((_, i) => i === 0 ? _vcLiveVar('--vc-neg', '#888888') : vcCatColor(i - 1));
     errorByCatChartInstance = new Chart(document.getElementById('errorByCategoryChart'), {
       type: 'doughnut',
       data: {
@@ -2674,7 +2581,7 @@ function renderAgentsTab() {
       type: 'bar',
       data: {
         labels: ebt.map(e => e.tool),
-        datasets: [{ data: ebt.map(e => e.count), backgroundColor: _vcHexRgba(_vcLiveVar('--vc-neg', '#d24b3e'), 0.7), borderRadius:4 }]
+        datasets: [{ data: ebt.map(e => e.count), backgroundColor: _vcHexRgba(_vcLiveVar('--vc-neg', '#888888'), 0.7), borderRadius:4 }]
       },
       options: { indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:window.__vcFg3||'#918a7a'}}, y:{ticks:{color:window.__vcFg3||'#918a7a',font:{size:11}}} } }
     });
@@ -2695,7 +2602,7 @@ function renderAgentsTab() {
   const errRates = errDates.map(d => dailyErrors[d].calls > 0 ? +(dailyErrors[d].errors / dailyErrors[d].calls * 100).toFixed(1) : 0);
   if (errorRateChartInstance) { errorRateChartInstance.destroy(); errorRateChartInstance = null; }
   if (errDates.length > 0) {
-    const negCol = _vcLiveVar('--vc-neg', '#d24b3e');
+    const negCol = _vcLiveVar('--vc-neg', '#888888');
     errorRateChartInstance = new Chart(document.getElementById('errorRateChart'), {
       type: 'line',
       data: {
@@ -3000,6 +2907,13 @@ document.addEventListener('keydown', function(e) {
     const next = cur === 'dark' ? 'light' : 'dark';
     localStorage.setItem('vc-theme', next);
     applyVcTheme(next);
+    // Rebuild every chart so fills read the new theme's palette tokens
+    // (applyVcTheme only re-syncs scales, legends and doughnut borders).
+    // Wrapped so the rebuild's vcScrollChartsToEnd calls don't discard the
+    // user's scroll position on the swipe charts (see vcWithScrollPreserved).
+    if (typeof applyFilter === 'function') {
+      vcWithScrollPreserved(() => applyFilter(currentDays, currentProjectFilter));
+    }
   });
 
   // Generated-at timestamp (replaces the old live UTC clock)

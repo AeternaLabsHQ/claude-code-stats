@@ -25,6 +25,23 @@ const modelClass = VCShared.modelClass;
 const cacheEff = VCShared.calcCacheEff;
 const effStyle = VCShared.effStyle;
 
+// Apply the persisted/system theme class BEFORE any palette token is read,
+// so getComputedStyle sees the right light/dark values at render time.
+try {
+  const _saved = localStorage.getItem('vc-theme');
+  const _prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const _initTheme = (_saved === 'light' || _saved === 'dark') ? _saved : (_prefersDark ? 'dark' : 'light');
+  document.documentElement.classList.remove('theme-light', 'theme-dark');
+  document.documentElement.classList.add('theme-' + _initTheme);
+} catch (e) {}
+
+// Doughnut/pie segment separators: match the panel so segments blend in
+// (Chart.js defaults to a white arc border, which leaks on dark themes).
+if (typeof Chart !== 'undefined' && Chart.defaults.elements.arc) {
+  Chart.defaults.elements.arc.borderColor = VCShared.token('--vc-panel', '#ffffff');
+  Chart.defaults.elements.arc.borderWidth = 2;
+}
+
 function renderIdleGapPanel(sess) {
   const igs = sess.idle_gap_summary;
   if (!igs) return '';
@@ -449,16 +466,17 @@ if (hasTokenAttribution) {
 // Output by activity (stacked bar): char-heuristic attribution of output_tokens
 // across visible text / narration / thinking / file writes / bash / other tools.
 const wc = sess.write_categories || {};
-// Colors = _VC_CAT[0..5] from dashboard.js in WC_CAT_ORDER (keep in sync),
-// so the same category renders identically on dashboard and session page.
+// Colors = categorical slots 0..5 in WC_CAT_ORDER, the same tokens the
+// dashboard's write-categories doughnut uses, so a category renders
+// identically on both pages (and follows custom.css / the colorblind palette).
 const WC_L = (window.__LOCALE__ && window.__LOCALE__.costs) || {};
 const WC_DEF = [
-  ['screen_text',           WC_L.wc_screen_text           || 'Final Answers',      '#c4623f'],
-  ['screen_text_narration', WC_L.wc_screen_text_narration || 'Pre-Tool Narration', '#7aa589'],
-  ['thinking',              WC_L.wc_thinking              || 'Thinking',           '#cda43f'],
-  ['file_writes',           WC_L.wc_file_writes           || 'File Writes',        '#a8442a'],
-  ['bash_commands',         WC_L.wc_bash_commands         || 'Bash Commands',      '#6f8f9e'],
-  ['tool_inputs',           WC_L.wc_tool_inputs           || 'Other Tool Inputs',  '#9b7bb0'],
+  ['screen_text',           WC_L.wc_screen_text           || 'Final Answers',      VCShared.catColor(0)],
+  ['screen_text_narration', WC_L.wc_screen_text_narration || 'Pre-Tool Narration', VCShared.catColor(1)],
+  ['thinking',              WC_L.wc_thinking              || 'Thinking',           VCShared.catColor(2)],
+  ['file_writes',           WC_L.wc_file_writes           || 'File Writes',        VCShared.catColor(3)],
+  ['bash_commands',         WC_L.wc_bash_commands         || 'Bash Commands',      VCShared.catColor(4)],
+  ['tool_inputs',           WC_L.wc_tool_inputs           || 'Other Tool Inputs',  VCShared.catColor(5)],
 ];
 const wcTotal = WC_DEF.reduce((s, [k]) => s + (wc[k] || 0), 0);
 if (wcTotal > 0) {
@@ -540,7 +558,6 @@ if (hasTokenAttribution && typeof Chart !== 'undefined') {
   const values = sortedTools.map(t => t.output_tokens);
   const reasoningOut = sess.reasoning_output_tokens || 0;
   if (reasoningOut > 0) { labels.push('Reasoning'); values.push(reasoningOut); }
-  const palette = ['#10b981','#06b6d4','#6366f1','#f59e0b','#ef4444','#a855f7','#ec4899','#84cc16','#14b8a6','#f97316','#3b82f6','#eab308','#94a3b8'];
   const canvas = document.getElementById('chartSessionTokens');
   if (canvas && values.length > 0) {
     new Chart(canvas, {
@@ -549,8 +566,7 @@ if (hasTokenAttribution && typeof Chart !== 'undefined') {
         labels,
         datasets: [{
           data: values,
-          backgroundColor: labels.map((_, i) => palette[i % palette.length]),
-          borderWidth: 0,
+          backgroundColor: labels.map((_, i) => VCShared.catColor(i)),
         }],
       },
       options: {

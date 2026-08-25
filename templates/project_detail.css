@@ -65,18 +65,7 @@ html.theme-light .vc, html.theme-light body.vc-page {
   --vc-accent: #c2562f; --vc-accent-rgb: 194,86,47; --vc-accent-soft: rgba(194,86,47,.10);
   --vc-pos: #0c5805; --vc-pos-soft: rgba(12,88,5,.10);
   --vc-neg: #83054a; --vc-neg-soft: rgba(131,5,74,.10);
-  --vc-radius: 14px; --vc-radius-sm: 10px; --vc-radius-pill: 999px; --vc-radius-ctl: 9px;
   --vc-shadow: 0 1px 2px rgba(20,22,28,.04), 0 8px 20px -12px rgba(20,22,28,.14);
-  --vc-font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --vc-font-sans: 'Manrope', system-ui, sans-serif;
-  --vc-fs-2xs: 13px;
-  --vc-fs-xs:  14px;
-  --vc-fs-sm:  14px;
-  --vc-fs-md:  15px;
-  --vc-fs-base:16px;
-  --vc-fs-lg:  21px;
-  --vc-fs-xl:  25px;
-  --vc-fs-2xl: 30px;
 }
 
 /* ================================================================

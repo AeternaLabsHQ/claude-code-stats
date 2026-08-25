@@ -150,11 +150,16 @@ def run_gates(palettes):
             if ka not in blocks or kb not in blocks:
                 problems.append(f"{pal}: missing block {a if ka not in blocks else b}")
                 continue
-            keys = set(blocks[ka]) | set(blocks[kb])
+            # base carries theme-invariant structural tokens (radius, font,
+            # font-size) on the master .vc block that the theme variants
+            # never redeclare, so only compare keys present on both sides;
+            # default/cvd chart-token blocks must be complete, so union.
+            keys = (set(blocks[ka]) & set(blocks[kb])) if pal == "base" else (set(blocks[ka]) | set(blocks[kb]))
             for k in sorted(keys):
                 if blocks[ka].get(k) != blocks[kb].get(k):
-                    problems.append(f"{pal}/{a} vs {b}: {k} differs "
-                                    f"({blocks[ka].get(k)} vs {blocks[kb].get(k)})")
+                    va = blocks[ka].get(k, "(missing)")
+                    vb = blocks[kb].get(k, "(missing)")
+                    problems.append(f"{pal}/{a} vs {b}: {k} differs ({va} vs {vb})")
 
     for key, t in palettes.items():
         if key == "_blocks":

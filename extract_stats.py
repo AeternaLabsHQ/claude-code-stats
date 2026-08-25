@@ -98,6 +98,28 @@ HISTORY_JSONL = CLAUDE_DIR / "history.jsonl"
 
 SOURCE_LABEL = CONFIG.get("source_label", "current")
 
+# Chart palette: "default" (earth-tone, tuned for normal vision) or
+# "colorblind" (a dedicated palette validated for protan/deutan vision,
+# with hatched fills on same-family model stacks). The build stamps the
+# choice as a class on <html>; the CSS tokens in templates/*.css switch on it.
+PALETTE_CHOICES = ("default", "colorblind")
+PALETTE = str(CONFIG.get("palette", "default")).strip().lower()
+if PALETTE not in PALETTE_CHOICES:
+    print(f"  WARNING: invalid palette {CONFIG.get('palette')!r} "
+          f"(expected one of {', '.join(PALETTE_CHOICES)}), using 'default'")
+    PALETTE = "default"
+
+# Favicon variant shipped into public/: "terracotta" (matches the accent)
+# or "indigo" (the pre-reskin look).
+FAVICON_CHOICES = ("terracotta", "indigo")
+
+
+def _html_classes(palette=None):
+    """Class attribute value for the <html> element of every generated page."""
+    p = PALETTE if palette is None else palette
+    return "palette-cvd" if p == "colorblind" else ""
+
+
 # Minimum messages a session-day slice needs before it enters the daily
 # cache-efficiency box-plot series. 1-2 message sessions have no realistic
 # cache-hit opportunity and only drag the distribution down. MUST match the
@@ -1250,6 +1272,7 @@ def build_inline_html(data_json):
     html = _inject_locale(html, LOCALE)
     html = html.replace('"__DATA_PLACEHOLDER__"', data_json)
     html = html.replace('__VERSION__', VERSION)
+    html = html.replace('__HTML_CLASSES__', _html_classes())
     return html
 
 
@@ -1272,6 +1295,23 @@ def _provision_custom_css(out_dir):
             "/* Your custom CSS overrides. See custom.css.example for available variables. */\n",
             encoding="utf-8",
         )
+
+
+def _provision_favicon(out_dir, variant=None):
+    """Copy the configured favicon (SVG + 32px PNG fallback) into public/.
+
+    Unlike custom.css this is a build artifact, not user config, so it is
+    always overwritten. Safari does not render SVG favicons, hence the PNG.
+    """
+    if variant is None:
+        variant = str(CONFIG.get("favicon", "terracotta")).strip().lower()
+    if variant not in FAVICON_CHOICES:
+        print(f"  WARNING: unknown favicon {variant!r} "
+              f"(expected one of {', '.join(FAVICON_CHOICES)}), using 'terracotta'")
+        variant = "terracotta"
+    src = Path(__file__).parent / "assets" / "favicon"
+    for ext in ("svg", "png"):
+        (out_dir / f"favicon.{ext}").write_bytes((src / f"{variant}.{ext}").read_bytes())
 
 
 def _font_face_css():
@@ -1540,6 +1580,7 @@ def _get_session_html_template():
     html = html.replace("<!-- SCRIPTS -->", f"{_locale_script_tag()}\n<script>{js}</script>")
     # Locale tokens are resolved at template stage, BEFORE any session data
     # is inserted, so user text containing "__L_..." can never be rewritten.
+    html = html.replace('__HTML_CLASSES__', _html_classes())
     html = _inject_locale(html, LOCALE)
     return html
 
@@ -1682,6 +1723,7 @@ def _get_project_html_template():
     html = html.replace("<!-- STYLES -->", f"<style>{_font_face_css()}{css}</style>")
     html = html.replace("<!-- SCRIPTS -->", f"{_locale_script_tag()}\n<script>{js}</script>")
     # Same ordering rule as the session template: tokens before data.
+    html = html.replace('__HTML_CLASSES__', _html_classes())
     html = _inject_locale(html, LOCALE)
     return html
 
@@ -1747,6 +1789,7 @@ def main():
     OUTPUT_DIR.mkdir(exist_ok=True)
 
     _provision_custom_css(OUTPUT_DIR)
+    _provision_favicon(OUTPUT_DIR)
 
     print("\nAggregating data...")
     data = build_dashboard_data(

@@ -173,7 +173,9 @@ class EpochTest(unittest.TestCase):
                       "claudestats_core/sessions.py",
                       "config.json",
                       "templates/session_detail.html",
-                      "locales/en.json"):
+                      "locales/en.json",
+                      # base64-embedded into every page by _font_face_css()
+                      "assets/fonts/Manrope[wght].woff2"):
             self.assertNotEqual(base, es._cache_epoch(_extra={probe: b"x"}),
                                 f"{probe} must be part of the epoch")
 

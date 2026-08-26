@@ -902,7 +902,12 @@ _EPOCH_GLOBS = (
     "claudestats_core/*.py",
     "templates/**/*",
     "locales/*.json",
+    # The fonts are base64-embedded into every page by _font_face_css(), so
+    # swapping one has to rebuild them. 164 KB, hashed once per run.
+    "assets/**/*",
 )
+
+_EPOCH_MEMO = None
 
 
 def _epoch_inputs():
@@ -923,7 +928,16 @@ def _epoch_inputs():
 
 def _cache_epoch(_extra=None):
     """Hash of all epoch inputs. _extra overrides or adds labelled content
-    and exists so tests can prove a given file is covered."""
+    and exists so tests can prove a given file is covered.
+
+    Memoized: the source tree cannot change mid-run, and the page cache asks
+    for the epoch once per session page. Re-reading and re-hashing a megabyte
+    of sources a few thousand times a run is exactly the kind of waste this
+    whole feature is meant to remove.
+    """
+    global _EPOCH_MEMO
+    if _extra is None and _EPOCH_MEMO is not None:
+        return _EPOCH_MEMO
     parts = dict(_epoch_inputs())
     if _extra:
         parts.update(_extra)
@@ -932,7 +946,10 @@ def _cache_epoch(_extra=None):
         h.update(label.encode("utf-8"))
         h.update(b"\0")
         h.update(hashlib.sha256(parts[label]).digest())
-    return h.hexdigest()
+    digest = h.hexdigest()
+    if _extra is None:
+        _EPOCH_MEMO = digest
+    return digest
 
 
 def _load_cache():

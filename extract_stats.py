@@ -1571,8 +1571,28 @@ def generate_session_pages(sessions, session_list):
     print(f"  Generated {count} session pages in {sessions_dir}")
 
 
+# Rendered page templates, keyed by (kind, PALETTE, LANG): everything that
+# feeds the template is fixed for a run, so build each once, not per page.
+_TEMPLATE_CACHE = {}
+
+
+def _reset_template_cache():
+    """Drop memoized page templates (tests)."""
+    _TEMPLATE_CACHE.clear()
+
+
 def _get_session_html_template():
-    """Return the session detail HTML template string."""
+    """Return the session detail HTML template string (built once per run)."""
+    key = ("session", PALETTE, LANG)
+    cached = _TEMPLATE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    html = _build_session_html_template()
+    _TEMPLATE_CACHE[key] = html
+    return html
+
+
+def _build_session_html_template():
     base_dir = Path(__file__).parent
     html = (base_dir / "templates" / "session_detail.html").read_text(encoding="utf-8")
     css = (base_dir / "templates" / "session_detail.css").read_text(encoding="utf-8")
@@ -1711,7 +1731,17 @@ def generate_project_pages(session_list, data=None):
 
 
 def _get_project_html_template():
-    """Return the project detail HTML template string."""
+    """Return the project detail HTML template string (built once per run)."""
+    key = ("project", PALETTE, LANG)
+    cached = _TEMPLATE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    html = _build_project_html_template()
+    _TEMPLATE_CACHE[key] = html
+    return html
+
+
+def _build_project_html_template():
     base_dir = Path(__file__).parent
     html = (base_dir / "templates" / "project_detail.html").read_text(encoding="utf-8")
     css = (base_dir / "templates" / "project_detail.css").read_text(encoding="utf-8")

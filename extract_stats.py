@@ -809,8 +809,47 @@ def load_tasks():
     }
 
 
+# Where each session's transcript lives, filled in by the parse pass, which
+# walks every JSONL file anyway. The detail-page pass then looks the path up
+# instead of searching the filesystem per session - with a sudo_user source
+# that search cost two subprocess round trips per session (test -e, then
+# find), even for sessions sitting in the primary dir.
+# Key: (project_name, session_id) -> (rank, path, sudo_user_or_None)
+_TRANSCRIPT_INDEX = {}
+_TRANSCRIPT_INDEX_READY = False
+
+
+def _reset_transcript_index():
+    """Drop the transcript path index (tests)."""
+    global _TRANSCRIPT_INDEX_READY
+    _TRANSCRIPT_INDEX.clear()
+    _TRANSCRIPT_INDEX_READY = False
+
+
+def _index_transcript(project_name, session_id, path, sudo_user,
+                      project_dir, source_rank):
+    """Record one transcript, keeping the precedence of the old per-session
+    search: earlier source wins, and within a source the file directly under
+    the project dir beats one found further down."""
+    rank = (source_rank, 0 if path.parent == project_dir else 1)
+    key = (project_name, session_id)
+    prev = _TRANSCRIPT_INDEX.get(key)
+    if prev is None or rank < prev[0]:
+        _TRANSCRIPT_INDEX[key] = (rank, path, sudo_user)
+
+
+def _lookup_transcript(project_name, session_id):
+    """Return (path, sudo_user) for a session, or (None, None)."""
+    hit = _TRANSCRIPT_INDEX.get((project_name, session_id))
+    return (hit[1], hit[2]) if hit else (None, None)
+
+
 def parse_session_transcripts():
     """Parse all session JSONL transcripts from all sources."""
+    global _TRANSCRIPT_INDEX_READY
+    # Entries from an earlier pass carry the same rank, so they would never
+    # lose the comparison in _index_transcript and would shadow this pass.
+    _reset_transcript_index()
     sessions = {}
     total_files = 0
     total_lines = 0
@@ -832,7 +871,7 @@ def parse_session_transcripts():
         print(f"  WARNING: No projects directories found")
         return sessions
 
-    for source_label, projects_dir, sudo_user in sources:
+    for source_rank, (source_label, projects_dir, sudo_user) in enumerate(sources):
         print(f"  Source: {source_label} ({projects_dir}){' [sudo:'+sudo_user+']' if sudo_user else ''}")
         if sudo_user:
             project_dirs = sorted(sudo_list_dir(projects_dir, sudo_user))
@@ -858,6 +897,8 @@ def parse_session_transcripts():
             for jsonl_file in jsonl_files:
                 total_files += 1
                 file_session_id = jsonl_file.stem
+                _index_transcript(project_name, file_session_id, jsonl_file,
+                                  sudo_user, project_dir, source_rank)
                 if sudo_user:
                     file_size = sudo_file_size(jsonl_file, sudo_user)
                 else:
@@ -916,6 +957,8 @@ def parse_session_transcripts():
                 except Exception as e:
                     print(f"      ERROR reading {jsonl_file.name}: {e}")
 
+    _TRANSCRIPT_INDEX_READY = True
+
     finalize_sessions(sessions)
 
     migration_count = sum(1 for s in sessions.values() if s.get("source") == MIGRATION_LABEL)
@@ -929,7 +972,33 @@ def extract_session_messages(session_id, project_dir_name):
     """Extract per-message data for a single session for replay view."""
     messages = []
 
-    # Search for the JSONL file
+    # The parse pass already walked every transcript, so its index answers
+    # this without touching the filesystem. Only a standalone call (no parse
+    # pass in this run) falls back to searching.
+    if _TRANSCRIPT_INDEX_READY:
+        jsonl_path, found_sudo_user = _lookup_transcript(project_dir_name,
+                                                         session_id)
+    else:
+        jsonl_path, found_sudo_user = _search_transcript(session_id,
+                                                         project_dir_name)
+
+    if not jsonl_path:
+        return messages
+
+    if found_sudo_user:
+        _content = sudo_read_text(jsonl_path, found_sudo_user)
+        _lines = _content.split("\n") if _content else []
+    else:
+        with open(jsonl_path, "r", encoding="utf-8", errors="replace") as f:
+            _lines = f.readlines()
+
+    return _messages_from_lines(_lines)
+
+
+def _search_transcript(session_id, project_dir_name):
+    """Locate a session's JSONL by walking the sources. Only used when no
+    parse pass has populated _TRANSCRIPT_INDEX; _index_transcript mirrors
+    the precedence encoded here."""
     sources = []  # (projects_dir, sudo_user_or_None)
     if MIGRATION_ENABLED and MIGRATION_PROJECTS_DIR and MIGRATION_PROJECTS_DIR.exists():
         sources.append((MIGRATION_PROJECTS_DIR, None))
@@ -968,15 +1037,12 @@ def extract_session_messages(session_id, project_dir_name):
             if jsonl_path:
                 break
 
-    if not jsonl_path:
-        return messages
+    return jsonl_path, found_sudo_user
 
-    if found_sudo_user:
-        _content = sudo_read_text(jsonl_path, found_sudo_user)
-        _lines = _content.split("\n") if _content else []
-    else:
-        with open(jsonl_path, "r", encoding="utf-8", errors="replace") as f:
-            _lines = f.readlines()
+
+def _messages_from_lines(_lines):
+    """Build the replay-view message list from one transcript's raw lines."""
+    messages = []
 
     _detail_objs = []
     for line in _lines:

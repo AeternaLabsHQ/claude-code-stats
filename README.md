@@ -292,6 +292,19 @@ The script generates files in the `public/` directory:
 
 Deploying only `index.html` produces a dashboard with broken detail-page links and no theming. Copy the whole `public/` directory.
 
+## Incremental Scans
+
+Transcripts are append-only: between two runs a handful of them grow and the rest are byte-for-byte identical. The scan cache in `.cache/` keeps the merged session state from the last run, so a repeat run only re-reads the transcripts that actually moved and only re-renders the session pages whose content changed. On a corpus of ~8,700 transcripts that turns a two-minute run into roughly half a minute.
+
+Cached numbers are only reused while the code that produced them is unchanged. The cache key is a hash over `extract_stats.py`, `claudestats_core/`, `templates/`, `locales/` and your `config.json`, so editing the parser, adding a model to the pricing table or changing your plan history discards the whole cache automatically. There is no list of inputs to keep in sync and nothing to remember to bump.
+
+```bash
+python3 extract_stats.py --no-cache      # ignore and do not write the cache
+python3 extract_stats.py --verify-cache  # prove a cached run matches a cold one
+```
+
+`--verify-cache` parses the corpus warm and cold and compares every session, reporting any that disagree. Sessions that are still being written while it runs are detected and excluded, so it can be used on a machine that is in use. Deleting `.cache/` is always safe; the next run rebuilds it.
+
 ## Automation
 
 To auto-refresh the dashboard periodically:

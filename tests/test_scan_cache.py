@@ -382,6 +382,111 @@ class PageRenderKeyTest(unittest.TestCase):
                                       "project_dir": "proj1"}, "proj1"))
 
 
+def _session_row(sid, project, cost=1.0):
+    return {"session_id": sid, "project": project, "project_dir": project,
+            "start": "2026-06-10T10:00:00Z", "cost": cost, "messages": 2,
+            "input_tokens": 10, "output_tokens": 20, "tools": {"Bash": 1},
+            "skills": {}, "git_ops": [], "agent_dispatches": [],
+            "error_count": 0}
+
+
+class ProjectPageCacheTest(unittest.TestCase):
+    """Project pages are rebuilt from data already in memory, so skipping
+    them saves little build time. The win is the deploy: rsync ships whatever
+    was rewritten, and 171 untouched project pages were 98% of every
+    transfer."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="cs-projpage-"))
+        self._cache = patched_cache()
+        self._cache.__enter__()
+        self.addCleanup(self._cache.__exit__, None, None, None)
+        self._out = es.OUTPUT_DIR
+        es.OUTPUT_DIR = self.tmp / "public"
+        es.OUTPUT_DIR.mkdir(parents=True)
+        self.addCleanup(setattr, es, "OUTPUT_DIR", self._out)
+
+    def _generate(self, rows):
+        return es.generate_project_pages(rows, data={})
+
+    def _page_mtimes(self):
+        return {p.name: p.stat().st_mtime_ns
+                for p in (es.OUTPUT_DIR / "projects").glob("*.html")}
+
+    def test_key_moves_when_the_project_data_moves(self):
+        a = es._project_render_key('{"name":"p","cost":1}')
+        b = es._project_render_key('{"name":"p","cost":2}')
+        self.assertNotEqual(a, b)
+        self.assertEqual(a, es._project_render_key('{"name":"p","cost":1}'))
+
+    def test_key_moves_with_the_epoch(self):
+        payload = '{"name":"p"}'
+        before = es._project_render_key(payload)
+        real = es._cache_epoch
+        try:
+            es._cache_epoch = lambda **kw: "0" * 64
+            self.assertNotEqual(before, es._project_render_key(payload))
+        finally:
+            es._cache_epoch = real
+
+    def test_an_unchanged_project_page_is_left_alone(self):
+        rows = [_session_row("S1", "alpha"), _session_row("S2", "beta")]
+        self._generate(rows)
+        first = self._page_mtimes()
+        self.assertEqual(len(first), 2)
+        self._generate(rows)
+        self.assertEqual(first, self._page_mtimes())
+
+    def test_a_changed_project_is_rewritten_and_its_neighbour_is_not(self):
+        rows = [_session_row("S1", "alpha"), _session_row("S2", "beta")]
+        self._generate(rows)
+        first = self._page_mtimes()
+        rows[0]["cost"] = 99.0
+        self._generate(rows)
+        after = self._page_mtimes()
+        self.assertNotEqual(first["alpha.html"], after["alpha.html"])
+        self.assertEqual(first["beta.html"], after["beta.html"])
+
+    def test_a_missing_page_is_rebuilt_even_with_a_matching_key(self):
+        rows = [_session_row("S1", "alpha")]
+        self._generate(rows)
+        (es.OUTPUT_DIR / "projects" / "alpha.html").unlink()
+        self._generate(rows)
+        self.assertTrue((es.OUTPUT_DIR / "projects" / "alpha.html").exists())
+
+    def test_slugs_are_returned_even_for_skipped_pages(self):
+        """generate_project_pages' return value feeds data["project_slugs"];
+        skipping the render must not skip the slug."""
+        rows = [_session_row("S1", "alpha")]
+        self.assertEqual(self._generate(rows), {"alpha": "alpha"})
+        self.assertEqual(self._generate(rows), {"alpha": "alpha"})
+
+
+class PageCacheNamespaceTest(unittest.TestCase):
+    """Session and project pages share one cache file but are written at
+    different points in the run. Neither pass may clobber the other's keys."""
+
+    def setUp(self):
+        self._cache = patched_cache()
+        self._cache.__enter__()
+        self.addCleanup(self._cache.__exit__, None, None, None)
+
+    def test_the_two_kinds_do_not_overwrite_each_other(self):
+        es._save_page_keys("session", {"S1": "aaa"})
+        es._save_page_keys("project", {"alpha": "bbb"})
+        self.assertEqual(es._load_page_keys("session"), {"S1": "aaa"})
+        self.assertEqual(es._load_page_keys("project"), {"alpha": "bbb"})
+
+    def test_a_stale_epoch_discards_both(self):
+        es._save_page_keys("session", {"S1": "aaa"})
+        es._save_page_keys("project", {"alpha": "bbb"})
+        doc = json.loads(es.PAGE_CACHE_PATH.read_text())
+        doc["epoch"] = "0" * 64
+        es.PAGE_CACHE_PATH.write_text(json.dumps(doc))
+        self.assertEqual(es._load_page_keys("session"), {})
+        self.assertEqual(es._load_page_keys("project"), {})
+
+
 def _dump(sessions):
     return json.dumps(sessions, sort_keys=True, default=str)
 

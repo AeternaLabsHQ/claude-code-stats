@@ -1001,10 +1001,11 @@ def _save_cache(sessions, manifest):
         print(f"  WARNING: could not write the scan cache: {e}")
 
 
-def _load_page_keys():
-    """Render keys of the session pages the last run wrote. Kept apart from
-    the big cache because it is only known after the pages are rendered,
-    which happens well after the session state is frozen."""
+def _read_page_cache():
+    """The page cache document, or an empty one when it is missing, stale or
+    unreadable. Kept apart from the big scan cache because render keys are
+    only known after the pages are written, long after the session state has
+    to be frozen."""
     if NO_CACHE or not PAGE_CACHE_PATH.exists():
         return {}
     try:
@@ -1014,21 +1015,50 @@ def _load_page_keys():
         return {}
     if data.get("epoch") != _cache_epoch():
         return {}
-    keys = data.get("pages")
+    return data if isinstance(data, dict) else {}
+
+
+def _load_page_keys(kind):
+    """Render keys the last run wrote for one page kind ("session" or
+    "project")."""
+    keys = _read_page_cache().get(kind)
     return keys if isinstance(keys, dict) else {}
 
 
-def _save_page_keys(keys):
+def _save_page_keys(kind, keys):
+    """Merge one kind's keys into the page cache.
+
+    The session pass and the project pass finish at different points in the
+    run, so this reads before writing: a plain overwrite would leave whichever
+    pass ran first with no keys, and rebuild all of its pages next time.
+    """
     if NO_CACHE:
         return
+    document = _read_page_cache()
+    document["epoch"] = _cache_epoch()
+    document[kind] = keys
     try:
         CACHE_DIR.mkdir(exist_ok=True)
         tmp = PAGE_CACHE_PATH.with_name(PAGE_CACHE_PATH.name + ".tmp")
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"epoch": _cache_epoch(), "pages": keys}, f)
+            json.dump(document, f)
         os.replace(tmp, PAGE_CACHE_PATH)
     except OSError as e:
         print(f"  WARNING: could not write the page cache: {e}")
+
+
+def _project_render_key(project_json):
+    """Identity of a project page.
+
+    Unlike a session page there is nothing expensive to avoid re-reading
+    here: the payload is built from data already in memory, so the key can
+    hash the exact bytes that get embedded rather than approximate them from
+    the inputs. Template and VERSION ride along in the epoch.
+    """
+    h = hashlib.sha256()
+    h.update(_cache_epoch().encode("ascii"))
+    h.update(project_json.encode("utf-8"))
+    return h.hexdigest()
 
 
 def _page_render_key(sess_data, project_dir_name):
@@ -1957,7 +1987,7 @@ def generate_session_pages(sessions, session_list):
     sessions_dir = OUTPUT_DIR / "sessions"
     sessions_dir.mkdir(exist_ok=True)
 
-    previous_keys = _load_page_keys()
+    previous_keys = _load_page_keys("session")
     current_keys = {}
 
     count = 0
@@ -2011,7 +2041,7 @@ def generate_session_pages(sessions, session_list):
             current_keys[sid] = render_key
         count += 1
 
-    _save_page_keys(current_keys)
+    _save_page_keys("session", current_keys)
     print(f"  Generated {count} session pages in {sessions_dir}"
           + (f" ({reused} unchanged, reused)" if reused else ""))
 
@@ -2063,7 +2093,11 @@ def generate_project_pages(session_list, data=None):
     for s in session_list:
         project_sessions[s["project"]].append(s)
 
+    previous_keys = _load_page_keys("project")
+    current_keys = {}
+
     count = 0
+    reused = 0
     slug_map = {}
     for proj_name, proj_sessions in project_sessions.items():
         proj_sessions.sort(key=lambda s: s["start"], reverse=True)
@@ -2162,16 +2196,27 @@ def generate_project_pages(session_list, data=None):
             "error_count": proj_errors,
         }, ensure_ascii=False)
 
+        # The page is a pure function of this payload and the template, so
+        # an unchanged key means an identical file. Leaving it on disk keeps
+        # its mtime, which is what lets the deploy skip it too.
+        render_key = _project_render_key(project_json)
+        current_keys[slug] = render_key
+        out_path = projects_dir / f"{slug}.html"
+        if previous_keys.get(slug) == render_key and out_path.exists():
+            reused += 1
+            continue
+
         html = _get_project_html_template()
         html = html.replace('"__PROJECT_DATA__"', project_json)
         html = html.replace('__VERSION__', VERSION)
 
-        out_path = projects_dir / f"{slug}.html"
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(html)
         count += 1
 
-    print(f"  Generated {count} project pages in {projects_dir}")
+    _save_page_keys("project", current_keys)
+    print(f"  Generated {count} project pages in {projects_dir}"
+          + (f" ({reused} unchanged, reused)" if reused else ""))
     return slug_map
 
 

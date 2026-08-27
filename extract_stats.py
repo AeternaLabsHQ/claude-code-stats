@@ -8,6 +8,7 @@ data only. No external/untrusted input is rendered as HTML. All user-provided
 text (prompts) is escaped via textContent before display.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -47,7 +48,7 @@ from claudestats_core.limits import (
 from claudestats_core.sessions import (
     _merge_model_buckets, _absorb_subagent, _link_subagents,
     _day_from_ms, split_session_by_day,
-    SessionFileMeta, absorb_file, finalize_sessions,
+    SessionFileMeta, absorb_file, finalize_sessions, rehydrate_session,
 )
 from claudestats_core.plan_analysis import (
     _month_day_clamped, _expand_billing_cycles, _recommend_tier,
@@ -245,6 +246,30 @@ def sudo_find_files(path, pattern, sudo_user):
     return [Path(p) for p in r.stdout.strip().split("\n") if p]
 
 
+def sudo_stat_files(paths, sudo_user):
+    """(mtime, size) for many files in ONE sudo round trip.
+
+    Statting per file would spawn a process per transcript; a source with a
+    few thousand of them spends more time forking than reading.
+    """
+    if not paths:
+        return {}
+    r = subprocess.run(
+        ["sudo", "-n", "-u", sudo_user, "stat", "-c", "%n\t%Y\t%s"]
+        + [str(p) for p in paths],
+        capture_output=True, text=True, timeout=120, cwd="/",
+    )
+    out = {}
+    for line in r.stdout.splitlines():
+        name, _, rest = line.rpartition("\t")
+        name, _, mtime = name.rpartition("\t")
+        try:
+            out[name] = (float(mtime), int(rest))
+        except ValueError:
+            continue
+    return out
+
+
 def sudo_file_size(path, sudo_user):
     """Get file size as another user. Returns size in bytes or 0."""
     r = subprocess.run(
@@ -256,7 +281,7 @@ def sudo_file_size(path, sudo_user):
     except ValueError:
         return 0
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
@@ -809,13 +834,309 @@ def load_tasks():
     }
 
 
-def parse_session_transcripts():
-    """Parse all session JSONL transcripts from all sources."""
-    sessions = {}
-    total_files = 0
-    total_lines = 0
+# Where each session's transcript lives, filled in by the parse pass, which
+# walks every JSONL file anyway. The detail-page pass then looks the path up
+# instead of searching the filesystem per session - with a sudo_user source
+# that search cost two subprocess round trips per session (test -e, then
+# find), even for sessions sitting in the primary dir.
+# Key: (project_name, session_id) -> (rank, path, sudo_user_or_None)
+_TRANSCRIPT_INDEX = {}
+_TRANSCRIPT_INDEX_READY = False
 
-    sources = []  # (label, projects_dir, sudo_user_or_None)
+
+def _reset_transcript_index():
+    """Drop the transcript path index (tests)."""
+    global _TRANSCRIPT_INDEX_READY
+    _TRANSCRIPT_INDEX.clear()
+    _TRANSCRIPT_INDEX_READY = False
+
+
+def _index_transcript(project_name, session_id, path, sudo_user,
+                      project_dir, source_rank, mtime=0.0, size=0):
+    """Record one transcript, keeping the precedence of the old per-session
+    search: earlier source wins, and within a source the file directly under
+    the project dir beats one found further down."""
+    rank = (source_rank, 0 if path.parent == project_dir else 1)
+    key = (project_name, session_id)
+    prev = _TRANSCRIPT_INDEX.get(key)
+    if prev is None or rank < prev[0]:
+        _TRANSCRIPT_INDEX[key] = (rank, path, sudo_user, mtime, size)
+
+
+def _lookup_transcript(project_name, session_id):
+    """Return (path, sudo_user) for a session, or (None, None)."""
+    hit = _TRANSCRIPT_INDEX.get((project_name, session_id))
+    return (hit[1], hit[2]) if hit else (None, None)
+
+
+def _lookup_transcript_stat(project_name, session_id):
+    """Return (mtime, size) of a session's transcript, or None. The page
+    cache uses it to tell an unchanged transcript from a grown one."""
+    hit = _TRANSCRIPT_INDEX.get((project_name, session_id))
+    return (hit[3], hit[4]) if hit else None
+
+
+# ── Incremental scan cache ─────────────────────────────────────────────────
+# The corpus is append-only: a handful of transcripts grow between runs, the
+# other thousands are byte-identical. The cache keeps the merged session
+# state from the last run and re-parses only what moved.
+#
+# Everything hinges on the epoch. A cached session is only valid while the
+# code that produced it is unchanged, and this project rewrites its reading
+# of old data regularly (token dedupe, new pricing, plan history). So the
+# epoch is a blunt hash over every file that can change that reading, rather
+# than an enumeration of semantic inputs that someone could forget to extend.
+CACHE_FORMAT = 1
+CACHE_DIR = Path(__file__).parent / ".cache"
+CACHE_PATH = CACHE_DIR / "scan_cache.json"
+PAGE_CACHE_PATH = CACHE_DIR / "page_cache.json"
+
+# --no-cache forces a cold run and leaves the cache files untouched, so it
+# doubles as the escape hatch if the cache is ever suspected of lying.
+NO_CACHE = "--no-cache" in sys.argv
+
+# Deliberately NOT under public/: update_dashboard.sh deploys that whole
+# directory to the webserver, and this file holds raw transcript data.
+_EPOCH_GLOBS = (
+    "extract_stats.py",
+    "claudestats_core/*.py",
+    "templates/**/*",
+    "locales/*.json",
+    # The fonts are base64-embedded into every page by _font_face_css(), so
+    # swapping one has to rebuild them. 164 KB, hashed once per run.
+    "assets/**/*",
+)
+
+_EPOCH_MEMO = None
+
+
+def _epoch_inputs():
+    """Every file whose content can change how a transcript is read, as
+    (label, bytes) pairs in stable order."""
+    base = Path(__file__).parent
+    out = []
+    for pattern in _EPOCH_GLOBS:
+        for path in sorted(base.glob(pattern)):
+            if path.is_file():
+                out.append((str(path.relative_to(base)), path.read_bytes()))
+    # The config lives outside the tree when CLAUDE_STATS_CONFIG redirects
+    # it, so label it canonically rather than by its real path.
+    if CONFIG_PATH.exists():
+        out.append(("config.json", CONFIG_PATH.read_bytes()))
+    return out
+
+
+def _cache_epoch(_extra=None):
+    """Hash of all epoch inputs. _extra overrides or adds labelled content
+    and exists so tests can prove a given file is covered.
+
+    Memoized: the source tree cannot change mid-run, and the page cache asks
+    for the epoch once per session page. Re-reading and re-hashing a megabyte
+    of sources a few thousand times a run is exactly the kind of waste this
+    whole feature is meant to remove.
+    """
+    global _EPOCH_MEMO
+    if _extra is None and _EPOCH_MEMO is not None:
+        return _EPOCH_MEMO
+    parts = dict(_epoch_inputs())
+    if _extra:
+        parts.update(_extra)
+    h = hashlib.sha256()
+    for label in sorted(parts):
+        h.update(label.encode("utf-8"))
+        h.update(b"\0")
+        h.update(hashlib.sha256(parts[label]).digest())
+    digest = h.hexdigest()
+    if _extra is None:
+        _EPOCH_MEMO = digest
+    return digest
+
+
+def _load_cache():
+    """The previous run's merged state, or None if it cannot be trusted.
+
+    Every rejection path is silent-failure-free: it says why and the caller
+    falls back to a full scan, which is what the tool did before the cache
+    existed.
+    """
+    if not CACHE_PATH.exists():
+        return None
+    try:
+        with open(CACHE_PATH, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"  Cache unreadable ({e}); running a full scan")
+        return None
+    if cache.get("cache_format") != CACHE_FORMAT:
+        print("  Cache has a different format version; running a full scan")
+        return None
+    if cache.get("epoch") != _cache_epoch():
+        print("  Code, pricing or config changed since the cache was written;"
+              " running a full scan")
+        return None
+    if not isinstance(cache.get("files"), dict) or \
+            not isinstance(cache.get("sessions"), dict):
+        print("  Cache is malformed; running a full scan")
+        return None
+    return cache
+
+
+def _save_cache(sessions, manifest):
+    """Persist the merged state. Best effort: a cache that cannot be written
+    costs the next run some time, it must never fail this one."""
+    if NO_CACHE:
+        return
+    try:
+        CACHE_DIR.mkdir(exist_ok=True)
+        tmp = CACHE_PATH.with_name(CACHE_PATH.name + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({
+                "cache_format": CACHE_FORMAT,
+                "epoch": _cache_epoch(),
+                "files": manifest,
+                "sessions": sessions,
+            }, f, ensure_ascii=False)
+        os.replace(tmp, CACHE_PATH)
+    except OSError as e:
+        print(f"  WARNING: could not write the scan cache: {e}")
+
+
+def _read_page_cache():
+    """The page cache document, or an empty one when it is missing, stale or
+    unreadable. Kept apart from the big scan cache because render keys are
+    only known after the pages are written, long after the session state has
+    to be frozen."""
+    if NO_CACHE or not PAGE_CACHE_PATH.exists():
+        return {}
+    try:
+        with open(PAGE_CACHE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if data.get("epoch") != _cache_epoch():
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _load_page_keys(kind):
+    """Render keys the last run wrote for one page kind ("session" or
+    "project")."""
+    keys = _read_page_cache().get(kind)
+    return keys if isinstance(keys, dict) else {}
+
+
+def _save_page_keys(kind, keys):
+    """Merge one kind's keys into the page cache.
+
+    The session pass and the project pass finish at different points in the
+    run, so this reads before writing: a plain overwrite would leave whichever
+    pass ran first with no keys, and rebuild all of its pages next time.
+    """
+    if NO_CACHE:
+        return
+    document = _read_page_cache()
+    document["epoch"] = _cache_epoch()
+    document[kind] = keys
+    try:
+        CACHE_DIR.mkdir(exist_ok=True)
+        tmp = PAGE_CACHE_PATH.with_name(PAGE_CACHE_PATH.name + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(document, f)
+        os.replace(tmp, PAGE_CACHE_PATH)
+    except OSError as e:
+        print(f"  WARNING: could not write the page cache: {e}")
+
+
+def _project_render_key(project_json):
+    """Identity of a project page.
+
+    Unlike a session page there is nothing expensive to avoid re-reading
+    here: the payload is built from data already in memory, so the key can
+    hash the exact bytes that get embedded rather than approximate them from
+    the inputs. Template and VERSION ride along in the epoch.
+    """
+    h = hashlib.sha256()
+    h.update(_cache_epoch().encode("ascii"))
+    h.update(project_json.encode("utf-8"))
+    return h.hexdigest()
+
+
+def _page_render_key(sess_data, project_dir_name):
+    """Identity of everything a session page is built from.
+
+    The page is a function of the template (covered by the epoch), the
+    session's own aggregates, and its transcript. Hashing the aggregates
+    rather than reasoning about which of them could shift avoids having to
+    prove that no per-session field depends on other sessions.
+    """
+    stat = _lookup_transcript_stat(project_dir_name, sess_data["session_id"])
+    if stat is None:
+        return None
+    payload = dict(sess_data)
+    # Set by the page pass itself; always true for a page that got written.
+    payload["has_chat"] = True
+    h = hashlib.sha256()
+    h.update(_cache_epoch().encode("ascii"))
+    h.update(json.dumps(payload, sort_keys=True, default=str).encode("utf-8"))
+    h.update(f"{stat[0]}:{stat[1]}".encode("ascii"))
+    return h.hexdigest()
+
+
+def _plan_reparse(manifest, current):
+    """Work out what a warm run has to redo.
+
+    manifest: {path: {mtime, size, file_session_id, session_ids}} from the
+              last run. current: {path: (mtime, size)} on disk now.
+
+    Returns (dirty_ids, paths_to_reparse). dirty_ids are session ids whose
+    ownership has to be recomputed - they get dropped from the cached state,
+    and any surviving file claiming one of them is re-parsed so that
+    absorb_file's "first seen wins" picks the same winner a cold run would.
+    Dropping an id the cache never held is a no-op, so the set errs wide.
+    """
+    dirty = set()
+    reparse = set()
+
+    for path, (mtime, size) in current.items():
+        prev = manifest.get(path)
+        if prev is None:
+            # New file. Its content session ids are unknown until it is
+            # read; the stem is what absorb_file dedupes on.
+            reparse.add(path)
+            dirty.add(Path(path).stem)
+        elif prev["mtime"] != mtime or prev["size"] != size:
+            reparse.add(path)
+            dirty.add(prev["file_session_id"])
+            dirty.update(prev["session_ids"])
+
+    for path, prev in manifest.items():
+        if path not in current:
+            dirty.add(prev["file_session_id"])
+            dirty.update(prev["session_ids"])
+
+    # Follow the chain: a file dragged in because it claims a dirty session
+    # can itself carry further sessions, which drags in more files.
+    growing = True
+    while growing:
+        growing = False
+        for path, prev in manifest.items():
+            if path in reparse or path not in current:
+                continue
+            claims = set(prev["session_ids"]) | {prev["file_session_id"]}
+            if claims & dirty:
+                reparse.add(path)
+                if not claims <= dirty:
+                    dirty |= claims
+                growing = True
+
+    return dirty, reparse
+
+
+def _transcript_sources():
+    """(label, projects_dir, sudo_user) in the order that decides which
+    source wins a duplicate session id. absorb_file is first-seen-wins, so
+    this order is load-bearing, not cosmetic."""
+    sources = []
     if MIGRATION_ENABLED and MIGRATION_PROJECTS_DIR and MIGRATION_PROJECTS_DIR.exists():
         sources.append((MIGRATION_LABEL, MIGRATION_PROJECTS_DIR, None))
     for _as in ADDITIONAL_SOURCES:
@@ -827,13 +1148,22 @@ def parse_session_transcripts():
             sources.append((_as["label"], _as["projects_dir"], None))
     if PROJECTS_DIR.exists():
         sources.append((SOURCE_LABEL, PROJECTS_DIR, None))
+    return sources
 
-    if not sources:
-        print(f"  WARNING: No projects directories found")
-        return sessions
 
-    for source_label, projects_dir, sudo_user in sources:
-        print(f"  Source: {source_label} ({projects_dir}){' [sudo:'+sudo_user+']' if sudo_user else ''}")
+def _enumerate_transcripts():
+    """Inventory every transcript without reading a single one.
+
+    Entries come back in exactly the order a cold parse absorbs them, and
+    _TRANSCRIPT_INDEX is rebuilt on the way. Each entry carries mtime and
+    size because that is what the scan cache compares against the last run.
+    """
+    _reset_transcript_index()
+    entries = []
+    for source_rank, (source_label, projects_dir, sudo_user) in enumerate(
+            _transcript_sources()):
+        print(f"  Source: {source_label} ({projects_dir})"
+              f"{' [sudo:'+sudo_user+']' if sudo_user else ''}")
         if sudo_user:
             project_dirs = sorted(sudo_list_dir(projects_dir, sudo_user))
         else:
@@ -847,8 +1177,12 @@ def parse_session_transcripts():
             project_name = project_dir.name
             if sudo_user:
                 jsonl_files = sorted(sudo_find_files(project_dir, "*.jsonl", sudo_user))
+                # One stat call for the whole directory instead of one per
+                # file: each sudo round trip is a process spawn.
+                stat_by_path = sudo_stat_files(jsonl_files, sudo_user)
             else:
                 jsonl_files = sorted(project_dir.rglob("*.jsonl"))
+                stat_by_path = None
 
             if not jsonl_files:
                 continue
@@ -856,72 +1190,171 @@ def parse_session_transcripts():
             print(f"    [{idx+1}/{total_dirs}] {project_name} ({len(jsonl_files)} files)")
 
             for jsonl_file in jsonl_files:
-                total_files += 1
-                file_session_id = jsonl_file.stem
-                if sudo_user:
-                    file_size = sudo_file_size(jsonl_file, sudo_user)
+                if stat_by_path is not None:
+                    mtime, size = stat_by_path.get(str(jsonl_file), (0.0, 0))
                 else:
-                    file_size = jsonl_file.stat().st_size
-
-                meta = SessionFileMeta(
-                    source_label=source_label,
-                    file_session_id=file_session_id,
-                    project_name=project_name,
-                    file_size=file_size,
-                )
-                if "/subagents/" in str(jsonl_file):
-                    meta.is_subagent = True
-                    meta.parent_session_id = jsonl_file.parent.parent.name
-                    if file_session_id.startswith("agent-"):
-                        meta.agent_id = file_session_id[len("agent-"):]
-                    meta_path = jsonl_file.with_suffix(".meta.json")
                     try:
-                        if sudo_user:
-                            _mc = sudo_read_text(meta_path, sudo_user)
-                            if _mc:
-                                _mj = json.loads(_mc)
-                                meta.agent_type = _mj.get("agentType", "") or ""
-                                meta.agent_description = _mj.get("description", "") or ""
-                        elif meta_path.exists():
-                            with open(meta_path, "r", encoding="utf-8", errors="replace") as _mf:
-                                _mj = json.load(_mf)
-                            meta.agent_type = _mj.get("agentType", "") or ""
-                            meta.agent_description = _mj.get("description", "") or ""
-                    except (OSError, json.JSONDecodeError):
-                        pass
+                        st = jsonl_file.stat()
+                    except OSError:
+                        continue
+                    mtime, size = st.st_mtime, st.st_size
 
-                try:
-                    if sudo_user:
-                        _content = sudo_read_text(jsonl_file, sudo_user)
-                        if _content is None:
-                            continue
-                        _line_iter = _content.split("\n")
-                    else:
-                        _line_iter = open(jsonl_file, "r", encoding="utf-8", errors="replace").readlines()
+                file_session_id = jsonl_file.stem
+                _index_transcript(project_name, file_session_id, jsonl_file,
+                                  sudo_user, project_dir, source_rank,
+                                  mtime, size)
+                entries.append({
+                    "path": str(jsonl_file),
+                    "file": jsonl_file,
+                    "source_label": source_label,
+                    "project_name": project_name,
+                    "sudo_user": sudo_user,
+                    "file_session_id": file_session_id,
+                    "mtime": mtime,
+                    "size": size,
+                })
+    return entries
 
-                    _parsed_objs = []
-                    for line in _line_iter:
-                        total_lines += 1
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            obj = json.loads(line)
-                        except json.JSONDecodeError:
-                            continue
-                        _parsed_objs.append(obj)
 
-                    absorb_file(sessions, meta, _parsed_objs)
+def _session_file_meta(entry):
+    """Build the SessionFileMeta for one transcript, including the subagent
+    sidecar lookup."""
+    jsonl_file = entry["file"]
+    sudo_user = entry["sudo_user"]
+    file_session_id = entry["file_session_id"]
 
-                except Exception as e:
-                    print(f"      ERROR reading {jsonl_file.name}: {e}")
+    meta = SessionFileMeta(
+        source_label=entry["source_label"],
+        file_session_id=file_session_id,
+        project_name=entry["project_name"],
+        file_size=entry["size"],
+    )
+    if "/subagents/" in str(jsonl_file):
+        meta.is_subagent = True
+        meta.parent_session_id = jsonl_file.parent.parent.name
+        if file_session_id.startswith("agent-"):
+            meta.agent_id = file_session_id[len("agent-"):]
+        meta_path = jsonl_file.with_suffix(".meta.json")
+        try:
+            if sudo_user:
+                _mc = sudo_read_text(meta_path, sudo_user)
+                if _mc:
+                    _mj = json.loads(_mc)
+                    meta.agent_type = _mj.get("agentType", "") or ""
+                    meta.agent_description = _mj.get("description", "") or ""
+            elif meta_path.exists():
+                with open(meta_path, "r", encoding="utf-8", errors="replace") as _mf:
+                    _mj = json.load(_mf)
+                meta.agent_type = _mj.get("agentType", "") or ""
+                meta.agent_description = _mj.get("description", "") or ""
+        except (OSError, json.JSONDecodeError):
+            pass
+    return meta
+
+
+def _read_transcript_objects(entry):
+    """Read and JSON-decode one transcript. Returns (objs, line_count), or
+    (None, 0) if the file could not be read.
+
+    Only I/O and decoding problems are swallowed here. A bug in the parsing
+    code must surface as a crash: a blanket except would let the run finish
+    with a silently empty or partial data set, which is the one failure mode
+    a statistics dashboard cannot afford.
+    """
+    jsonl_file = entry["file"]
+    try:
+        if entry["sudo_user"]:
+            _content = sudo_read_text(jsonl_file, entry["sudo_user"])
+            if _content is None:
+                return None, 0
+            _line_iter = _content.split("\n")
+        else:
+            with open(jsonl_file, "r", encoding="utf-8", errors="replace") as _f:
+                _line_iter = _f.readlines()
+    except OSError as e:
+        print(f"      ERROR reading {jsonl_file.name}: {e}")
+        return None, 0
+
+    objs = []
+    total = 0
+    for line in _line_iter:
+        total += 1
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            objs.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return objs, total
+
+
+def _resume_from_cache(entries, current):
+    """Reuse the previous run's merged state where the corpus did not move.
+
+    Returns (sessions, manifest, to_parse). On any doubt - no cache, stale
+    epoch, unreadable or malformed file - everything is re-parsed, which is
+    exactly the behaviour before the cache existed.
+    """
+    cache = None if NO_CACHE else _load_cache()
+    if cache is None:
+        return {}, {}, entries
+
+    dirty, reparse = _plan_reparse(cache["files"], current)
+    sessions = {sid: rehydrate_session(sess)
+                for sid, sess in cache["sessions"].items() if sid not in dirty}
+    manifest = {path: rec for path, rec in cache["files"].items()
+                if path in current and path not in reparse}
+    to_parse = [e for e in entries if e["path"] in reparse]
+    print(f"  Cache: {len(sessions)} sessions reused, "
+          f"{len(to_parse)} of {len(entries)} files to re-parse")
+    return sessions, manifest, to_parse
+
+
+def parse_session_transcripts():
+    """Parse all session JSONL transcripts from all sources."""
+    global _TRANSCRIPT_INDEX_READY
+
+    entries = _enumerate_transcripts()
+    _TRANSCRIPT_INDEX_READY = True
+    if not entries:
+        print(f"  WARNING: No projects directories found")
+        return {}
+
+    current = {e["path"]: (e["mtime"], e["size"]) for e in entries}
+    sessions, manifest, to_parse = _resume_from_cache(entries, current)
+    reused = len(sessions)
+
+    total_files = 0
+    total_lines = 0
+    for entry in to_parse:
+        meta = _session_file_meta(entry)
+        objs, line_count = _read_transcript_objects(entry)
+        if objs is None:
+            continue
+        total_files += 1
+        total_lines += line_count
+        touched = absorb_file(sessions, meta, objs)
+        manifest[entry["path"]] = {
+            "mtime": entry["mtime"],
+            "size": entry["size"],
+            "file_session_id": entry["file_session_id"],
+            "session_ids": sorted(touched),
+        }
+
+    # Written here and not later: finalize_sessions() folds subagents into
+    # their parents and deletes them from the top level, and
+    # build_dashboard_data() pops the private fields. Both are destructive,
+    # so this is the last moment the state is still resumable.
+    _save_cache(sessions, manifest)
 
     finalize_sessions(sessions)
 
     migration_count = sum(1 for s in sessions.values() if s.get("source") == MIGRATION_LABEL)
     current_count = sum(1 for s in sessions.values() if s.get("source") == SOURCE_LABEL)
-    print(f"  Parsed {total_files} files, {total_lines} lines, {len(sessions)} sessions"
-          f" (migration: {migration_count}, current: {current_count})")
+    print(f"  Parsed {total_files} of {len(entries)} files, {total_lines} lines,"
+          f" {len(sessions)} sessions ({reused} reused from cache;"
+          f" migration: {migration_count}, current: {current_count})")
     return sessions
 
 
@@ -929,7 +1362,33 @@ def extract_session_messages(session_id, project_dir_name):
     """Extract per-message data for a single session for replay view."""
     messages = []
 
-    # Search for the JSONL file
+    # The parse pass already walked every transcript, so its index answers
+    # this without touching the filesystem. Only a standalone call (no parse
+    # pass in this run) falls back to searching.
+    if _TRANSCRIPT_INDEX_READY:
+        jsonl_path, found_sudo_user = _lookup_transcript(project_dir_name,
+                                                         session_id)
+    else:
+        jsonl_path, found_sudo_user = _search_transcript(session_id,
+                                                         project_dir_name)
+
+    if not jsonl_path:
+        return messages
+
+    if found_sudo_user:
+        _content = sudo_read_text(jsonl_path, found_sudo_user)
+        _lines = _content.split("\n") if _content else []
+    else:
+        with open(jsonl_path, "r", encoding="utf-8", errors="replace") as f:
+            _lines = f.readlines()
+
+    return _messages_from_lines(_lines)
+
+
+def _search_transcript(session_id, project_dir_name):
+    """Locate a session's JSONL by walking the sources. Only used when no
+    parse pass has populated _TRANSCRIPT_INDEX; _index_transcript mirrors
+    the precedence encoded here."""
     sources = []  # (projects_dir, sudo_user_or_None)
     if MIGRATION_ENABLED and MIGRATION_PROJECTS_DIR and MIGRATION_PROJECTS_DIR.exists():
         sources.append((MIGRATION_PROJECTS_DIR, None))
@@ -968,15 +1427,12 @@ def extract_session_messages(session_id, project_dir_name):
             if jsonl_path:
                 break
 
-    if not jsonl_path:
-        return messages
+    return jsonl_path, found_sudo_user
 
-    if found_sudo_user:
-        _content = sudo_read_text(jsonl_path, found_sudo_user)
-        _lines = _content.split("\n") if _content else []
-    else:
-        with open(jsonl_path, "r", encoding="utf-8", errors="replace") as f:
-            _lines = f.readlines()
+
+def _messages_from_lines(_lines):
+    """Build the replay-view message list from one transcript's raw lines."""
+    messages = []
 
     _detail_objs = []
     for line in _lines:
@@ -1531,10 +1987,26 @@ def generate_session_pages(sessions, session_list):
     sessions_dir = OUTPUT_DIR / "sessions"
     sessions_dir.mkdir(exist_ok=True)
 
+    previous_keys = _load_page_keys("session")
+    current_keys = {}
+
     count = 0
+    reused = 0
     for sess_data in session_list:
         sid = sess_data["session_id"]
         project_dir = sess_data.get("project_dir", "")
+
+        # A page whose transcript, aggregates and template are all unchanged
+        # would be rewritten byte for byte. Re-reading and re-parsing the
+        # transcript to arrive at that conclusion is the bulk of this pass.
+        render_key = _page_render_key(sess_data, project_dir)
+        out_path = sessions_dir / f"{sid}.html"
+        if render_key and previous_keys.get(sid) == render_key and out_path.exists():
+            sess_data["has_chat"] = True
+            current_keys[sid] = render_key
+            reused += 1
+            continue
+
         messages = extract_session_messages(sid, project_dir)
 
         if not messages:
@@ -1563,12 +2035,15 @@ def generate_session_pages(sessions, session_list):
         body_classes = "flow-hidden" if CONFIG.get("hide_session_flow", False) else ""
         html = html.replace('__BODY_CLASSES__', body_classes)
 
-        out_path = sessions_dir / f"{sid}.html"
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(html)
+        if render_key:
+            current_keys[sid] = render_key
         count += 1
 
-    print(f"  Generated {count} session pages in {sessions_dir}")
+    _save_page_keys("session", current_keys)
+    print(f"  Generated {count} session pages in {sessions_dir}"
+          + (f" ({reused} unchanged, reused)" if reused else ""))
 
 
 # Rendered page templates, keyed by (kind, PALETTE, LANG): everything that
@@ -1618,7 +2093,11 @@ def generate_project_pages(session_list, data=None):
     for s in session_list:
         project_sessions[s["project"]].append(s)
 
+    previous_keys = _load_page_keys("project")
+    current_keys = {}
+
     count = 0
+    reused = 0
     slug_map = {}
     for proj_name, proj_sessions in project_sessions.items():
         proj_sessions.sort(key=lambda s: s["start"], reverse=True)
@@ -1717,16 +2196,27 @@ def generate_project_pages(session_list, data=None):
             "error_count": proj_errors,
         }, ensure_ascii=False)
 
+        # The page is a pure function of this payload and the template, so
+        # an unchanged key means an identical file. Leaving it on disk keeps
+        # its mtime, which is what lets the deploy skip it too.
+        render_key = _project_render_key(project_json)
+        current_keys[slug] = render_key
+        out_path = projects_dir / f"{slug}.html"
+        if previous_keys.get(slug) == render_key and out_path.exists():
+            reused += 1
+            continue
+
         html = _get_project_html_template()
         html = html.replace('"__PROJECT_DATA__"', project_json)
         html = html.replace('__VERSION__', VERSION)
 
-        out_path = projects_dir / f"{slug}.html"
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(html)
         count += 1
 
-    print(f"  Generated {count} project pages in {projects_dir}")
+    _save_page_keys("project", current_keys)
+    print(f"  Generated {count} project pages in {projects_dir}"
+          + (f" ({reused} unchanged, reused)" if reused else ""))
     return slug_map
 
 
@@ -1761,7 +2251,108 @@ def _build_project_html_template():
     return html
 
 
+def _sessions_touched_by(paths):
+    """Every session id a set of transcript paths can influence.
+
+    Not just the file's own session: finalize_sessions() folds a subagent's
+    usage into its parent, so a subagent transcript that grows changes the
+    parent's numbers while the parent's own file stands still. Missing that
+    link made the first version of this check report a false mismatch on
+    every long-running session.
+    """
+    cache = _load_cache()
+    manifest = cache["files"] if cache else {}
+    ids = set()
+    for path in paths:
+        record = manifest.get(path)
+        if record:
+            ids.add(record["file_session_id"])
+            ids.update(record["session_ids"])
+        p = Path(path)
+        ids.add(p.stem)
+        if "subagents" in p.parts:
+            ids.add(p.parent.parent.name)
+    return ids
+
+
+def verify_cache():
+    """Prove that a warm run reproduces a cold one, on the real corpus.
+
+    Compares the merged session state rather than dashboard_data.json: the
+    dashboard is a pure function of that state plus loaders the cache never
+    touches, so an equal state is the stricter claim, and it points at the
+    session that broke rather than at a diff in a 24 MB file.
+    """
+    global NO_CACHE
+
+    print("Scan cache verification")
+    print("=" * 50)
+    # The corpus is live: any session still being written grows between the
+    # passes and would differ for reasons that have nothing to do with the
+    # cache. Bracket the runs with two inventories and exclude whatever moved,
+    # otherwise this check cries wolf on every machine that is in use.
+    print("\n[1/5] Inventory before...")
+    before = {e["path"]: (e["mtime"], e["size"])
+              for e in _enumerate_transcripts()}
+
+    print("\n[2/5] Populating the cache...")
+    parse_session_transcripts()
+
+    print("\n[3/5] Warm run (reusing the cache)...")
+    warm = parse_session_transcripts()
+
+    print("\n[4/5] Cold reference run (--no-cache)...")
+    NO_CACHE = True
+    try:
+        cold = parse_session_transcripts()
+    finally:
+        NO_CACHE = False
+
+    print("\n[5/5] Inventory after...")
+    after = {e["path"]: (e["mtime"], e["size"])
+             for e in _enumerate_transcripts()}
+    moved = {path for path in set(before) | set(after)
+             if before.get(path) != after.get(path)}
+    volatile_ids = _sessions_touched_by(moved)
+
+    print(f"\n{'=' * 50}")
+    only_warm = [s for s in sorted(set(warm) - set(cold))
+                 if s not in volatile_ids]
+    only_cold = [s for s in sorted(set(cold) - set(warm))
+                 if s not in volatile_ids]
+    shared = sorted(set(warm) & set(cold))
+    differing = []
+    volatile = 0
+    for sid in shared:
+        if json.dumps(warm[sid], sort_keys=True, default=str) \
+                == json.dumps(cold[sid], sort_keys=True, default=str):
+            continue
+        if sid in volatile_ids:
+            volatile += 1
+        else:
+            differing.append(sid)
+
+    note = (f" ({volatile} session(s) were being written during the check and"
+            f" were excluded)" if volatile else "")
+    if not (only_warm or only_cold or differing):
+        print(f"  OK: {len(shared) - volatile} sessions identical between the"
+              f" warm and the cold run.{note}")
+        return 0
+
+    print(f"  MISMATCH: {len(differing)} session(s) differ,"
+          f" {len(only_warm)} only in the warm run,"
+          f" {len(only_cold)} only in the cold run.{note}")
+    for sid in (only_warm[:5] + only_cold[:5] + differing[:5]):
+        print(f"    {sid}")
+    print("  The cache is not trustworthy in this state. Delete .cache/ and"
+          " report the session ids above.")
+    return 1
+
+
 def main():
+    if "--verify-cache" in sys.argv:
+        sys.exit(verify_cache())
+
     print("Claude Code Statistics Extractor")
     print("=" * 50)
     print(f"  Primary:   {CLAUDE_DIR}")

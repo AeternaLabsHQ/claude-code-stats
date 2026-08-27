@@ -43,12 +43,32 @@ def write_jsonl(path, objs):
 
 
 @contextmanager
-def patched_sources(primary_dir, additional=None, plan_history=None):
+def patched_cache(cache_dir=None):
+    """Point the scan cache at a temp dir, so a test run never reads or
+    writes the real .cache/ next to extract_stats.py. Without this every
+    parse in the suite would leave state behind for the next one."""
+    import tempfile
+    cache_dir = Path(cache_dir or tempfile.mkdtemp(prefix="cs-cache-"))
+    saved = (es.CACHE_DIR, es.CACHE_PATH, es.PAGE_CACHE_PATH)
+    es.CACHE_DIR = cache_dir
+    es.CACHE_PATH = cache_dir / "scan_cache.json"
+    es.PAGE_CACHE_PATH = cache_dir / "page_cache.json"
+    try:
+        yield cache_dir
+    finally:
+        (es.CACHE_DIR, es.CACHE_PATH, es.PAGE_CACHE_PATH) = saved
+
+
+@contextmanager
+def patched_sources(primary_dir, additional=None, plan_history=None,
+                    cache_dir=None):
     """Point extract_stats' module globals at temp fixture dirs (hermetic:
     the user's real config.json values are saved and restored)."""
     saved = (es.PROJECTS_DIR, es.MIGRATION_ENABLED, es.ADDITIONAL_SOURCES,
              es.SOURCE_LABEL, es.PLAN_HISTORY)
     saved_core = (core_settings.SOURCE_LABEL, core_settings.PLAN_HISTORY)
+    cache_ctx = patched_cache(cache_dir)
+    cache_ctx.__enter__()
     es.PROJECTS_DIR = Path(primary_dir)
     es.MIGRATION_ENABLED = False
     es.ADDITIONAL_SOURCES = additional or []
@@ -62,3 +82,4 @@ def patched_sources(primary_dir, additional=None, plan_history=None):
         (es.PROJECTS_DIR, es.MIGRATION_ENABLED, es.ADDITIONAL_SOURCES,
          es.SOURCE_LABEL, es.PLAN_HISTORY) = saved
         (core_settings.SOURCE_LABEL, core_settings.PLAN_HISTORY) = saved_core
+        cache_ctx.__exit__(None, None, None)

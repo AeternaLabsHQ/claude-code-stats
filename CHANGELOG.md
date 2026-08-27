@@ -2,6 +2,21 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-27
+
+A performance release. Nothing about the dashboard itself changes; runs simply stop repeating work they have already done.
+
+### Added
+- Incremental scans. The merged session state is cached in `.cache/`, so a repeat run only re-reads the transcripts whose size or timestamp moved, and only re-renders the detail pages whose content changed. On a large history a repeat run costs roughly a quarter of a full one. The cache is keyed on a hash over the source tree and your `config.json`, so editing the parser, adding a model to the pricing table or changing your plan history discards it automatically. (#22, #23)
+- `--verify-cache` parses the corpus warm and cold and reports any session where the two disagree. Sessions that are still being written while it runs are detected and excluded, so it can be used on a machine that is in use.
+- `--no-cache` forces a full scan and leaves the cache untouched. Deleting `.cache/` is always safe; the next run rebuilds it.
+
+### Changed
+- The session and project page templates are built once per run instead of once per page. Thanks to @jkopczyn. (#21, #22)
+- Session transcripts are located from an index built during the parse pass instead of searched for once per detail page. With a `sudo_user` source configured, that search cost two subprocess round trips per session, paid even by sessions living in the primary directory. (#23)
+- Unchanged detail pages keep their timestamp along with their contents, so an `rsync`-based deploy skips them as well and the upload shrinks with the run.
+- The transcript parse loop no longer catches bare `Exception`. Only I/O errors are swallowed, so a bug in the parsing code surfaces as a crash instead of as a silently empty or partial data set.
+
 ## [1.1.0] - 2026-08-25
 
 ### Added

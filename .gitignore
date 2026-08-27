@@ -1,6 +1,9 @@
 # Generated output
 public/
 
+# Incremental scan cache (rebuilt on demand, holds raw transcript state)
+.cache/
+
 # Legacy output location (before public/ migration) — anchored to root only
 /dashboard.html
 /dashboard_data.json

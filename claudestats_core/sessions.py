@@ -186,6 +186,74 @@ class SessionFileMeta:
     agent_description: str = ""
 
 
+def _model_bucket():
+    return {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_5m_tokens": 0,
+        "cache_1h_tokens": 0,
+        "cost": 0.0,
+        "calls": 0,
+    }
+
+
+def _daily_model_bucket():
+    return {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cost": 0.0,
+        "calls": 0,
+    }
+
+
+def _daily_model_map():
+    return defaultdict(_daily_model_bucket)
+
+
+def _tool_bucket():
+    return {"calls": 0, "output_tokens": 0, "cost": 0.0}
+
+
+# Named rather than inline lambdas so rehydrate_session() below can rebuild
+# exactly the same shapes; a defaultdict with a lambda factory also cannot
+# be pickled, and the scan cache round-trips these through JSON.
+_COUNTER_FIELDS = ("daily_message_count", "tools", "skills", "hooks",
+                   "errors_by_source")
+
+# Indexed by datetime.hour / datetime.weekday(), i.e. by int. JSON has no
+# integer keys, so a plain round trip hands these back as strings - and
+# build_dashboard_data sums them into one histogram across all sessions,
+# where a cached "11" and a freshly parsed 11 would become two hours.
+_INT_KEYED_FIELDS = ("hour_hist", "weekday_hist")
+
+
+def rehydrate_session(sess):
+    """Restore the defaultdict shapes a session needs in order to keep
+    absorbing lines, after a round trip through JSON.
+
+    The incremental scan cache reuses merged session state across runs.
+    Plain dicts from json.load() would raise KeyError the moment another
+    transcript folds into a model or tool bucket that is not there yet.
+    """
+    for field in _COUNTER_FIELDS:
+        sess[field] = defaultdict(int, sess.get(field) or {})
+    for field in _INT_KEYED_FIELDS:
+        sess[field] = defaultdict(
+            int, {int(k): v for k, v in (sess.get(field) or {}).items()})
+    sess["models"] = defaultdict(_model_bucket, sess.get("models") or {})
+    sess["tool_tokens"] = defaultdict(_tool_bucket,
+                                      sess.get("tool_tokens") or {})
+    daily = defaultdict(_daily_model_map)
+    for day, models in (sess.get("daily_models") or {}).items():
+        daily[day] = defaultdict(_daily_model_bucket, models)
+    sess["daily_models"] = daily
+    return sess
+
+
 def absorb_file(sessions, meta, parsed_objs):
     """Fold the parsed JSONL objects of ONE transcript file into sessions.
 
@@ -193,7 +261,12 @@ def absorb_file(sessions, meta, parsed_objs):
     any other driver can too, as long as it matches this shape. Duplicates
     (session already parsed from another source) are skipped as before -
     first seen wins.
+
+    Returns the set of session ids this file contributed to. The scan cache
+    records it so that invalidating a session can pull in every file that
+    claims it, not just the file that happened to change.
     """
+    touched = set()
     source_label = meta.source_label
     file_session_id = meta.file_session_id
     project_name = meta.project_name
@@ -214,7 +287,7 @@ def absorb_file(sessions, meta, parsed_objs):
             print(f"      NOTE: {file_session_id} already parsed from "
                   f"source '{_prev_src}'; skipping duplicate in "
                   f"'{source_label}'")
-        return
+        return touched
 
     # Collapse stream-split assistant rows (Claude Code writes
     # one JSONL line per content block, each repeating the same
@@ -226,6 +299,7 @@ def absorb_file(sessions, meta, parsed_objs):
             # For subagent files, use the file stem as session_id
             # (the sessionId field points to the parent)
             session_id = file_session_id if is_subagent else obj.get("sessionId", file_session_id)
+            touched.add(session_id)
             timestamp = obj.get("timestamp")
 
             if session_id not in sessions:
@@ -234,33 +308,13 @@ def absorb_file(sessions, meta, parsed_objs):
                     "project_dir": project_name,
                     "project_path": obj.get("cwd", ""),
                     "timestamps": [],
-                    "models": defaultdict(lambda: {
-                        "input_tokens": 0,
-                        "output_tokens": 0,
-                        "cache_read_input_tokens": 0,
-                        "cache_creation_input_tokens": 0,
-                        "cache_5m_tokens": 0,
-                        "cache_1h_tokens": 0,
-                        "cost": 0.0,
-                        "calls": 0,
-                    }),
-                    "daily_models": defaultdict(lambda: defaultdict(lambda: {
-                        "input_tokens": 0,
-                        "output_tokens": 0,
-                        "cache_read_input_tokens": 0,
-                        "cache_creation_input_tokens": 0,
-                        "cost": 0.0,
-                        "calls": 0,
-                    })),
+                    "models": defaultdict(_model_bucket),
+                    "daily_models": defaultdict(_daily_model_map),
                     "daily_message_count": defaultdict(int),
                     "hour_hist": defaultdict(int),
                     "weekday_hist": defaultdict(int),
                     "tools": defaultdict(int),
-                    "tool_tokens": defaultdict(lambda: {
-                        "calls": 0,
-                        "output_tokens": 0,
-                        "cost": 0.0,
-                    }),
+                    "tool_tokens": defaultdict(_tool_bucket),
                     "reasoning_output_tokens": 0,
                     "reasoning_cost": 0.0,
                     "write_categories": {cat: 0 for cat in WRITE_CATEGORIES},
@@ -649,6 +703,8 @@ def absorb_file(sessions, meta, parsed_objs):
                     hook_name = data_obj.get("hookName", "")
                     if hook_name:
                         sess["hooks"][hook_name] += 1
+
+    return touched
 
 
 def finalize_sessions(sessions):

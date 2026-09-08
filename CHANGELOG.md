@@ -2,6 +2,14 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Fable 5.1** in the pricing table. Same base rates as Fable 5 ($10 / $50), but cache reads are priced at 0.025x base input ($0.25 / MTok) instead of the usual 0.1x. Previously the model fell through to the default estimate and was undercounted by roughly 70%. (#24)
+
+### Fixed
+- Sonnet 5 is back at $2 / $10. The increase to $3 / $15 scheduled for 2026-09-01 was cancelled by Anthropic; the launch rate is now the standard price. (#25)
+
 ## [1.2.0] - 2026-08-27
 
 A performance release. Nothing about the dashboard itself changes; runs simply stop repeating work they have already done.

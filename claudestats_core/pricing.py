@@ -3,6 +3,13 @@ import re
 
 # ── Pricing (USD per 1M tokens) ───────────────────────────────────────────
 PRICING = {
+    # Fable 5.1 (flagship tier, above Opus). Same base rates as Fable 5, but
+    # cache reads are 0.025x base input instead of the usual 0.1x.
+    "claude-fable-5-1": {
+        "input": 10.00, "output": 50.00,
+        "cache_read": 0.25, "cache_write_5m": 12.50, "cache_write_1h": 20.00,
+        "display": "Fable 5.1"
+    },
     # Fable 5 (flagship tier, above Opus)
     "claude-fable-5": {
         "input": 10.00, "output": 50.00,
@@ -14,11 +21,11 @@ PRICING = {
         "cache_read": 0.50, "cache_write_5m": 6.25, "cache_write_1h": 10.00,
         "display": "Opus 5"
     },
-    # Sonnet 5: standard pricing. An introductory $2/$10 rate applied through
-    # 2026-08-31; standard rates below took effect 2026-09-01.
+    # Sonnet 5: the $2/$10 launch rate is the standard price. The increase to
+    # $3/$15 announced for 2026-09-01 was cancelled by Anthropic.
     "claude-sonnet-5": {
-        "input": 3.00, "output": 15.00,
-        "cache_read": 0.30, "cache_write_5m": 3.75, "cache_write_1h": 6.00,
+        "input": 2.00, "output": 10.00,
+        "cache_read": 0.20, "cache_write_5m": 2.50, "cache_write_1h": 4.00,
         "display": "Sonnet 5"
     },
     # Claude 4.8

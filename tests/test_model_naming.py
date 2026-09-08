@@ -166,6 +166,26 @@ class PricingForDisplayTest(unittest.TestCase):
         self.assertIs(pricing_for_display("Opus 9"), DEFAULT_PRICING)
         self.assertIs(pricing_for_display("Unknown"), DEFAULT_PRICING)
 
+    def test_fable_5_1_is_priced_not_defaulted(self):
+        # Regression (#24): claude-fable-5-1 fell through to DEFAULT_PRICING
+        # ($3/$15) instead of $10/$50, a ~70% undercount.
+        self.assertEqual(get_model_display("claude-fable-5-1"), "Fable 5.1")
+        entry = PRICING["claude-fable-5-1"]
+        self.assertIs(pricing_for_display("Fable 5.1"), entry)
+        self.assertIs(resolve_pricing("claude-fable-5-1[1m]"), entry)
+        self.assertEqual(build_pricing_warnings(["claude-fable-5-1"]), [])
+        self.assertEqual((entry["input"], entry["output"]), (10.00, 50.00))
+        # Cache reads are 0.025x base input on Fable 5.1, not the usual 0.1x.
+        self.assertEqual(entry["cache_read"], 0.25)
+        self.assertEqual(PRICING["claude-fable-5"]["cache_read"], 1.00)
+        self.assertIsNot(entry, PRICING["claude-fable-5"])
+
+    def test_sonnet_5_keeps_launch_rate(self):
+        # Regression (#25): the 2026-09-01 increase to $3/$15 was cancelled.
+        entry = PRICING["claude-sonnet-5"]
+        self.assertEqual((entry["input"], entry["output"]), (2.00, 10.00))
+        self.assertEqual(entry["cache_read"], 0.20)
+
     def test_opus_5_is_priced_not_defaulted(self):
         # Regression: claude-opus-5 sat in the Unknown bucket and was costed
         # at DEFAULT_PRICING ($3/$15) instead of $5/$25, a 40% undercount.

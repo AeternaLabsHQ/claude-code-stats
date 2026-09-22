@@ -4,6 +4,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-09-22
+
+A pricing update. Two new models get their own rates, and Sonnet 5 goes back to its launch price.
+
 ### Added
 - **Opus 5.5** in the pricing table: $4 / $20, cache reads $0.20 / MTok, cache writes $5 (5m) and $8 (1h). Without an entry it fell through to the default estimate ($3 / $15). In the charts it takes the strongest Opus shade automatically; Opus 5 moves one step lighter.
 - **Fable 5.1** in the pricing table. Same base rates as Fable 5 ($10 / $50), but cache reads are priced at 0.025x base input ($0.25 / MTok) instead of the usual 0.1x. Previously the model fell through to the default estimate and was undercounted by roughly 70%. (#24)

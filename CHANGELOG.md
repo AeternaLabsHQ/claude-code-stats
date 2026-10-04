@@ -4,6 +4,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-10-04
+
+A pricing update for the new Sonnet 5.5.
+
 ### Added
 - **Sonnet 5.5** in the pricing table: $2 / $10, cache reads $0.20 / MTok, cache writes $2.50 (5m) and $4 (1h), the same rates as Sonnet 5. Without an entry it fell through to the default estimate ($3 / $15). In the charts it takes the strongest Sonnet shade automatically; Sonnet 5 moves one step lighter.
 

@@ -5,11 +5,16 @@ import re
 PRICING = {
     # Opus 5.5 (first model of the Claude 5.5 generation). Cheaper than Opus 5
     # across the board; cache reads are 0.05x base input instead of 0.1x.
-    # The 1h cache write follows the usual 2x input rule (not in the announcement).
     "claude-opus-5-5": {
         "input": 4.00, "output": 20.00,
         "cache_read": 0.20, "cache_write_5m": 5.00, "cache_write_1h": 8.00,
         "display": "Opus 5.5"
+    },
+    # Sonnet 5.5: same rates as Sonnet 5, standard 0.1x cache reads.
+    "claude-sonnet-5-5": {
+        "input": 2.00, "output": 10.00,
+        "cache_read": 0.20, "cache_write_5m": 2.50, "cache_write_1h": 4.00,
+        "display": "Sonnet 5.5"
     },
     # Fable 5.1 (flagship tier, above Opus). Same base rates as Fable 5, but
     # cache reads are 0.025x base input instead of the usual 0.1x.

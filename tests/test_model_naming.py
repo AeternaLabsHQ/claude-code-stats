@@ -193,6 +193,19 @@ class PricingForDisplayTest(unittest.TestCase):
         self.assertEqual(entry["cache_write_5m"], 5.00)
         self.assertIsNot(entry, PRICING["claude-opus-5"])
 
+    def test_sonnet_5_5_is_priced_not_defaulted(self):
+        # claude-sonnet-5-5 must have its own entry, not fall through to
+        # DEFAULT_PRICING or Sonnet 5: same $2/$10 rates, distinct display.
+        self.assertEqual(get_model_display("claude-sonnet-5-5"), "Sonnet 5.5")
+        entry = PRICING["claude-sonnet-5-5"]
+        self.assertIs(pricing_for_display("Sonnet 5.5"), entry)
+        self.assertIs(resolve_pricing("claude-sonnet-5-5[1m]"), entry)
+        self.assertEqual(build_pricing_warnings(["claude-sonnet-5-5"]), [])
+        self.assertEqual((entry["input"], entry["output"]), (2.00, 10.00))
+        self.assertEqual(entry["cache_read"], 0.20)
+        self.assertEqual(entry["cache_write_1h"], 4.00)
+        self.assertIsNot(entry, PRICING["claude-sonnet-5"])
+
     def test_sonnet_5_keeps_launch_rate(self):
         # Regression (#25): the 2026-09-01 increase to $3/$15 was cancelled.
         entry = PRICING["claude-sonnet-5"]

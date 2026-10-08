@@ -4,6 +4,9 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- **Skills Used, Hooks and Git Ops** now follow the date range and project filter. They always showed all-time totals, no matter which range was selected. (#27)
+
 ## [1.2.2] - 2026-10-04
 
 A pricing update for the new Sonnet 5.5.

@@ -473,6 +473,19 @@ function filterData(days, projectFilter) {
   });
   F.tool_summary = Object.entries(toolMap).map(([name, count]) => ({name, count})).sort((a, b) => b.count - a.count);
 
+  // Recalculate skill_summary, hook_summary and git_summary
+  const skillMap = {}, hookMap = {};
+  const gitOps = {commits: 0, pushes: 0, prs: 0};
+  const GIT_KEYS = {commit: 'commits', push: 'pushes', pr: 'prs'};
+  F.sessions.forEach(s => {
+    Object.entries(s.skills || {}).forEach(([name, count]) => { skillMap[name] = (skillMap[name] || 0) + count; });
+    Object.entries(s.hooks || {}).forEach(([name, count]) => { hookMap[name] = (hookMap[name] || 0) + count; });
+    (s.git_ops || []).forEach(g => { if (GIT_KEYS[g.type]) gitOps[GIT_KEYS[g.type]]++; });
+  });
+  F.skill_summary = Object.entries(skillMap).map(([name, count]) => ({name, count})).sort((a, b) => b.count - a.count);
+  F.hook_summary = Object.entries(hookMap).map(([name, count]) => ({name, count})).sort((a, b) => b.count - a.count);
+  F.git_summary = gitOps;
+
   // Recalculate tool_token_summary + reasoning_summary
   const toolTokenMap = {};
   let reasoningOut = 0, reasoningCost = 0;
@@ -613,6 +626,7 @@ function applyFilter(days, projectFilter) {
   renderToolUsageChart();
   renderToolTokenChart();
   renderWriteCategoriesChart();
+  renderSkillsHooksGit();
   renderAgentsTab();
 }
 
@@ -2413,11 +2427,17 @@ function renderInsights() {
     miscGrid.appendChild(div);
   });
   miscDiv.appendChild(miscGrid);
+}
 
+// Skills, hooks and git ops. Separate from renderInsights (which appends rows
+// and builds charts without clearing) so applyFilter can re-render it on
+// every filter change.
+function renderSkillsHooksGit() {
   // Skills
+  const skills = F.skill_summary || [];
   const skillsEl = document.getElementById('skillsList');
-  if (skillsEl && D.skill_summary && D.skill_summary.length > 0) {
-    skillsEl.innerHTML = D.skill_summary.map(s =>
+  if (skillsEl && skills.length > 0) {
+    skillsEl.innerHTML = skills.map(s =>
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--vc-grid-2,var(--border))">' +
       '<span class="anon-blur" style="font-size:13px;color:var(--vc-fg,var(--text))">' + escHtml(s.name) + '</span>' +
       '<span class="vc-tag acc">' + s.count + 'x</span>' +
@@ -2428,9 +2448,10 @@ function renderInsights() {
   }
 
   // Hooks
+  const hooks = F.hook_summary || [];
   const hooksEl = document.getElementById('hooksList');
-  if (hooksEl && D.hook_summary && D.hook_summary.length > 0) {
-    hooksEl.innerHTML = D.hook_summary.map(h => {
+  if (hooksEl && hooks.length > 0) {
+    hooksEl.innerHTML = hooks.map(h => {
       const parts = h.name.split(':');
       const event = parts[0] || '';
       const name = parts.slice(1).join(':') || h.name;
@@ -2443,9 +2464,8 @@ function renderInsights() {
     hooksEl.innerHTML = '<p style="color:var(--text2);font-size:13px;padding:12px">No hooks fired yet</p>';
   }
 
-
   // Git ops
-  const gs = D.git_summary || {};
+  const gs = F.git_summary || {};
   const gitEl = document.getElementById('gitOpsInfo');
   if (gitEl) {
     gitEl.innerHTML =
@@ -2823,6 +2843,7 @@ document.getElementById('bulkDownloadBtn').addEventListener('click', bulkDownloa
 renderPlan();
 renderLimits();
 renderInsights();
+renderSkillsHooksGit();
 renderAgentsTab();
 
 function initInsightsSubnav() {

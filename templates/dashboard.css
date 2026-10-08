@@ -721,6 +721,14 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   color: var(--vc-fg);
   margin-bottom: 14px;
 }
+/* One-line explanation under a card heading (Hooks: logging gap). */
+.vc .chart-box .vc-card-note {
+  font-family: var(--vc-font-sans);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--vc-fg-3);
+  margin: -6px 0 12px;
+}
 .vc .chart-box.tall canvas { max-height: 420px; }
 /* Uniform, compact size for all doughnut/pie charts. They render with
    maintainAspectRatio:false, so the canvas fills this fixed box height

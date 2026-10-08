@@ -260,6 +260,7 @@
     "completion_rate": "Completion Rate",
     "skills": "Verwendete Skills",
     "hooks": "Ausgeführte Hooks",
+    "hooks_note": "Seit Claude Code 2.1.9x (April 2026) protokolliert Claude Code Hooks ohne Ausgabe nicht mehr, sie fehlen hier. Stop- und Async-Hooks sind vollständig.",
     "error_rate_over_time": "Fehlerrate im Zeitverlauf",
     "git_ops": "Git-Operationen",
     "commits": "Commits",

@@ -254,6 +254,63 @@ def rehydrate_session(sess):
     return sess
 
 
+# Hook runs in transcripts from Claude Code 2.1.9x on. The per-run
+# progress/hook_progress line is gone: a run only leaves a line when it
+# produces something (output, context, an error, an async response), so hooks
+# that exit silently cannot be counted. Stop hooks are summed up per stop in a
+# system/stop_hook_summary line instead. These attachment types ride along
+# with a run and only count when they are the only line it left.
+_HOOK_COMPANION_TYPES = frozenset({"hook_additional_context",
+                                   "hook_system_message",
+                                   "hook_stopped_continuation"})
+
+
+def _hook_file_profile(parsed_objs):
+    """Pre-pass over one transcript for hook counting.
+
+    Returns (old_format, has_stop_summary, run_ids): whether the file has
+    hook_progress lines (then they are the only hook source; 2.1.68 to 2.1.84
+    also wrote stop_hook_summary for the same Stop hooks), whether Stop hooks
+    are summarised, and the toolUseIDs of runs with a line of their own.
+    """
+    old_format = has_stop_summary = False
+    run_ids = set()
+    for obj in parsed_objs:
+        msg_type = obj.get("type")
+        if msg_type == "progress":
+            if (obj.get("data") or {}).get("type") == "hook_progress":
+                old_format = True
+        elif msg_type == "system":
+            if obj.get("subtype") == "stop_hook_summary":
+                has_stop_summary = True
+        elif msg_type == "attachment":
+            att = obj.get("attachment")
+            if (isinstance(att, dict) and att.get("hookName") and att.get("toolUseID")
+                    and att.get("type") not in _HOOK_COMPANION_TYPES):
+                run_ids.add(att["toolUseID"])
+    return old_format, has_stop_summary, run_ids
+
+
+def _attachment_hook_run(att, has_stop_summary, run_ids):
+    """hookName if this attachment line stands for a hook run, else None."""
+    if not isinstance(att, dict):
+        return None
+    hook_name = att.get("hookName")
+    att_type = att.get("type") or ""
+    if not hook_name or not (att_type.startswith("hook_")
+                             or att_type == "async_hook_response"):
+        return None
+    event = att.get("hookEvent")
+    if event == "Stop" and has_stop_summary:
+        return None  # counted through stop_hook_summary.hookCount
+    if att_type in _HOOK_COMPANION_TYPES:
+        # SessionStart context always comes with hook_success lines, under a
+        # toolUseID of its own ("SessionStart") that matches none of them.
+        if event == "SessionStart" or att.get("toolUseID") in run_ids:
+            return None
+    return hook_name
+
+
 def absorb_file(sessions, meta, parsed_objs):
     """Fold the parsed JSONL objects of ONE transcript file into sessions.
 
@@ -288,6 +345,8 @@ def absorb_file(sessions, meta, parsed_objs):
                   f"source '{_prev_src}'; skipping duplicate in "
                   f"'{source_label}'")
         return touched
+
+    hooks_old_format, has_stop_summary, hook_run_ids = _hook_file_profile(parsed_objs)
 
     # Collapse stream-split assistant rows (Claude Code writes
     # one JSONL line per content block, each repeating the same
@@ -703,6 +762,18 @@ def absorb_file(sessions, meta, parsed_objs):
                     hook_name = data_obj.get("hookName", "")
                     if hook_name:
                         sess["hooks"][hook_name] += 1
+
+            elif msg_type == "attachment" and not hooks_old_format:
+                hook_name = _attachment_hook_run(obj.get("attachment"),
+                                                 has_stop_summary, hook_run_ids)
+                if hook_name:
+                    sess["hooks"][hook_name] += 1
+
+            elif (msg_type == "system" and not hooks_old_format
+                    and obj.get("subtype") == "stop_hook_summary"):
+                hook_count = obj.get("hookCount") or 0
+                if hook_count:
+                    sess["hooks"]["Stop"] += hook_count
 
     return touched
 

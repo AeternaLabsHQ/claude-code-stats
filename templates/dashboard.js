@@ -2454,9 +2454,12 @@ function renderSkillsHooksGit() {
     hooksEl.innerHTML = hooks.map(h => {
       const parts = h.name.split(':');
       const event = parts[0] || '';
-      const name = parts.slice(1).join(':') || h.name;
+      // Hooks without a matcher ("Stop", "UserPromptSubmit") are just the
+      // event; repeating it as the name rendered "STOP Stop".
+      const name = parts.slice(1).join(':');
+      const nameHtml = name ? '<span class="anon-blur" style="font-size:13px;color:var(--vc-fg,var(--text))">' + escHtml(name) + '</span>' : '';
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--vc-grid-2,var(--border))">' +
-        '<div><span class="vc-tag" style="font-size:10px;margin-right:6px">' + escHtml(event) + '</span><span class="anon-blur" style="font-size:13px;color:var(--vc-fg,var(--text))">' + escHtml(name) + '</span></div>' +
+        '<div><span class="vc-tag" style="font-size:10px;margin-right:6px">' + escHtml(event) + '</span>' + nameHtml + '</div>' +
         '<span class="tool-tag">' + h.count + 'x</span>' +
         '</div>';
     }).join('');

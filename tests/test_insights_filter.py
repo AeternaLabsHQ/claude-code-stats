@@ -23,7 +23,9 @@ def function_body(name):
 # Runs filterData() in Node against two sessions: one 60 days old in project
 # "alpha", one from today in project "beta".
 NODE_HARNESS = r"""
-const document = { getElementById: id => id === 'hideEmptySessions' ? { checked: true } : null };
+const els = {};
+const document = { getElementById: id => id === 'hideEmptySessions' ? { checked: true } : (els[id] = els[id] || { innerHTML: '' }) };
+const escHtml = s => String(s);
 function recomputeIdleGapAggregate() {}
 const day = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
 const D = {
@@ -32,7 +34,7 @@ const D = {
       skills: { 'old-skill': 3, shared: 1 }, hooks: { 'PostToolUse:Read': 4 },
       git_ops: [{ type: 'commit' }, { type: 'push' }] },
     { date: day(0), end: day(0) + 'T10:00:00', project: 'beta', messages: 5, output_tokens: 10,
-      skills: { shared: 2, 'new-skill': 1 }, hooks: { 'SessionStart:startup': 1 },
+      skills: { shared: 2, 'new-skill': 1 }, hooks: { 'SessionStart:startup': 1, Stop: 2 },
       git_ops: [{ type: 'commit' }, { type: 'pr' }] },
   ],
   insights: {}, kpi: { total_cost: 0 }, plan: null,
@@ -41,12 +43,23 @@ const D = {
   daily_costs: [], daily_tokens: [], daily_messages: [], daily_cache_efficiency: [],
 };
 __SLICE__
+__TAIL__
+"""
+
+SUMMARY_TAIL = r"""
 const out = {};
 const snap = () => ({ skills: F.skill_summary, hooks: F.hook_summary, git: F.git_summary });
 filterData(0, ''); out.all = snap();
 filterData(7, ''); out.week = snap();
 filterData(0, 'alpha'); out.alpha = snap();
 console.log(JSON.stringify(out));
+"""
+
+RENDER_TAIL = r"""
+__RENDER__
+filterData(0, '');
+renderSkillsHooksGit();
+console.log(JSON.stringify({ hooks: els.hooksList.innerHTML }));
 """
 
 
@@ -59,7 +72,7 @@ class InsightsFilterTest(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_filter_data_recomputes_skills_hooks_git(self):
-        script = NODE_HARNESS.replace("__SLICE__", self.slice)
+        script = NODE_HARNESS.replace("__SLICE__", self.slice).replace("__TAIL__", SUMMARY_TAIL)
         res = subprocess.run(["node", "-"], input=script, capture_output=True,
                              text=True, timeout=60)
         self.assertEqual(res.returncode, 0, res.stderr)
@@ -74,16 +87,33 @@ class InsightsFilterTest(unittest.TestCase):
         self.assertEqual(counts(out["all"]["skills"]),
                          {"old-skill": 3, "shared": 3, "new-skill": 1})
         self.assertEqual(counts(out["all"]["hooks"]),
-                         {"PostToolUse:Read": 4, "SessionStart:startup": 1})
+                         {"PostToolUse:Read": 4, "SessionStart:startup": 1, "Stop": 2})
         self.assertEqual(out["all"]["git"], {"commits": 2, "pushes": 1, "prs": 1})
 
         self.assertEqual(counts(out["week"]["skills"]), {"shared": 2, "new-skill": 1})
-        self.assertEqual(counts(out["week"]["hooks"]), {"SessionStart:startup": 1})
+        self.assertEqual(counts(out["week"]["hooks"]), {"SessionStart:startup": 1, "Stop": 2})
         self.assertEqual(out["week"]["git"], {"commits": 1, "pushes": 0, "prs": 1})
 
         self.assertEqual(counts(out["alpha"]["skills"]), {"old-skill": 3, "shared": 1})
         self.assertEqual(counts(out["alpha"]["hooks"]), {"PostToolUse:Read": 4})
         self.assertEqual(out["alpha"]["git"], {"commits": 1, "pushes": 1, "prs": 0})
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_hook_without_matcher_is_labelled_once(self):
+        # "Stop" has no ":matcher" part; it used to render as "STOP Stop".
+        m = re.search(r"function renderSkillsHooksGit\(\) \{.*?\n\}", DASHBOARD_JS, re.S)
+        self.assertIsNotNone(m, "renderSkillsHooksGit not found")
+        script = (NODE_HARNESS.replace("__SLICE__", self.slice)
+                  .replace("__TAIL__", RENDER_TAIL.replace("__RENDER__", m.group(0))))
+        res = subprocess.run(["node", "-"], input=script, capture_output=True,
+                             text=True, timeout=60)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        rows = json.loads(res.stdout)["hooks"].split('<div style="display:flex')[1:]
+        self.assertEqual(len(rows), 3)
+        stop = next(r for r in rows if ">Stop<" in r)
+        self.assertEqual(stop.count(">Stop<"), 1, stop)
+        read = next(r for r in rows if ">PostToolUse<" in r)
+        self.assertIn(">Read<", read)
 
     def test_cards_never_read_all_time_summaries(self):
         for key in ("skill_summary", "hook_summary", "git_summary"):

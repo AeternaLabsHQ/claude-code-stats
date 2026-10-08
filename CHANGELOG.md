@@ -4,6 +4,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-10-08
+
+A bugfix release for the Insights tab: Skills, Hooks and Git Ops now follow the date range, and hooks from newer Claude Code versions are counted again.
+
 ### Fixed
 - **Skills Used, Hooks and Git Ops** now follow the date range and project filter. They always showed all-time totals, no matter which range was selected. (#27)
 - **Hooks** are counted again for sessions from Claude Code 2.1.9x (April 2026) on. Newer versions log hooks in a different format, which the dashboard did not read, so the card stopped counting in April. Hooks that finish without output are no longer logged by Claude Code at all and cannot be counted; the card now says so. Stop and async hooks are counted in full. (#28)

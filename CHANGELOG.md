@@ -4,6 +4,12 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- **Haiku 5.5** in the pricing table: $0.10 / $0.50, cache reads $0.01 / MTok, cache writes $0.125 (5m) and $0.20 (1h). Haiku 5.5 is the first model priced by prompt length: a request whose prompt is over 100,000 tokens (cache reads and writes included) pays 5x on every token type, output included. The dashboard picks the rate for each request on its own. Without an entry it fell through to the default estimate ($3 / $15).
+
+### Fixed
+- The cost breakdown by token type (input, output, cache reads, cache writes) and the cache savings are now summed per request instead of recomputed from token totals, so they add up to the total cost exactly. Before, they could drift by a few cents.
+
 ## [1.2.3] - 2026-10-08
 
 A bugfix release for the Insights tab: Skills, Hooks and Git Ops now follow the date range, and hooks from newer Claude Code versions are counted again.

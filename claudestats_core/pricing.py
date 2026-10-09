@@ -16,6 +16,19 @@ PRICING = {
         "cache_read": 0.20, "cache_write_5m": 2.50, "cache_write_1h": 4.00,
         "display": "Sonnet 5.5"
     },
+    # Haiku 5.5: first model with prompt-length tiers. A request whose prompt
+    # (input + cache reads + cache writes) is over 100k tokens pays 5x on every
+    # token type, output included. Each request is priced on its own.
+    "claude-haiku-5-5": {
+        "input": 0.10, "output": 0.50,
+        "cache_read": 0.01, "cache_write_5m": 0.125, "cache_write_1h": 0.20,
+        "long_context": {
+            "threshold": 100_000,
+            "input": 0.50, "output": 2.50,
+            "cache_read": 0.05, "cache_write_5m": 0.625, "cache_write_1h": 1.00,
+        },
+        "display": "Haiku 5.5"
+    },
     # Fable 5.1 (flagship tier, above Opus). Same base rates as Fable 5, but
     # cache reads are 0.025x base input instead of the usual 0.1x.
     "claude-fable-5-1": {
@@ -262,15 +275,33 @@ def build_pricing_warnings(model_ids):
     return sorted(seen.values(), key=lambda w: w["display"])
 
 
-def calc_cost(model_id, usage):
-    """Calculate cost for a single API call based on usage tokens.
+def rates_for_call(p, usage):
+    """Pick the rate set a single request is billed at.
+
+    Most entries have one flat rate set. An entry with a "long_context" tier
+    (Haiku 5.5) switches to it when the request's prompt, counting input,
+    cache reads and cache writes, is over the tier's threshold."""
+    tier = p.get("long_context")
+    if tier:
+        prompt = (usage.get("input_tokens", 0)
+                  + usage.get("cache_read_input_tokens", 0)
+                  + usage.get("cache_creation_input_tokens", 0))
+        if prompt > tier["threshold"]:
+            return tier
+    return p
+
+
+def calc_cost_by_type(model_id, usage):
+    """Cost of a single API call, split into input, output, cache_read and
+    cache_write, plus cache_savings (what the cache reads would have cost at
+    the full input rate, minus what they did cost).
 
     Cache writes are priced per TTL: 5m writes at 1.25x input
     (cache_write_5m), 1h writes at 2x input (cache_write_1h). Transcripts
     without the usage.cache_creation breakdown fall back to pricing all
     cache creation tokens at the 5m rate, matching Claude Code's own cost
     calculation."""
-    p = resolve_pricing(model_id)
+    p = rates_for_call(resolve_pricing(model_id), usage)
 
     input_tokens = usage.get("input_tokens", 0)
     output_tokens = usage.get("output_tokens", 0)
@@ -282,11 +313,18 @@ def calc_cost(model_id, usage):
     cache_1h = min(cache_info.get("ephemeral_1h_input_tokens", 0), cache_creation)
     cache_5m = cache_creation - cache_1h
 
-    cost = (
-        input_tokens * p["input"] / 1_000_000
-        + output_tokens * p["output"] / 1_000_000
-        + cache_read * p["cache_read"] / 1_000_000
-        + cache_5m * p["cache_write_5m"] / 1_000_000
-        + cache_1h * p["cache_write_1h"] / 1_000_000
-    )
-    return cost
+    return {
+        "input": input_tokens * p["input"] / 1_000_000,
+        "output": output_tokens * p["output"] / 1_000_000,
+        "cache_read": cache_read * p["cache_read"] / 1_000_000,
+        "cache_write": (cache_5m * p["cache_write_5m"]
+                        + cache_1h * p["cache_write_1h"]) / 1_000_000,
+        "cache_savings": cache_read * (p["input"] - p["cache_read"]) / 1_000_000,
+    }
+
+
+def calc_cost(model_id, usage):
+    """Calculate cost for a single API call based on usage tokens.
+    See calc_cost_by_type() for the pricing rules."""
+    c = calc_cost_by_type(model_id, usage)
+    return c["input"] + c["output"] + c["cache_read"] + c["cache_write"]

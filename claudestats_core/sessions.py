@@ -13,7 +13,7 @@ from .attribution import (WRITE_CATEGORIES, attribute_turn_tokens,
 from .classify import (_classify_api_error, _classify_tool_error,
                        _classify_user_entry, _is_user_plan_limit_text,
                        _merge_streamed_assistant_entries, _route_tool_error)
-from .pricing import calc_cost
+from .pricing import calc_cost_by_type
 
 
 def _merge_model_buckets(dst: dict, src: dict) -> None:
@@ -195,6 +195,14 @@ def _model_bucket():
         "cache_5m_tokens": 0,
         "cache_1h_tokens": 0,
         "cost": 0.0,
+        # Per-call cost split by token type. Summed per call, not recomputed
+        # from token totals, because a tiered model (Haiku 5.5) prices each
+        # call at its own rate.
+        "cost_input": 0.0,
+        "cost_output": 0.0,
+        "cost_cache_read": 0.0,
+        "cost_cache_write": 0.0,
+        "cache_savings": 0.0,
         "calls": 0,
     }
 
@@ -642,8 +650,15 @@ def absorb_file(sessions, meta, parsed_objs):
                     m["cache_5m_tokens"] += cache_info.get("ephemeral_5m_input_tokens", 0)
                     m["cache_1h_tokens"] += cache_info.get("ephemeral_1h_input_tokens", 0)
 
-                    turn_cost = calc_cost(model, usage)
+                    _ct = calc_cost_by_type(model, usage)
+                    turn_cost = (_ct["input"] + _ct["output"]
+                                 + _ct["cache_read"] + _ct["cache_write"])
                     m["cost"] += turn_cost
+                    m["cost_input"] += _ct["input"]
+                    m["cost_output"] += _ct["output"]
+                    m["cost_cache_read"] += _ct["cache_read"]
+                    m["cost_cache_write"] += _ct["cache_write"]
+                    m["cache_savings"] += _ct["cache_savings"]
                     m["calls"] += 1
 
                     # Per-turn capture for gap-based cache-flush + idle-gap analysis (Tasks 1+2).

@@ -90,3 +90,29 @@ class SubagentFlagExportTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CostByTypeTest(unittest.TestCase):
+    def test_cost_by_type_adds_up_with_tiered_haiku(self):
+        # One Haiku 5.5 call under 100k, one over: the long one is billed at
+        # 5x. The input/output/cache split must still add up to the total,
+        # which a token-totals x one-rate recomputation would miss.
+        tmp = Path(tempfile.mkdtemp(prefix="cs-tiers-"))
+        data = _build(tmp, [
+            user_line(),
+            assistant_line(msg_id="m1", model="claude-haiku-5-5",
+                           output_tokens=10_000,
+                           usage_extra={"cache_read_input_tokens": 50_000}),
+            assistant_line(msg_id="m2", ts="2026-06-10T10:01:00Z",
+                           model="claude-haiku-5-5", output_tokens=10_000,
+                           usage_extra={"cache_read_input_tokens": 150_000}),
+            assistant_line(msg_id="m3", ts="2026-06-10T10:02:00Z"),
+        ])
+        cbt = data["cost_by_token_type"]
+        parts = cbt["input"] + cbt["output"] + cbt["cache_read"] + cbt["cache_write"]
+        self.assertAlmostEqual(parts, data["kpi"]["total_cost"], places=2)
+        # Haiku output: 10k at $0.50 + 10k at $2.50 = $0.03, plus Opus 4.8's
+        # 100 output tokens at $25 = $0.0025.
+        self.assertAlmostEqual(cbt["output"], 0.0325, places=2)
+        # Savings use each call's own tier: 50k x (0.10-0.01) + 150k x (0.50-0.05).
+        self.assertAlmostEqual(cbt["cache_savings"], 0.07, places=2)

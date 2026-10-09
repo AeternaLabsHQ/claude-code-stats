@@ -7,7 +7,7 @@ from .limits import (_compute_5h_windows, _compute_weekly_buckets,
                      _dedupe_limit_events, _detect_5h_fingerprint_events)
 from .plan_analysis import build_plan_analysis
 from .attribution import WRITE_CATEGORIES
-from .pricing import build_pricing_warnings, get_model_display, pricing_for_display
+from .pricing import build_pricing_warnings, get_model_display
 from .sessions import split_session_by_day
 
 
@@ -47,7 +47,10 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         "input_tokens": 0, "output_tokens": 0,
         "cache_read_tokens": 0, "cache_write_tokens": 0,
         "cache_1h_tokens": 0,
-        "cost": 0.0, "calls": 0
+        "cost": 0.0, "calls": 0,
+        "cost_input": 0.0, "cost_output": 0.0,
+        "cost_cache_read": 0.0, "cost_cache_write": 0.0,
+        "cache_savings": 0.0,
     })
     total_cost = 0.0
     total_input = 0
@@ -98,6 +101,9 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             mt["cache_1h_tokens"] += mdata.get("cache_1h_tokens", 0)
             mt["cost"] += mdata["cost"]
             mt["calls"] += mdata["calls"]
+            for _k in ("cost_input", "cost_output", "cost_cache_read",
+                       "cost_cache_write", "cache_savings"):
+                mt[_k] += mdata.get(_k, 0.0)
 
             model_breakdown[display_model] = {
                 "cost": round(mdata["cost"], 4),
@@ -377,31 +383,17 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "calls": mdata["calls"],
         })
 
-    cost_by_type = {"input": 0.0, "output": 0.0, "cache_read": 0.0, "cache_write": 0.0}
-    for mname_display, mdata in model_totals.items():
-        p = pricing_for_display(mname_display)
-
-        cost_by_type["input"] += mdata["input_tokens"] * p["input"] / 1_000_000
-        cost_by_type["output"] += mdata["output_tokens"] * p["output"] / 1_000_000
-        cost_by_type["cache_read"] += mdata["cache_read_tokens"] * p["cache_read"] / 1_000_000
-        # Split cache writes by TTL: 1h writes cost 2x input, 5m writes 1.25x.
-        _w1h = min(mdata.get("cache_1h_tokens", 0), mdata["cache_write_tokens"])
-        _w5m = mdata["cache_write_tokens"] - _w1h
-        cost_by_type["cache_write"] += (
-            _w5m * p["cache_write_5m"] + _w1h * p["cache_write_1h"]
-        ) / 1_000_000
-
+    # Summed from the per-call split, not recomputed as token totals x rate:
+    # a tiered model (Haiku 5.5) bills each call at its own rate, so only the
+    # per-call sums add up to the headline cost.
+    cost_by_type = {
+        "input": sum(m["cost_input"] for m in model_totals.values()),
+        "output": sum(m["cost_output"] for m in model_totals.values()),
+        "cache_read": sum(m["cost_cache_read"] for m in model_totals.values()),
+        "cache_write": sum(m["cost_cache_write"] for m in model_totals.values()),
+        "cache_savings": sum(m["cache_savings"] for m in model_totals.values()),
+    }
     cost_by_type = {k: round(v, 2) for k, v in cost_by_type.items()}
-
-    # Cache efficiency: what would cache_read tokens have cost at full input price?
-    cache_savings = 0.0
-    for mname_display, mdata in model_totals.items():
-        p = pricing_for_display(mname_display)
-        full_price = mdata["cache_read_tokens"] * p["input"] / 1_000_000
-        cache_price = mdata["cache_read_tokens"] * p["cache_read"] / 1_000_000
-        cache_savings += full_price - cache_price
-
-    cost_by_type["cache_savings"] = round(cache_savings, 2)
 
     # Claude models seen in the data with no explicit PRICING entry: their cost
     # is only an estimate (DEFAULT_PRICING), so surface them for the user to add.

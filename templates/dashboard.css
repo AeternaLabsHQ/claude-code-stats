@@ -453,7 +453,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
   font-family: var(--vc-font-sans);
   font-size: 11.5px;
   color: var(--vc-fg-2);
-  max-width: 1400px;
+  max-width: 1680px;
   margin: 0 auto;
 }
 .vc-top-inner {
@@ -516,7 +516,7 @@ body.anon-mode .anon-blur { filter: blur(4px); user-select: none; }
 /* ── KPI strip ─────────────────────────────────────────────────── */
 .vc-kpis-wrap {
   background: transparent;
-  max-width: 1400px;
+  max-width: 1680px;
   margin: 0 auto;
 }
 /* Old "band" treatment removed: each KPI is now its own card, so the wrap
@@ -1404,7 +1404,7 @@ body.vc-page > div[style*="text-align:center"] a {
 .vc-nav {
   background: var(--vc-bg);
   font-family: var(--vc-font-sans);
-  max-width: 1400px;
+  max-width: 1680px;
   margin: 0 auto;
 }
 .vc-nav-inner {
@@ -1533,7 +1533,7 @@ body { background:var(--bg); color:var(--text); font-size:14px; }
 .time-filter button { background:var(--bg3); border:1px solid var(--border); color:var(--text2); padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
 .time-filter button:hover { color:var(--text); background:var(--bg3); border-color:var(--accent); }
 .time-filter button.active { background:var(--accent); color:white; border-color:var(--accent); }
-.container { max-width:1400px; margin:0 auto; padding:20px; }
+.container { max-width:1680px; margin:0 auto; padding:20px; }
 
 /* KPI Cards */
 .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }

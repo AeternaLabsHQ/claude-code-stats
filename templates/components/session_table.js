@@ -88,6 +88,8 @@
       defaultIn: ['dashboard'],
       hideWhen: (ctx) => ctx.context === 'projectDetail',
       get: (s) => s.project || '',
+      total: (agg) => agg.project_count + (agg.project_count === 1
+        ? stL('total_projects_one', ' project') : stL('total_projects_suffix', ' projects')),
       render: (s, ctx) => {
         const raw = s.project || '';
         const name = ctx.anonMode ? ctx.anonName(raw) : raw;
@@ -156,6 +158,11 @@
     { id: 'duration', label: 'Duration', group: 'volume', align: 'right', sortable: true,
       defaultIn: ['dashboard','projectDetail'],
       get: (s) => s.duration_min || 0,
+      total: (agg, ctx) => {
+        const d = agg.duration_min;
+        if (d < 60) return d.toFixed(d < 10 ? 1 : 0) + ' min';
+        return (d / 60).toLocaleString(ctx.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' h';
+      },
       render: (s) => {
         const d = s.duration_min || 0;
         return d.toFixed(d < 10 ? 1 : 0) + ' min';
@@ -295,6 +302,7 @@
     { id: 'agent_dispatches', label: 'Agents', group: 'activity', align: 'right', sortable: true,
       defaultIn: [],
       get: (s) => Array.isArray(s.agent_dispatches) ? s.agent_dispatches.length : 0,
+      total: (agg, ctx) => agg.agent_count === 0 ? '<span class="st-muted">—</span>' : fmtNum(agg.agent_count, ctx.locale),
       render: (s, ctx) => {
         const v = Array.isArray(s.agent_dispatches) ? s.agent_dispatches.length : 0;
         return v === 0 ? '<span class="st-muted">—</span>' : fmtNum(v, ctx.locale);
@@ -323,6 +331,40 @@
   ];
 
   const COLUMNS_BY_ID = Object.fromEntries(COLUMNS.map(c => [c.id, c]));
+
+  // ── Totals row ────────────────────────────────────────────────
+  // Additive per-session fields. The aggregate is session-shaped, so the
+  // numeric columns can render it with their normal render(); ratios like
+  // Cache Eff. come out recomputed from the summed tokens, not summed.
+  const SUM_FIELDS = [
+    'duration_min', 'messages', 'user_messages', 'assistant_messages', 'tool_results',
+    'command_messages', 'interrupts', 'meta_messages', 'api_calls',
+    'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens',
+    'reasoning_output_tokens', 'cost', 'reasoning_cost', 'compactions',
+    'cache_flush_count', 'file_ops_count', 'file_size_mb', 'error_count',
+  ];
+  function aggregate(sessions) {
+    const agg = { count: sessions.length, tools: {}, agent_count: 0 };
+    SUM_FIELDS.forEach(f => { agg[f] = 0; });
+    const projects = new Set();
+    sessions.forEach(s => {
+      SUM_FIELDS.forEach(f => { agg[f] += Number(s[f]) || 0; });
+      if (s.tools) for (const k in s.tools) agg.tools[k] = (agg.tools[k] || 0) + (s.tools[k] || 0);
+      if (Array.isArray(s.agent_dispatches)) agg.agent_count += s.agent_dispatches.length;
+      if (s.project) projects.add(s.project);
+    });
+    agg.project_count = projects.size;
+    return agg;
+  }
+  // Column-specific total() wins; other numeric columns render the
+  // aggregate; text columns (date, prompt, model, ...) stay empty.
+  function totalCell(col, agg, ctx) {
+    try {
+      if (col.total) return col.total(agg, ctx);
+      if (col.align === 'right') return col.render(agg, ctx);
+    } catch (e) {}
+    return '';
+  }
 
   // Localize column + group labels in place; built-in English acts as fallback.
   COLUMNS.forEach(c => { c.label = stL('col_' + c.id, c.label); });
@@ -467,9 +509,12 @@
     const colgroup = document.createElement('colgroup');
     const thead = document.createElement('thead');
     const tbody = document.createElement('tbody');
+    const tfoot = document.createElement('tfoot');
+    tfoot.title = stL('totals_tip', 'Totals over all sessions in the current filter, not just this page');
     table.appendChild(colgroup);
     table.appendChild(thead);
     table.appendChild(tbody);
+    table.appendChild(tfoot);
     scroll.appendChild(table);
 
     const footer = document.createElement('div');
@@ -718,6 +763,25 @@
           });
           tbody.appendChild(trow);
         });
+      }
+
+      // Totals over the whole filtered set, not just the current page
+      tfoot.innerHTML = '';
+      if (total > 0 && cols.length) {
+        const agg = aggregate(sorted);
+        const trow = document.createElement('tr');
+        cols.forEach((c, i) => {
+          const td = document.createElement('td');
+          td.className = 'st-td-' + (c.align || 'left');
+          let html = totalCell(c, agg, ctx);
+          if (i === 0 && !html) {
+            html = 'Σ ' + fmtNum(total, ctx.locale) + (total === 1
+              ? stL('session_suffix_one', ' session') : stL('sessions_count_suffix', ' sessions'));
+          }
+          td.innerHTML = html;
+          trow.appendChild(td);
+        });
+        tfoot.appendChild(trow);
       }
 
       meta.textContent = total + (total === 1 ? stL('session_suffix_one', ' session') : stL('sessions_count_suffix', ' sessions'));
@@ -1121,4 +1185,5 @@
   // ── Public export ─────────────────────────────────────────────
   window.mountSessionTable = mountSessionTable;
   window.SESSION_TABLE_COLUMNS = COLUMNS;
+  window.SESSION_TABLE_TOTALS = { aggregate, totalCell };
 })();

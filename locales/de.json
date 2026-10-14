@@ -185,7 +185,10 @@
     "rows_label": "Zeilen: ",
     "open_chat": "Chat \u00f6ffnen",
     "multiday_tip": "Mehrtages-Session - aktiv bis {end} ({n} Tage)",
-    "resize_tip": "Ziehen zum Anpassen, Doppelklick f\u00fcr Auto-Breite, Rechtsklick zum Zur\u00fccksetzen"
+    "resize_tip": "Ziehen zum Anpassen, Doppelklick f\u00fcr Auto-Breite, Rechtsklick zum Zur\u00fccksetzen",
+    "total_projects_suffix": " Projekte",
+    "total_projects_one": " Projekt",
+    "totals_tip": "Summen \u00fcber alle Sessions im aktuellen Filter, nicht nur diese Seite"
   },
   "plan": {
     "active": "Aktiv",

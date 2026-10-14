@@ -185,7 +185,10 @@
     "rows_label": "Rows: ",
     "open_chat": "Open chat",
     "multiday_tip": "Multi-day session - active through {end} ({n} days)",
-    "resize_tip": "Drag to resize, double-click to fit, right-click to reset"
+    "resize_tip": "Drag to resize, double-click to fit, right-click to reset",
+    "total_projects_suffix": " projects",
+    "total_projects_one": " project",
+    "totals_tip": "Totals over all sessions in the current filter, not just this page"
   },
   "plan": {
     "active": "Active",

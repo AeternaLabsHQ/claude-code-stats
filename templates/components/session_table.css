@@ -168,7 +168,10 @@
 
 /* Table */
 .st-scroll {
-  overflow-x: auto;
+  /* Height-capped so the horizontal scrollbar, the sticky header and the
+     sticky totals row all stay in view instead of sitting below row 50. */
+  overflow: auto;
+  max-height: calc(100vh - 120px);
   border: 1px solid var(--vc-grid, #e7e9ee);
   border-radius: var(--vc-radius, 14px);
 }
@@ -217,7 +220,8 @@
   opacity: 0.6;
 }
 /* Fixed-layout mode: every cell ellipsises overflowing content */
-.st-table[data-fixed="1"] tbody td {
+.st-table[data-fixed="1"] tbody td,
+.st-table[data-fixed="1"] tfoot td {
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -250,6 +254,18 @@
 .st-table tbody tr:last-child td { border-bottom: none; }
 .st-table tbody tr:hover td {
   background: var(--vc-accent-soft, rgba(194,86,47,.10));
+}
+.st-table tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding: 8px 10px;
+  background: var(--vc-grid-2, #e7e9ee);
+  color: var(--vc-fg, #14161c);
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: middle;
+  border-top: 1px solid var(--vc-grid, #e7e9ee);
 }
 .st-td-right { text-align: right; }
 .st-td-center { text-align: center; }
@@ -399,6 +415,7 @@ body.st-lightbox-open { overflow: hidden; }
 .st-fullscreen .st-scroll {
   flex: 1 1 auto;
   min-height: 0;
+  max-height: none;
   overflow: auto;
 }
 .st-fullscreen .st-toolbar { padding-bottom: 10px; }
@@ -411,6 +428,9 @@ body.st-lightbox-open { overflow: hidden; }
   .st-table { font-size: 11px; }
   .st-table thead th { padding: 6px 8px; }
   .st-table tbody td { padding: 6px 8px; }
+  .st-table tfoot td { padding: 6px 8px; }
+  /* Phones: no nested vertical scroller, the page scrolls as before */
+  .st-scroll { max-height: none; }
 }
 
 .st-multiday {

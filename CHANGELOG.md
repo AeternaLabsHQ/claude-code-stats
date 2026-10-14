@@ -4,6 +4,17 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-14
+
+The session table gets a totals row and stays usable on any screen width.
+
+### Added
+- **Totals row in the session table**, on the Sessions tab and on every project page. It sums up all sessions in the current filter (period, project, source and session filters), not just the visible page: duration, messages, all token columns, cost, tool calls and so on. Cache efficiency is recomputed from the summed tokens instead of adding percentages, the project column shows how many distinct projects are included, and text columns stay empty. The row follows your column selection, so turn on "Total Tokens" for the overall token count. No more exporting to a spreadsheet just to add up a column.
+
+### Changed
+- **The horizontal scrollbar is always in view.** The table now scrolls inside a box that fits the screen, so the scrollbar no longer sits below row 50 where you never saw it. The header row and the totals row stay in place while you scroll. Phones keep the plain page scroll.
+- **Wider pages.** Dashboard, project and session pages now grow up to 1680px instead of 1400px, so on wide screens the default table columns fit without scrolling.
+
 ## [1.2.4] - 2026-10-09
 
 A pricing update for the new Haiku 5.5, the first model priced by prompt length.

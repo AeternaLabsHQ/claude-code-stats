@@ -254,6 +254,18 @@ To include Claude Code data from other users on the same machine (or any additio
 
 When `sudo_user` is omitted the running user needs direct read access to the referenced directories. Sessions are deduplicated and all data (sessions, plans, todos, telemetry, etc.) is merged into the dashboard.
 
+#### Data from another machine (e.g. Windows)
+
+Sources only need to be local directories, so data from other machines has to be mirrored first. On Windows 10/11 the built-in OpenSSH server and `tar.exe` (bsdtar) are enough to pull the relevant files incrementally from Linux, without installing anything on the Windows side:
+
+```bash
+# since = unix timestamp of the last successful pull (0 for the first run)
+ssh winbox "tar -cf - -C C:/Users/<user> --newer-mtime @$since .claude/projects .claude/history.jsonl .claude.json" \
+  | tar -xf - -C ~/winbox-claude
+```
+
+Then add `~/winbox-claude/.claude` (and `~/winbox-claude/.claude.json`) as an additional source. Each machine gets its own `label`, so it shows up separately in the session table's source filter. Never copy `.claude/.credentials.json`.
+
 ## Library Usage (`claudestats_core`)
 
 The calibrated domain logic (costs, cache anomalies, limits, attribution) is available as a stdlib-only package `claudestats_core`. `extract_stats.py` is the CLI driver on top of it; other consumers can install the package directly:

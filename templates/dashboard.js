@@ -628,6 +628,15 @@ function applyFilter(days, projectFilter) {
   renderWriteCategoriesChart();
   renderSkillsHooksGit();
   renderAgentsTab();
+  renderExperiments();
+}
+
+// Insights > Experiments: full-range (ignores the filter), but re-rendered
+// here so F2 (which goes through applyFilter) masks/unmasks source names.
+function renderExperiments() {
+  if (!window.VCExperiments) return;
+  window.VCExperiments.render(D.experiments, document.getElementById('experimentsRoot'),
+    { anon: anonMode, anonSource: anonSource });
 }
 
 function renderToolUsageChart() {
@@ -2848,6 +2857,7 @@ renderLimits();
 renderInsights();
 renderSkillsHooksGit();
 renderAgentsTab();
+renderExperiments();
 
 function initInsightsSubnav() {
   const nav = document.getElementById('insightsSubnav');

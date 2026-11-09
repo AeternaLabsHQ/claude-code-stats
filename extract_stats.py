@@ -1822,8 +1822,10 @@ def _get_html_template():
     filters_css = (base_dir / "templates" / "components" / "session_filters.css").read_text(encoding="utf-8")
     filters_js = (base_dir / "templates" / "components" / "session_filters.js").read_text(encoding="utf-8")
     shared_js = (base_dir / "templates" / "components" / "shared_helpers.js").read_text(encoding="utf-8")
-    css = filters_css + "\n" + table_css + "\n" + css
-    js = shared_js + "\n" + filters_js + "\n" + table_js + "\n" + js
+    exp_css = (base_dir / "templates" / "components" / "experiments.css").read_text(encoding="utf-8")
+    exp_js = (base_dir / "templates" / "components" / "experiments.js").read_text(encoding="utf-8")
+    css = filters_css + "\n" + table_css + "\n" + exp_css + "\n" + css
+    js = shared_js + "\n" + filters_js + "\n" + table_js + "\n" + exp_js + "\n" + js
     html = html.replace("<!-- STYLES -->", f"<style>{_font_face_css()}{css}</style>")
     html = html.replace("<!-- SCRIPTS -->", f"{_locale_script_tag()}\n<script>{js}</script>")
     return html

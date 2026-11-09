@@ -1,0 +1,152 @@
+/* ── Insights: Experiments (VCExperiments) ──────────────────────────
+   Intro + current-assignment chips, a per-day timeline per experiment
+   ID (pure CSS grid, scrolls horizontally inside its own box) and one
+   comparison card per ID x model. Colors via .vc tokens only. */
+.vc .exp { display: flex; flex-direction: column; gap: 16px; }
+
+.vc .exp-intro,
+.vc .exp-empty {
+  font-family: var(--vc-font-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--vc-fg-2);
+  margin: 0;
+  max-width: 980px;
+}
+.vc .exp-empty { color: var(--vc-fg); font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+.vc .exp-intro.muted { color: var(--vc-fg-3); font-size: 12px; }
+
+/* Current assignment */
+.vc .exp-current {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--vc-grid);
+}
+.vc .exp-current-l {
+  font-family: var(--vc-font-sans); font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em; color: var(--vc-fg-2);
+}
+.vc .exp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vc .exp-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--vc-font-mono); font-size: 11px;
+  padding: 3px 9px; border-radius: var(--vc-radius-pill);
+  border: 1px solid var(--vc-grid); color: var(--vc-fg-3);
+  white-space: nowrap; cursor: help;
+}
+.vc .exp-chip-v { font-weight: 600; }
+.vc .exp-chip.on { background: var(--vc-accent-soft); border-color: transparent; color: var(--vc-accent); }
+.vc .exp-chip.on .exp-chip-m { color: var(--vc-fg-2); }
+
+/* Timeline */
+.vc .exp-timeline {
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.vc .exp-tl-grid {
+  --exp-cell: 14px;
+  display: grid;
+  grid-template-columns: 56px repeat(var(--exp-days, 1), var(--exp-cell));
+  grid-auto-rows: 18px;
+  gap: 3px;
+  width: max-content;
+}
+.vc .exp-tl-label {
+  position: sticky; left: 0; z-index: 1;
+  background: var(--vc-panel);
+  font-family: var(--vc-font-mono); font-size: 12px; font-weight: 600;
+  color: var(--vc-fg); line-height: 18px; padding-right: 8px;
+  cursor: help;
+}
+.vc .exp-tl-cell { border-radius: 3px; }
+.vc .exp-tl-cell.empty { background: var(--vc-grid); opacity: 0.55; }
+.vc .exp-tl-cell:not(.empty):hover { outline: 1.5px solid var(--vc-fg); outline-offset: 0; }
+.vc .exp-tl-axis-pad { position: sticky; left: 0; background: var(--vc-panel); }
+.vc .exp-tl-tick { position: relative; }
+.vc .exp-tl-tick span {
+  position: absolute; left: 0; top: 2px;
+  font-family: var(--vc-font-mono); font-size: 10px; color: var(--vc-fg-3);
+  white-space: nowrap;
+}
+.vc .exp-legend {
+  display: flex; align-items: center; gap: 4px; margin-top: 10px;
+  font-family: var(--vc-font-sans); font-size: 11px; color: var(--vc-fg-3);
+}
+.vc .exp-legend span { margin: 0 4px; }
+.vc .exp-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+
+/* Cards */
+.vc .exp-cards-h {
+  font-family: var(--vc-font-sans); font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--vc-fg);
+  margin: 8px 0 -4px;
+  padding: 0 22px;
+}
+.vc .exp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  gap: 16px;
+}
+.vc .exp-card { min-width: 0; }
+.vc .exp-card-h { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.vc .exp-id {
+  font-family: var(--vc-font-mono); font-size: 16px; font-weight: 700;
+  color: var(--vc-accent); cursor: help;
+}
+.vc .exp-model {
+  font-family: var(--vc-font-mono); font-size: 12px; color: var(--vc-fg);
+  overflow-wrap: anywhere;
+}
+.vc .exp-badge {
+  margin-left: auto;
+  font-family: var(--vc-font-sans); font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: var(--vc-radius-pill); white-space: nowrap;
+}
+.vc .exp-badge.changed { background: var(--vc-neg-soft); color: var(--vc-neg); }
+.vc .exp-badge.muted { border: 1px solid var(--vc-grid); color: var(--vc-fg-2); }
+.vc .exp-card-meta {
+  font-family: var(--vc-font-sans); font-size: 12px; color: var(--vc-fg-3);
+  margin: 6px 0 12px;
+}
+.vc .exp-table {
+  width: 100%; border-collapse: collapse;
+  font-family: var(--vc-font-sans); font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.vc .exp-table th {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--vc-fg-2); text-align: left;
+  padding: 6px 8px; border-bottom: 1px solid var(--vc-grid);
+  white-space: nowrap;
+}
+.vc .exp-table td {
+  padding: 7px 8px; border-bottom: 1px solid var(--vc-grid); color: var(--vc-fg);
+}
+.vc .exp-table th:first-child,
+.vc .exp-table td:first-child { padding-left: 0; }
+.vc .exp-table th:last-child,
+.vc .exp-table td:last-child { padding-right: 0; }
+.vc .exp-table .num { text-align: right; white-space: nowrap; font-family: var(--vc-font-mono); }
+.vc .exp-table th.num { font-family: var(--vc-font-sans); }
+.vc .exp-table tr.exp-cost td { color: var(--vc-fg-2); border-bottom: none; }
+.vc .exp-chg { color: var(--vc-fg-3); }
+.vc .exp-chg.sig {
+  color: var(--vc-neg); background: var(--vc-neg-soft); font-weight: 600;
+  padding: 1px 6px; border-radius: var(--vc-radius-pill);
+}
+.vc .exp-card-foot,
+.vc .exp-method,
+.vc .exp-none {
+  font-family: var(--vc-font-sans); font-size: 11.5px; line-height: 1.5;
+  color: var(--vc-fg-3); margin: 10px 0 0;
+}
+.vc .exp-method { margin: 0; padding: 0 22px; max-width: 980px; }
+.vc .exp-none { margin: 0; font-size: 12.5px; }
+
+@media (max-width: 700px) {
+  .vc .exp-cards { grid-template-columns: 1fr; }
+  .vc .exp-badge { margin-left: 0; }
+  .vc .exp-table { font-size: 12px; }
+  .vc .exp-table th,
+  .vc .exp-table td { padding-left: 4px; padding-right: 4px; }
+}

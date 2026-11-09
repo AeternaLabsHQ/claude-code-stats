@@ -68,12 +68,14 @@ def add_reply(bucket: dict, content_blocks: list, output_tokens: int,
         bucket["multi_tool"] += 1
     if tool_uses:
         bucket["tool_replies"] += 1
-    for b in blocks:
-        if b.get("type") == "tool_use":
-            break
-        if b.get("type") == "text" and str(b.get("text") or "").strip():
-            bucket["text_before"] += 1
-            break
+    if tool_uses:
+        # Once per reply: some non-blank text precedes the first tool call.
+        for b in blocks:
+            if b.get("type") == "tool_use":
+                break
+            if b.get("type") == "text" and str(b.get("text") or "").strip():
+                bucket["text_before"] += 1
+                break
     _bump(bucket["out_hist"], hist_bin(output_tokens))
     for b in tool_uses:
         if b.get("name") == "Bash":

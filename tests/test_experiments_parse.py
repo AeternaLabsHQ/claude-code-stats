@@ -116,6 +116,20 @@ class AbsorbTest(unittest.TestCase):
         b = sess["experiments"][f"{MODEL}|"][DAY]
         self.assertEqual(b["text_before"], 0)
 
+    def test_text_only_reply_is_not_text_before(self):
+        b = absorb([reply("m1", [{"type": "text", "text": "answer"}])]
+                   )["S1"]["experiments"][f"{MODEL}|"][DAY]
+        self.assertEqual(b["replies"], 1)
+        self.assertEqual(b["tool_replies"], 0)
+        self.assertEqual(b["text_before"], 0)
+
+    def test_two_text_blocks_before_tool_count_once(self):
+        t = {"type": "text", "text": "step"}
+        b = absorb([reply("m1", [t, dict(t), READ])]
+                   )["S1"]["experiments"][f"{MODEL}|"][DAY]
+        self.assertEqual(b["tool_replies"], 1)
+        self.assertEqual(b["text_before"], 1)
+
     def test_stream_split_counts_once(self):
         lines = [
             reply("m1", [{"type": "thinking", "thinking": ""}], 9),

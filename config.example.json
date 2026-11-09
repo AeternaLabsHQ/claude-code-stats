@@ -29,6 +29,7 @@
     }
   ],
   "plan_capacity_override_pro_usd": null,
+  "ultra_no_5h_limit_from": "2026-10-30",
   "migration": {
     "enabled": false,
     "label": "",

@@ -380,7 +380,7 @@
     "calOverride": "config override",
     "recBasis": "Basis: last {n} cycles ({w} 5h-windows) - tolerance: ≤{q}% of 5h-windows, ≤{a} weeks over cap",
     "calFloor": "floored at the most expensive limit-free window",
-    "disclaimer": "Hit counts use empirical caps from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 ratio is approximate. Weekly cap is roughly 7 x the 5h cap.",
+    "disclaimer": "Hit counts use empirical caps from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 ratio (weekly 1:5:10 since Ultra) is approximate. Weekly cap is roughly 7 x the 5h cap.",
     "windows": "5h-windows",
     "weeks": "Weeks",
     "hitsTitle": "Limit Hits by Tier",
@@ -394,6 +394,8 @@
     "calDerived": "derived from 5h cap",
     "capPerWindow": "per 5h-window",
     "capPerWeek": "per week",
+    "renameNote": "Max was called Max 5x and Ultra was called Max 20x until {date}.",
+    "ultraNote": "Since {date}, Ultra has no 5-hour limit for verified accounts: 5h-windows from that date never count as Ultra hits, and 5h fingerprints during Ultra time are ignored. Ultra's weekly allowance is 10x Pro.",
     "anchors": "anchor windows"
   },
   "dialogs": {

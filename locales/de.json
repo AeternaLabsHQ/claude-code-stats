@@ -380,7 +380,7 @@
     "calOverride": "Override aus config",
     "recBasis": "Basis: letzte {n} Zyklen ({w} 5h-Fenster) - Toleranz: ≤{q}% der 5h-Fenster, ≤{a} Wochen \u00fcber Cap",
     "calFloor": "Floor: teuerstes limit-freies Fenster",
-    "disclaimer": "Hit-Z\u00e4hlung nutzt empirische Caps aus Fenstern mit Limit-Event, mindestens aber das teuerste limit-freie Fenster (USD ist ein grober Proxy f\u00fcr Anthropics Limit-Einheiten). Doppelte Events paralleler Sessions werden zusammengef\u00fchrt. Anthropic publiziert keine exakten Limits - der 1:5:20-Faktor ist eine N\u00e4herung. Wochen-Cap ca. 7 x 5h-Cap.",
+    "disclaimer": "Hit-Z\u00e4hlung nutzt empirische Caps aus Fenstern mit Limit-Event, mindestens aber das teuerste limit-freie Fenster (USD ist ein grober Proxy f\u00fcr Anthropics Limit-Einheiten). Doppelte Events paralleler Sessions werden zusammengef\u00fchrt. Anthropic publiziert keine exakten Limits - der 1:5:20-Faktor (w\u00f6chentlich 1:5:10 seit Ultra) ist eine N\u00e4herung. Wochen-Cap ca. 7 x 5h-Cap.",
     "windows": "5h-Fenster",
     "weeks": "Wochen",
     "hitsTitle": "Limit-Hits nach Tier",
@@ -394,6 +394,8 @@
     "calDerived": "aus 5h-Cap abgeleitet",
     "capPerWindow": "pro 5h-Fenster",
     "capPerWeek": "pro Woche",
+    "renameNote": "Max hie\u00df bis zum {date} Max 5x, Ultra hie\u00df Max 20x.",
+    "ultraNote": "Seit dem {date} hat Ultra f\u00fcr verifizierte Konten kein 5-Stunden-Limit: 5h-Fenster ab diesem Tag z\u00e4hlen nie als Ultra-Hit, 5h-Fingerprints in Ultra-Zeiten werden ignoriert. Das Wochenkontingent von Ultra ist 10x Pro.",
     "anchors": "Anker-Fenster"
   },
   "dialogs": {

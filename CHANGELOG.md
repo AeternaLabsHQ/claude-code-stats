@@ -12,6 +12,9 @@ The Insights tab can now show whether a server-side experiment changed how Claud
 - IDs in both log formats (plain 16-character IDs and the longer `v1.` form) are recognized as the same experiment.
 - Only main-thread replies count. Subagent replies are left out, so a long agent run does not skew the comparison.
 
+### Changed
+- **The plan recommendation knows Anthropic's 2026-10-30 plan change.** Max 20x is now called Ultra and has no 5-hour limit for verified accounts, Max 5x is now called Max. The dashboard shows the new names (your data and config keep working with the old ones), and from 2026-10-30 on, 5-hour windows no longer count as Ultra limit hits or feed the Ultra calibration. Ultra's weekly allowance is now 10x Pro instead of 20x, applied to weeks from that date on. Everything before 2026-10-30 is calculated as before. New config key `ultra_no_5h_limit_from` (default `"2026-10-30"`, set `null` if your Ultra account is not verified and still has a 5-hour limit), and the plan names `"Max"` and `"Ultra"` are accepted in `plan_history`.
+
 ## [1.3.0] - 2026-10-14
 
 The session table gets a totals row and stays usable on any screen width.

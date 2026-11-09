@@ -2069,6 +2069,10 @@ function renderPlan() {
 }
 
 // ── Tab: Limits (Tasks 3+4) ────────────────────────────────────────
+// Display names of the plan tiers. The data keys stay "Pro" / "Max 5x" / "Max 20x".
+const TIER_LABEL = { 'Pro': 'Pro', 'Max 5x': 'Max', 'Max 20x': 'Ultra' };
+function tierLabel(t) { return TIER_LABEL[t] || t; }
+
 function renderLimits() {
   renderRecommendationCard();
   renderLimitsEventTimeline();
@@ -2091,8 +2095,8 @@ function renderRecommendationCard() {
     recBasis: L.recBasis || 'Basis: last {n} cycles ({w} 5h-windows) - tolerance: ≤{q}% of 5h-windows, ≤{a} weeks over cap',
   };
 
-  const cur = pr.current_tier || '—';
-  const rec = pr.recommended_tier;
+  const cur = tierLabel(pr.current_tier || '-');
+  const rec = pr.recommended_tier ? tierLabel(pr.recommended_tier) : pr.recommended_tier;
   const basis = pr.rec_basis || null;
   const basisLine = basis
     ? T.recBasis.replace('{n}', basis.recent_cycles)
@@ -2225,7 +2229,9 @@ function renderPlanRecommendation() {
     anchors:      L.anchors      || 'anchor windows',
     recBasis:     L.recBasis     || 'Basis: last {n} cycles ({w} 5h-windows) - tolerance: ≤{q}% of 5h-windows, ≤{a} weeks over cap',
     calFloor:     L.calFloor     || 'floored at the most expensive limit-free window',
-    disclaimer:   L.disclaimer   || "Hit counts use empirical caps derived from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 tier ratio is approximate. Weekly cap is estimated as 7 x the 5h cap until a dedicated weekly-limit detector is added.",
+    renameNote:   L.renameNote   || 'Max was called Max 5x and Ultra was called Max 20x until {date}.',
+    ultraNote:    L.ultraNote    || "Since {date}, Ultra has no 5-hour limit for verified accounts: 5h-windows from that date never count as Ultra hits, and 5h fingerprints during Ultra time are ignored. Ultra's weekly allowance is 10x Pro.",
+    disclaimer:   L.disclaimer   || "Hit counts use empirical caps derived from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 tier ratio (weekly 1:5:10 since Ultra) is approximate. Weekly cap is estimated as 7 x the 5h cap until a dedicated weekly-limit detector is added.",
   };
 
   const TIERS = ['Pro', 'Max 5x', 'Max 20x'];
@@ -2251,7 +2257,7 @@ function renderPlanRecommendation() {
       const tags = [];
       if (t === rec) tags.push('<span class="ph-tag rec">' + T.recTag + '</span>');
       if (t === cur) tags.push('<span class="ph-tag cur">' + T.curTag + '</span>');
-      head += '<th class="ph-th' + (t === rec ? ' rec' : '') + '">' + t +
+      head += '<th class="ph-th' + (t === rec ? ' rec' : '') + '">' + tierLabel(t) +
               (tags.length ? '<br>' + tags.join(' ') : '') + '</th>';
       if (i < TIERS.length - 1) head += '<th class="ph-gut"></th>';
     });
@@ -2290,9 +2296,9 @@ function renderPlanRecommendation() {
     : cal5.source === 'config_override' ? T.calOverride
     : T.calDefault;
   const caps5 = cal5.caps_per_window || {};
-  const cal5Line = T.cal + ' (5h): ' + calSrc5 + ' - Pro $' + (caps5.Pro || 0).toFixed(2) +
-    ' / Max 5x $' + (caps5['Max 5x'] || 0).toFixed(2) +
-    ' / Max 20x $' + (caps5['Max 20x'] || 0).toFixed(2) + ' ' + T.capPerWindow +
+  const cal5Line = T.cal + ' (5h): ' + calSrc5 + ' - ' + tierLabel('Pro') + ' $' + (caps5.Pro || 0).toFixed(2) +
+    ' / ' + tierLabel('Max 5x') + ' $' + (caps5['Max 5x'] || 0).toFixed(2) +
+    ' / ' + tierLabel('Max 20x') + ' $' + (caps5['Max 20x'] || 0).toFixed(2) + ' ' + T.capPerWindow +
     ' (n=' + (cal5.anchor_window_count || 0) + ' ' + T.anchors + ')' +
     (cal5.floor_applied ? ' · ' + T.calFloor : '');
 
@@ -2300,9 +2306,16 @@ function renderPlanRecommendation() {
   const capsW = calW.caps_per_week || {};
   const calWLine = T.cal + ' (' + T.weeks + '): ' + T.calDerived +
     ' × ' + (calW.ratio_vs_5h || 7) +
-    ' - Pro $' + (capsW.Pro || 0).toFixed(0) +
-    ' / Max 5x $' + (capsW['Max 5x'] || 0).toFixed(0) +
-    ' / Max 20x $' + (capsW['Max 20x'] || 0).toFixed(0) + ' ' + T.capPerWeek;
+    ' - ' + tierLabel('Pro') + ' $' + (capsW.Pro || 0).toFixed(0) +
+    ' / ' + tierLabel('Max 5x') + ' $' + (capsW['Max 5x'] || 0).toFixed(0) +
+    ' / ' + tierLabel('Max 20x') + ' $' + (capsW['Max 20x'] || 0).toFixed(0) + ' ' + T.capPerWeek;
+
+  // Rename note always; the Ultra 5h note only while a cutoff date is set.
+  const launchDate = pr.ultra_launch_date || '2026-10-30';
+  const noteHtml = [
+    T.renameNote.replace('{date}', launchDate),
+    pr.ultra_no_5h_from ? T.ultraNote.replace('{date}', pr.ultra_no_5h_from) : '',
+  ].filter(Boolean).join('<br>');
 
   el.innerHTML =
     '<h3>' + T.hitsTitle + '</h3>' +
@@ -2314,7 +2327,8 @@ function renderPlanRecommendation() {
       '<div class="plan-rec-cal">' + cal5Line + '</div>' +
       '<div class="plan-rec-cal">' + calWLine + '</div>' +
     '</div>' +
-    '<div class="plan-rec-disclaimer">⚠ ' + T.disclaimer + '</div>';
+    '<div class="plan-rec-disclaimer">⚠ ' + T.disclaimer + '</div>' +
+    '<div class="plan-rec-disclaimer">' + noteHtml + '</div>';
 }
 
 // ── Tab 6: Insights ───────────────────────────────────────────────────

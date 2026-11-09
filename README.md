@@ -188,6 +188,7 @@ See [`config.example.json`](config.example.json) for all options:
 | `favicon`            | `string` | `"terracotta"` | Favicon color (`"terracotta"` or `"indigo"`)                              |
 | `plan_history`       | `array`  | `[]`        | Your subscription plan history                                               |
 | `plan_capacity_override_pro_usd` | `number` | `null` | Manual per-window USD capacity of the Pro tier for the plan recommendation; overrides the empirical calibration (Max 5x / 20x scale ×5 / ×20) |
+| `ultra_no_5h_limit_from` | `string\|null` | `"2026-10-30"` | From this date the Ultra plan (formerly Max 20x) has no 5-hour limit in the plan recommendation; set `null` if your Ultra account is not verified yet and still has a 5-hour limit |
 | `migration.enabled`  | `bool`   | `false`     | Enable data from a migration backup                                          |
 | `migration.label`    | `string` | `""`        | Label for migrated sessions (e.g. `"archive:laptop"`)                        |
 | `migration.dir`      | `string` | `null`      | Path to migration backup directory                                           |
@@ -222,6 +223,7 @@ Each entry in `plan_history` represents a subscription period:
 }
 ```
 
+- `plan` accepts `"Pro"`, `"Max"` (formerly Max 5x) and `"Ultra"` (formerly Max 20x); the old names `"Max 5x"` and `"Max 20x"` keep working. Since 2026-10-30 Ultra has no 5-hour limit for verified accounts and a weekly allowance of 10x Pro (see `ultra_no_5h_limit_from`)
 - `end: null` means the plan is currently active
 - `cost_local` + `currency_symbol` are display values (what you actually pay, in any currency). The legacy field `cost_eur` is still accepted as a fallback
 - `cost_usd` drives the savings / ROI math against API-equivalent value

@@ -205,8 +205,10 @@ def _active_min(b):
 
 # Display order. stat: ("ratio", numerator, denominator), ("median", hist)
 # or ("session", fn of a session's merged bucket). Groups behaviour,
-# context and quality are effort-standardized over common support; the
-# session group uses every interactive reply, unweighted.
+# context and quality are effort-standardized per row: both sides are
+# weighted to the ID side's mix of that row's denominator over the effort
+# levels where both sides have one. The session group uses every
+# interactive reply, unweighted.
 METRICS = [
     {"key": "multi_tool_share", "group": "behaviour", "kind": "share",
      "stat": ("ratio", "multi_tool", "replies")},
@@ -307,36 +309,78 @@ def _hist_units(units: list, field: str) -> list:
     return [{s: b.get(field) or {} for s, b in u.items()} for u in units]
 
 
-def _metric_row(m: dict, id_side: dict, base_side: dict,
-                weights: dict) -> dict:
-    """One comparison row. A side is {"common": units restricted to the
-    common strata, "all": all units, "totals": merged bucket per unit}."""
+def _hist_size(hist) -> int:
+    return sum(n for n in (hist or {}).values() if n > 0)
+
+
+def _row_weights(id_units: list, base_units: list, size) -> dict:
+    """Weights of a standardized row: the ID side's share of the row's
+    denominator (size of a bucket) per effort stratum, over the strata
+    where both sides have a non-zero denominator."""
+    id_x, base_x = {}, {}
+    for units, acc in ((id_units, id_x), (base_units, base_x)):
+        for u in units:
+            for s, b in u.items():
+                acc[s] = acc.get(s, 0) + size(b)
+    strata = [s for s in id_x if id_x[s] > 0 and base_x.get(s, 0) > 0]
+    total = sum(id_x[s] for s in strata)
+    return {s: id_x[s] / total for s in sorted(strata)}
+
+
+def _restrict(units: list, strata) -> list:
+    return [{s: u[s] for s in strata if s in u} for u in units]
+
+
+def _metric_row(m: dict, id_side: dict, base_side: dict) -> dict:
+    """One comparison row. A side is {"all": units, "totals": merged
+    bucket per unit}. Standardized rows apply the same per-row weights to
+    both sides, so the ID side's estimate is its pooled value over the
+    strata the row keeps."""
     stat = m["stat"]
+    id_r = base_r = None
     if stat[0] == "session":
         a = values_median_stat([stat[1](t) for t in id_side["totals"]])
         b = values_median_stat([stat[1](t) for t in base_side["totals"]])
         cmp, n, base_n = compare(a, b, "median"), a["n"], b["n"]
+    elif stat[0] == "ratio" and m["group"] == "session":
+        a = ratio_stat(_ratio_units(id_side["all"], stat[1], stat[2]))
+        b = ratio_stat(_ratio_units(base_side["all"], stat[1], stat[2]))
+        cmp, n, base_n = compare(a, b, "ratio"), int(a["x"]), int(b["x"])
     elif stat[0] == "ratio":
-        if m["group"] == "session":
-            a = ratio_stat(_ratio_units(id_side["all"], stat[1], stat[2]))
-            b = ratio_stat(_ratio_units(base_side["all"], stat[1], stat[2]))
-        else:
-            a = ratio_stat(_ratio_units(id_side["common"], stat[1], stat[2]))
-            b = ratio_stat(_ratio_units(base_side["common"], stat[1],
-                                        stat[2]), weights)
+        den = stat[2]
+        w = _row_weights(id_side["all"], base_side["all"],
+                         lambda bk: bk.get(den, 0))
+        id_r = _restrict(id_side["all"], w)
+        base_r = _restrict(base_side["all"], w)
+        a = ratio_stat(_ratio_units(id_r, stat[1], den), w)
+        b = ratio_stat(_ratio_units(base_r, stat[1], den), w)
         cmp, n, base_n = compare(a, b, "ratio"), int(a["x"]), int(b["x"])
     else:
-        a = median_stat(_hist_units(id_side["common"], stat[1]),
-                        steps=HIST_STEPS)
-        b = median_stat(_hist_units(base_side["common"], stat[1]), weights,
-                        steps=HIST_STEPS)
+        field = stat[1]
+        w = _row_weights(id_side["all"], base_side["all"],
+                         lambda bk: _hist_size(bk.get(field)))
+        id_r = _restrict(id_side["all"], w)
+        base_r = _restrict(base_side["all"], w)
+        a = median_stat(_hist_units(id_r, field), w, steps=HIST_STEPS)
+        b = median_stat(_hist_units(base_r, field), w, steps=HIST_STEPS)
         cmp, n, base_n = compare(a, b, "median"), a["n"], b["n"]
     nd = _DECIMALS[m["kind"]]
-    return {"key": m["key"], "group": m["group"], "kind": m["kind"],
-            "base": _round(b["est"], nd), "value": _round(a["est"], nd),
-            "change": _round(cmp["change"], 4), "lo": _round(cmp["lo"], 4),
-            "hi": _round(cmp["hi"], 4), "p": _round_p(cmp["p"]),
-            "n": n, "base_n": base_n, "comparable": False}
+    row = {"key": m["key"], "group": m["group"], "kind": m["kind"],
+           "base": _round(b["est"], nd), "value": _round(a["est"], nd),
+           "change": _round(cmp["change"], 4), "lo": _round(cmp["lo"], 4),
+           "hi": _round(cmp["hi"], 4), "p": _round_p(cmp["p"]),
+           "n": n, "base_n": base_n, "comparable": False}
+    if m["group"] == "behaviour":
+        # Judged only with enough events in the strata the row kept, and
+        # a non-zero baseline (a move away from zero has no relative
+        # change).
+        row["comparable"] = (row["value"] is not None
+                             and row["base"] is not None
+                             and row["base"] > 0
+                             and _supported(m["key"],
+                                            _support_totals(id_r),
+                                            _support_totals(base_r)))
+    return row
 
 
 def _verdict(rows: list, id_replies: int, base_replies: int,
@@ -524,9 +568,8 @@ def _collect(sessions: dict) -> dict:
     return acc
 
 
-def _side(units: list, common: list) -> dict:
+def _side(units: list) -> dict:
     return {"all": units,
-            "common": [{s: u[s] for s in common if s in u} for u in units],
             "totals": [_merged(list(u.values())) for u in units]}
 
 
@@ -566,28 +609,19 @@ def _card(acc: dict, atis: str, model: str) -> dict:
         if lo <= d <= hi:
             base_sdk += n
 
-    # Common support: effort strata with replies on both sides. The
-    # baseline is reweighted to the ID side's mix over those strata.
+    # Common support: effort strata with replies on both sides. It gates
+    # the verdict (replies, sessions) and gives unmatched_replies; each
+    # standardized row picks its own strata and weights (_row_weights).
     id_mix, base_mix = _mix(id_units), _mix(base_units)
     common = [s for s in id_mix if id_mix[s] > 0 and base_mix.get(s, 0) > 0]
     id_common = sum(id_mix[s] for s in common)
     base_common = sum(base_mix[s] for s in common)
-    weights = ({s: id_mix[s] / id_common for s in common}
-               if id_common else {})
-    id_side, base_side = _side(id_units, common), _side(base_units, common)
-
-    rows = [_metric_row(m, id_side, base_side, weights) for m in METRICS]
-    sup = _support_totals(id_side["common"])
-    bsup = _support_totals(base_side["common"])
-    for r in rows:
-        if r["group"] == "behaviour":
-            r["comparable"] = (r["value"] is not None
-                               and r["base"] is not None
-                               and _supported(r["key"], sup, bsup))
+    id_side, base_side = _side(id_units), _side(base_units)
+    rows = [_metric_row(m, id_side, base_side) for m in METRICS]
     verdict, reason = _verdict(
         rows, id_common, base_common,
-        sum(1 for u in id_side["common"] if u),
-        sum(1 for u in base_side["common"] if u))
+        sum(1 for u in id_units if any(s in u for s in common)),
+        sum(1 for u in base_units if any(s in u for s in common)))
 
     starts = [acc["starts"].get(sid) or acc["id_first"][k][sid]
               for sid in sids]

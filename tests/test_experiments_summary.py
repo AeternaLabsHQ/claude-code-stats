@@ -375,6 +375,8 @@ class VerdictTest(unittest.TestCase):
         self.assertEqual(r["base"], 0.0)
         self.assertIsNone(r["change"])
         self.assertIsNone(r["lo"])
+        # A move away from zero has no relative change: not judged.
+        self.assertFalse(r["comparable"])
 
     def test_verdict_uses_rounded_row_values(self):
         c = card(build_experiment_summary(changed_corpus(), {}))
@@ -466,17 +468,16 @@ class EntrypointAndEffortTest(unittest.TestCase):
         sess = {}
         for i in range(10):
             sess[f"b{i}"] = session({
-                (MODEL, "", day(-2), "cli", "high"):
-                    bucket(30, 0.4 if i % 2 else 0.3667),
+                (MODEL, "", day(-2), "cli", "high"): bucket(30, 0.4),
                 (MODEL, "", day(-2), "cli", "medium"): bucket(30, 0.0)})
         for i in range(10):
             sess[f"i{i}"] = session({
-                (MODEL, FULL, day(0), "cli", "high"):
-                    bucket(30, 0.4 if i % 2 else 0.3667)})
+                (MODEL, FULL, day(0), "cli", "high"): bucket(30, 0.4)})
         c = card(build_experiment_summary(sess, {}))
         r = row(c, "multi_tool_share")
-        self.assertAlmostEqual(r["base"], r["value"], 4)
-        self.assertAlmostEqual(r["change"], 0.0, 4)
+        self.assertEqual(r["base"], 0.4)
+        self.assertEqual(r["value"], 0.4)
+        self.assertEqual(r["change"], 0.0)
         self.assertEqual(c["effort_mix"], {"high": 300})
         self.assertEqual(c["base_effort_mix"], {"high": 300, "medium": 300})
         self.assertEqual(c["unmatched_replies"], 0)
@@ -531,9 +532,10 @@ class EntrypointAndEffortTest(unittest.TestCase):
                 self.assertFalse(r["comparable"])
         self.assertEqual(row(c, "session_replies")["value"], 30)
 
-    def test_baseline_stratum_without_denominator_gives_no_estimate(self):
+    def test_baseline_stratum_without_denominator_is_dropped_for_row(self):
         # A common stratum where the baseline has replies but no Bash
-        # commands: the standardized baseline median has no estimate.
+        # commands: the Bash median of both sides leaves that stratum out,
+        # every other row keeps it.
         sess = {}
         for i in range(10):
             sess[f"b{i}"] = session({
@@ -545,10 +547,80 @@ class EntrypointAndEffortTest(unittest.TestCase):
                 (MODEL, FULL, day(0), "cli", "low"): bucket(3, 0.0)})
         c = card(build_experiment_summary(sess, {}))
         r = row(c, "median_bash_chars")
-        self.assertIsNone(r["base"])
-        self.assertIsNone(r["change"])
-        self.assertFalse(r["comparable"])
-        self.assertIsNotNone(row(c, "multi_tool_share")["base"])
+        self.assertIsNotNone(r["base"])
+        self.assertEqual(r["value"], r["base"])
+        self.assertEqual(r["change"], 0.0)
+        self.assertEqual((r["n"], r["base_n"]), (300, 300))
+        self.assertTrue(r["comparable"])
+        m = row(c, "multi_tool_share")
+        self.assertEqual((m["n"], m["base_n"]), (330, 330))
+
+    def test_identical_populations_show_no_change(self):
+        # Two effort levels with very different tool-reply, text-first,
+        # Bash-length and tool-error profiles, the same 50/50 mix and the
+        # same generators on both sides: every row must read "no change".
+        def bash(n):
+            return {"type": "tool_use", "name": "Bash",
+                    "input": {"command": "x" * n}}
+
+        def high(j):
+            b = new_bucket()
+            for i in range(30):
+                add_reply(b, ([TEXT] if i < 18 + j % 2 else []) + [bash(1000)]
+                          + ([READ] if i % 3 == 0 else []), 450, 0.01)
+            b["tool_errors"] = 10 + j % 2
+            return b
+
+        def medium(j):
+            b = new_bucket()
+            for i in range(30):
+                add_reply(b, [bash(100)] if i < 6 + j % 2 else [TEXT], 450,
+                          0.01)
+            return b
+
+        sess = {}
+        for j in range(20):
+            for side, atis, d in (("b", "", day(-5)), ("i", FULL, day(0))):
+                sess[f"{side}{j}"] = session({
+                    (MODEL, atis, d, "cli", "high"): high(j),
+                    (MODEL, atis, d, "cli", "medium"): medium(j)})
+        c = card(build_experiment_summary(sess, {}))
+        self.assertEqual(c["effort_mix"], {"high": 600, "medium": 600})
+        for k in ("multi_tool_share", "text_before_share",
+                  "median_bash_chars", "median_output_tokens",
+                  "cost_per_reply", "tool_error_rate"):
+            r = row(c, k)
+            self.assertIsNotNone(r["change"], k)
+            self.assertLess(abs(r["change"]), 0.02, k)
+            self.assertEqual(r["value"], r["base"], k)
+            if r["p"] is not None:
+                self.assertGreater(r["p"], 0.05, k)
+        self.assertEqual(c["verdict"], "no_effect")
+        self.assertIsNone(c["reason"])
+
+    def test_row_weights_follow_id_denominator_mix(self):
+        # Text-first share: ID side has its tool replies 75% in high (share
+        # 0.6) and 25% in medium (share 0.0); the baseline is 50/50 in tool
+        # replies. Reweighted per row: 0.75 * 0.6 = 0.45 on both sides.
+        # The ID medium level also has 30 text-only replies, so reply-share
+        # weights (3/7 high) would give a different baseline (0.257).
+        def tb(n, share, plain=0):
+            b = bucket(n, 0.0, share)
+            for _ in range(plain):
+                add_reply(b, [TEXT], 450, 0.01)
+            return b
+        sess = {}
+        for i in range(10):
+            sess[f"i{i}"] = session({
+                (MODEL, FULL, day(0), "cli", "high"): tb(30, 0.6),
+                (MODEL, FULL, day(0), "cli", "medium"): tb(10, 0.0, 30)})
+            sess[f"b{i}"] = session({
+                (MODEL, "", day(-2), "cli", "high"): tb(20, 0.6),
+                (MODEL, "", day(-2), "cli", "medium"): tb(20, 0.0)})
+        r = row(card(build_experiment_summary(sess, {})), "text_before_share")
+        self.assertEqual(r["value"], 0.45)
+        self.assertEqual(r["base"], 0.45)
+        self.assertEqual(r["change"], 0.0)
 
     def test_identical_bins_are_not_shared_data(self):
         self.assertEqual(hist_bin(300), hist_bin(303))

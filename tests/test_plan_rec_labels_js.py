@@ -50,7 +50,7 @@ def _pr(ultra_from, current="Max 20x", rec="Max 20x"):
         "ultra_no_5h_from": ultra_from,
         "ultra_launch_date": "2026-10-30",
         "cycles": [{
-            "cycle_start": "2026-11-01", "label": "Nov 2026",
+            "cycle_start": "2026-11-01", "label": "Nov 2026 (Max 20x)",
             "active_tier": "Max 20x", "switch_arrow": None,
             "tier_5h_hits": hits, "tier_weekly_hits": hits,
         }],
@@ -87,6 +87,9 @@ class PlanRecLabelsJsTest(unittest.TestCase):
         heads = re.findall(r'<th class="ph-th[^"]*">([^<]*)', v["plan"])
         self.assertEqual(heads, ["Pro", "Max", "Ultra"] * 2)
         body = v["plan"].split('<div class="plan-rec-disclaimer">')[0]
+        # row labels keep the config plan name as-is; headers show "Ultra"
+        self.assertIn('<td class="ph-cyc">Nov 2026 (Max 20x)</td>', body)
+        body = body.replace("Nov 2026 (Max 20x)", "")
         self.assertNotIn("Max 20x", body)
         self.assertNotIn("Max 5x", body)
         self.assertIn("Pro $5.00 / Max $25.00 / Ultra $100.00", v["plan"])
@@ -96,13 +99,15 @@ class PlanRecLabelsJsTest(unittest.TestCase):
         # notes
         self.assertIn("Max was called Max 5x and Ultra was called Max 20x until 2026-10-30.", v["plan"])
         self.assertIn("Since 2026-10-30, Ultra has no 5-hour limit for verified accounts", v["plan"])
-        self.assertEqual(v["plan"].count("Ultra's weekly allowance is 10x Pro since then."), 1)
+        self.assertEqual(v["plan"].count("Ultra's weekly allowance has been 10x Pro since then."), 1)
         self.assertIn("weekly 1:5:10 since Ultra", v["plan"])
+        self.assertIn("(Ultra: 3.5x)", v["plan"].split("Calibration (Weeks)")[1].split("</div>")[0])
+        self.assertIn("Weekly cap is", v["plan"])
         self.assertNotIn("—", v["plan"])
         # unverified: rename note stays, ultra note goes
         u = out["unverified"]
         self.assertIn("until 2026-10-30.", u["plan"])
-        self.assertIn("Ultra's weekly allowance is 10x Pro since then.", u["plan"])
+        self.assertIn("Ultra's weekly allowance has been 10x Pro since then.", u["plan"])
         self.assertNotIn("has no 5-hour limit", u["plan"])
         # recommendation card for a switch shows the new names
         p = out["pro_rec"]

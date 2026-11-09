@@ -17,7 +17,8 @@ from datetime import datetime
 WEEK_ANCHOR = "mon"
 PLAN_HISTORY = []
 PLAN_CAPACITY_OVERRIDE_PRO_USD = None
-ULTRA_NO_5H_FROM = "2026-10-30"
+DEFAULT_ULTRA_NO_5H_FROM = "2026-10-30"  # Ultra launch; no earlier cutoff makes sense
+ULTRA_NO_5H_FROM = DEFAULT_ULTRA_NO_5H_FROM
 CACHE_EFF_MIN_MESSAGES = 3
 SOURCE_LABEL = "current"
 LOCALE = {}
@@ -43,12 +44,13 @@ def configure(**kwargs):
 MISSING = object()  # "config key absent", distinct from an explicit null
 
 
-def parse_ultra_cutoff(raw=MISSING, default="2026-10-30"):
+def parse_ultra_cutoff(raw=MISSING, default=DEFAULT_ULTRA_NO_5H_FROM):
     """Resolve the config value of ultra_no_5h_limit_from.
 
     MISSING (key absent) -> default; None -> None (account not verified,
     Ultra keeps the 5h limit); a parseable date -> normalized YYYY-MM-DD
-    (so "2026-10-3" cannot break the string comparisons); anything else
+    (so "2026-10-3" cannot break the string comparisons); a date before the
+    Ultra launch prints a WARNING and is clamped to it; anything else
     prints a WARNING and returns default.
     """
     if raw is MISSING:
@@ -56,8 +58,13 @@ def parse_ultra_cutoff(raw=MISSING, default="2026-10-30"):
     if raw is None:
         return None
     try:
-        return datetime.strptime(str(raw), "%Y-%m-%d").strftime("%Y-%m-%d")
+        date = datetime.strptime(str(raw), "%Y-%m-%d").strftime("%Y-%m-%d")
     except ValueError:
         print(f"  WARNING: invalid ultra_no_5h_limit_from {raw!r} "
               f"(expected YYYY-MM-DD or null); using default {default}")
         return default
+    if date < DEFAULT_ULTRA_NO_5H_FROM:
+        print(f"  WARNING: ultra_no_5h_limit_from {date} is before the Ultra launch; "
+              f"using {DEFAULT_ULTRA_NO_5H_FROM}")
+        return DEFAULT_ULTRA_NO_5H_FROM
+    return date

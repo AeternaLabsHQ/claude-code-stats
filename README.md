@@ -187,7 +187,7 @@ See [`config.example.json`](config.example.json) for all options:
 | `palette`            | `string` | `"default"` | Chart color palette (`"default"` or `"colorblind"`); the colorblind palette is validated for red-green color vision deficiency, see [Palettes](#palettes) |
 | `favicon`            | `string` | `"terracotta"` | Favicon color (`"terracotta"` or `"indigo"`)                              |
 | `plan_history`       | `array`  | `[]`        | Your subscription plan history                                               |
-| `plan_capacity_override_pro_usd` | `number` | `null` | Manual per-window USD capacity of the Pro tier for the plan recommendation; overrides the empirical calibration (Max 5x / 20x scale ×5 / ×20) |
+| `plan_capacity_override_pro_usd` | `number` | `null` | Manual per-window USD capacity of the Pro tier for the plan recommendation; overrides the empirical calibration (Max / Ultra scale ×5 / ×20) |
 | `ultra_no_5h_limit_from` | `string\|null` | `"2026-10-30"` | From this date the Ultra plan (formerly Max 20x) has no 5-hour limit in the plan recommendation; set `null` if your Ultra account is not verified yet and still has a 5-hour limit |
 | `migration.enabled`  | `bool`   | `false`     | Enable data from a migration backup                                          |
 | `migration.label`    | `string` | `""`        | Label for migrated sessions (e.g. `"archive:laptop"`)                        |

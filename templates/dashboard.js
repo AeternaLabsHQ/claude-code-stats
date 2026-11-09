@@ -2226,12 +2226,13 @@ function renderPlanRecommendation() {
     calDerived:   L.calDerived   || 'derived from 5h cap',
     capPerWindow: L.capPerWindow || 'per 5h-window',
     capPerWeek:   L.capPerWeek   || 'per week',
+    calUltraWeekly: L.calUltraWeekly || '(Ultra: 3.5x)',
     anchors:      L.anchors      || 'anchor windows',
     recBasis:     L.recBasis     || 'Basis: last {n} cycles ({w} 5h-windows) - tolerance: ≤{q}% of 5h-windows, ≤{a} weeks over cap',
     calFloor:     L.calFloor     || 'floored at the most expensive limit-free window',
-    renameNote:   L.renameNote   || 'Max was called Max 5x and Ultra was called Max 20x until {date}. Ultra\'s weekly allowance is 10x Pro since then.',
+    renameNote:   L.renameNote   || 'Max was called Max 5x and Ultra was called Max 20x until {date}. Ultra\'s weekly allowance has been 10x Pro since then.',
     ultraNote:    L.ultraNote    || "Since {date}, Ultra has no 5-hour limit for verified accounts: 5h-windows from that date never count as Ultra hits, and 5h fingerprints during Ultra time are ignored.",
-    disclaimer:   L.disclaimer   || "Hit counts use empirical caps derived from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 tier ratio (weekly 1:5:10 since Ultra) is approximate. Weekly cap is estimated as 7 x the 5h cap until a dedicated weekly-limit detector is added.",
+    disclaimer:   L.disclaimer   || "Hit counts use empirical caps derived from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 tier ratio (weekly 1:5:10 since Ultra) is approximate. Weekly cap is estimated as 7 x the 5h cap (Ultra: 3.5x) until a dedicated weekly-limit detector is added.",
   };
 
   const TIERS = ['Pro', 'Max 5x', 'Max 20x'];
@@ -2305,7 +2306,7 @@ function renderPlanRecommendation() {
   const calW = pr.calibration_weekly || {};
   const capsW = calW.caps_per_week || {};
   const calWLine = T.cal + ' (' + T.weeks + '): ' + T.calDerived +
-    ' × ' + (calW.ratio_vs_5h || 7) +
+    ' × ' + (calW.ratio_vs_5h || 7) + ' ' + T.calUltraWeekly +
     ' - ' + tierLabel('Pro') + ' $' + (capsW.Pro || 0).toFixed(0) +
     ' / ' + tierLabel('Max 5x') + ' $' + (capsW['Max 5x'] || 0).toFixed(0) +
     ' / ' + tierLabel('Max 20x') + ' $' + (capsW['Max 20x'] || 0).toFixed(0) + ' ' + T.capPerWeek;

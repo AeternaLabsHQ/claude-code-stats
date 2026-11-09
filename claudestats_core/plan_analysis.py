@@ -460,6 +460,8 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
         cycle_windows = [(i, w) for i, w in enumerate(windows_5h)
                          if _cycle_contains_ts(p, w["start_ts"])]
         cycle_weeks   = [b for b in weekly_buckets if _cycle_contains_ts(p, b["week_start_ts"])]
+        # Note: a banner in an excluded Ultra window no longer counts as a 5h hit for
+        # cheaper tiers either - after the cutoff it is a weekly limit, not a 5h one.
         hits_5h = _count_5h_hits(cycle_windows, cap_info_5h["caps_per_window"],
                                  calibration_tier_by_idx, limit_event_window_ids,
                                  ultra_free_ids)

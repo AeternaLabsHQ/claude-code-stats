@@ -178,7 +178,12 @@ def test_parse_ultra_cutoff(capsys):
     assert settings.parse_ultra_cutoff(settings.MISSING, default="x") == "x"
     assert settings.parse_ultra_cutoff(None) is None
     assert settings.parse_ultra_cutoff("2026-11-05") == "2026-11-05"
-    assert settings.parse_ultra_cutoff("2026-10-3") == "2026-10-03"
+    assert settings.parse_ultra_cutoff("2026-11-3") == "2026-11-03"
+    assert capsys.readouterr().out == ""
+    assert settings.parse_ultra_cutoff("2026-10-30") == "2026-10-30"
     assert capsys.readouterr().out == ""
     assert settings.parse_ultra_cutoff("garbage") == "2026-10-30"
+    assert "WARNING" in capsys.readouterr().out
+    # Ultra did not exist earlier: clamp with a warning
+    assert settings.parse_ultra_cutoff("2026-01-01") == "2026-10-30"
     assert "WARNING" in capsys.readouterr().out

@@ -66,14 +66,18 @@ def is_interactive(entrypoint: str) -> bool:
     return not entrypoint.startswith("sdk")
 
 
+_APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'"})
+
+
 def is_correction(text: str, words: list) -> bool:
-    """Short prompt containing a correction word on word boundaries."""
-    text = (text or "").strip()
+    """Short prompt containing a correction word on word boundaries.
+    Typographic apostrophes count as plain ones on both sides."""
+    text = (text or "").strip().translate(_APOSTROPHES)
     if not text or len(text) > CORRECTION_MAX_CHARS:
         return False
     return any(
-        re.search(r"(?<!\w)" + re.escape(w) + r"(?!\w)", text,
-                  re.IGNORECASE)
+        re.search(r"(?<!\w)" + re.escape(w.translate(_APOSTROPHES))
+                  + r"(?!\w)", text, re.IGNORECASE)
         for w in words if w)
 
 

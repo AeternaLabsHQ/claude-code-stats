@@ -144,6 +144,14 @@ class HelpersTest(unittest.TestCase):
         self.assertFalse(is_correction("nein " + "x" * 200, words))
         self.assertFalse(is_correction("nein", []))
 
+    def test_is_correction_typographic_apostrophes(self):
+        words = list(DEFAULT_CORRECTION_WORDS)
+        self.assertTrue(is_correction("it doesn\u2019t work", words))
+        self.assertTrue(is_correction("it doesn\u2018t work", words))
+        # A configured word with a curly apostrophe matches a plain one.
+        self.assertTrue(is_correction("that doesn't help",
+                                      ["doesn\u2019t help"]))
+
     def test_hist_bin_zero(self):
         self.assertEqual(hist_bin(0), "0")
         self.assertEqual(hist_bin(-3), "0")

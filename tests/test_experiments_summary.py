@@ -855,5 +855,107 @@ class CurrentAssignmentTest(unittest.TestCase):
         self.assertFalse(build_experiment_summary({}, dc)["has_data"])
 
 
+def think_bucket(values, plain=0):
+    """Replies that reported thinking tokens (one per value) plus `plain`
+    replies without the field."""
+    b = new_bucket()
+    for v in values:
+        add_reply(b, [TEXT], 50, 0.01, thinking_tokens=v)
+    for _ in range(plain):
+        add_reply(b, [TEXT], 50, 0.01)
+    return b
+
+
+OTHER = "ffffeeee11112222"
+
+
+class ThinkingTable(unittest.TestCase):
+    def thinking(self, sess):
+        return build_experiment_summary(sess, {})["thinking"]
+
+    def test_thinking_table_cells(self):
+        sess = {
+            "a": session({(MODEL, "", day(0), "cli", "high"):
+                          think_bucket([100] * 20),
+                          (MODEL, "", day(0), "cli", "low"):
+                          think_bucket([10, 30] * 10),
+                          (MODEL, "", day(0), "cli", ""):
+                          think_bucket([40] * 25)}),
+            "b": session({(MODEL, FULL, day(1), "cli", "high"):
+                          think_bucket([200] * 12),
+                          (MODEL, FULL, day(2), "cli", "high"):
+                          think_bucket([400] * 8)}),
+            "c": session({(MODEL, OTHER, day(3), "cli", "max"):
+                          think_bucket([1000] * 20)}),
+        }
+        t = self.thinking(sess)
+        self.assertEqual([m["model"] for m in t], [MODEL])
+        rows = t[0]["rows"]
+        self.assertEqual([r["id"] for r in rows], ["", OTHER, FULL])
+        self.assertEqual(rows[0]["short"], "")
+        ids = {i["id"]: i["short"]
+               for i in build_experiment_summary(sess, {})["ids"]}
+        self.assertEqual(rows[1]["short"], ids[OTHER])
+        self.assertEqual(rows[2]["short"], ids[FULL])
+        # no ID: effort order low, high, unknown
+        self.assertEqual(list(rows[0]["cells"]), ["low", "high", "unknown"])
+        low = rows[0]["cells"]["low"]
+        self.assertEqual(low["replies"], 20)
+        self.assertEqual(low["mean"], 20.0)
+        self.assertAlmostEqual(
+            low["median"],
+            round(experiments.hist_median(
+                {hist_bin(10): 10, hist_bin(30): 10}), 1))
+        self.assertEqual(rows[0]["cells"]["unknown"]["mean"], 40.0)
+        # cells merge across sessions and days
+        cell = rows[2]["cells"]["high"]
+        self.assertEqual(cell["replies"], 20)
+        self.assertEqual(cell["mean"], 280.0)
+        self.assertEqual(list(rows[1]["cells"]), ["max"])
+
+    def test_thinking_skips_replies_without_field(self):
+        sess = {
+            "a": session({(MODEL, "", day(0)): think_bucket([100] * 20, 50)}),
+            "b": session({(MODEL, FULL, day(0)): think_bucket([100], 5)}),
+        }
+        t = self.thinking(sess)
+        cell = t[0]["rows"][0]["cells"]["high"]
+        self.assertEqual(cell["replies"], 20)
+        self.assertEqual(cell["mean"], 100.0)
+
+    def test_thinking_cell_floor(self):
+        sess = {
+            "a": session({(MODEL, "", day(0), "cli", "high"):
+                          think_bucket([100] * 19),
+                          (MODEL, "", day(0), "cli", "low"):
+                          think_bucket([100] * 20)}),
+            "b": session({(MODEL, FULL, day(0), "cli", "high"):
+                          think_bucket([100] * 19)}),
+            "c": session({("claude-other", "", day(0), "cli", "high"):
+                          think_bucket([100] * 40),
+                          ("claude-other", OTHER, day(0), "sdk-cli", "high"):
+                          think_bucket([100] * 40)}),
+        }
+        t = self.thinking(sess)
+        # FULL row has no cell above the floor, claude-other has no card
+        self.assertEqual([m["model"] for m in t], [MODEL])
+        rows = t[0]["rows"]
+        self.assertEqual([r["id"] for r in rows], [""])
+        self.assertEqual(list(rows[0]["cells"]), ["low"])
+
+    def test_thinking_interactive_only(self):
+        sess = {
+            "a": session({(MODEL, "", day(0), "sdk-cli", "high"):
+                          think_bucket([100] * 30)}),
+            "b": session({(MODEL, FULL, day(0), "cli", "high"):
+                          think_bucket([100] * 30)}),
+        }
+        rows = self.thinking(sess)[0]["rows"]
+        self.assertEqual([r["id"] for r in rows], [FULL])
+
+    def test_thinking_empty(self):
+        self.assertEqual(self.thinking({}), [])
+
+
 if __name__ == "__main__":
     unittest.main()

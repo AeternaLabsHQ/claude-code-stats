@@ -18,6 +18,8 @@ HIST_STEPS = 32  # histogram bins per doubling
 MIN_SUPPORT = 30  # events a behaviour metric needs before its change counts
 MIN_SESSIONS = 5  # sessions each side needs before a verdict
 ALPHA = 0.05  # significance level a behaviour change must reach
+THINK_MIN_REPLIES = 20  # thinking-table cells need this many reported replies
+EFFORT_ORDER = ("low", "medium", "high", "xhigh", "max", "unknown")
 LATE_CUTOFF_DAYS = 7  # replies later than this after session start are not bucketed
 ACTIVE_GAP_MS = 30 * 60 * 1000  # longer gaps between replies are idle time
 CORRECTION_MAX_CHARS = 160  # longer prompts are never counted as corrections
@@ -499,6 +501,7 @@ def _collect(sessions: dict) -> dict:
         "id_late": {},     # (atis, model) -> late replies
         "base_late": {},   # model -> {sid: late replies}
         "starts": {},      # sid -> UTC day of exp_start_ms or None
+        "think": {},       # (atis, model, stratum) -> [replies, tokens, hist]
     }
     for sid, sess in (sessions or {}).items():
         exp = sess.get("experiments") if isinstance(sess, dict) else None
@@ -520,6 +523,13 @@ def _collect(sessions: dict) -> dict:
                 span = acc["span"].setdefault(model, [dstr, dstr])
                 span[0] = min(span[0], dstr)
                 span[1] = max(span[1], dstr)
+                if inter and b.get("think_replies"):
+                    t = acc["think"].setdefault(
+                        (atis, model, stratum), [0, 0, {}])
+                    t[0] += b["think_replies"]
+                    t[1] += b.get("think_tokens", 0)
+                    for hb, hn in (b.get("think_hist") or {}).items():
+                        _bump(t[2], hb, hn)
                 if atis:
                     info = acc["id_info"].setdefault(
                         atis, {"sessions": set(), "days": {}})
@@ -644,6 +654,36 @@ def _card(acc: dict, atis: str, model: str) -> dict:
     }
 
 
+def _thinking(acc: dict, ids: list) -> list:
+    """Thinking tokens per model, ID and effort level (interactive, all
+    days). Models are those with at least one card; cells below
+    THINK_MIN_REPLIES reported replies, empty rows and empty models are
+    left out. Rows: no ID first, then IDs newest first."""
+    models = sorted({m for (_, m) in acc["id_units"]})
+    order = [("", "")] + [(e["id"], e["short"]) for e in ids]
+    out = []
+    for model in models:
+        rows = []
+        for atis, short in order:
+            cells = {}
+            for stratum in EFFORT_ORDER:
+                t = acc["think"].get((atis, model, stratum))
+                if not t or t[0] < THINK_MIN_REPLIES:
+                    continue
+                med = hist_median(t[2])
+                if med is None:  # counts without a histogram: unusable
+                    continue
+                cells[stratum] = {
+                    "replies": t[0],
+                    "median": round(med, 1),
+                    "mean": round(t[1] / t[0], 1)}
+            if cells:
+                rows.append({"id": atis, "short": short, "cells": cells})
+        if rows:
+            out.append({"model": model, "rows": rows})
+    return out
+
+
 def build_experiment_summary(sessions: dict, dot_claude: dict) -> dict:
     """Per-ID behaviour against a same-model baseline (ID "" replies within
     +-BASELINE_PAD_DAYS of the ID's days). Both sides are interactive only,
@@ -678,4 +718,5 @@ def build_experiment_summary(sessions: dict, dot_claude: dict) -> dict:
                        "correction_max_chars": CORRECTION_MAX_CHARS},
         "current": _current_slots(dot_claude),
         "ids": ids,
+        "thinking": _thinking(acc, ids),
     }

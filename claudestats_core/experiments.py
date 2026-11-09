@@ -8,12 +8,16 @@ import math
 import re
 from datetime import date, datetime, timedelta, timezone
 
+from .expstats import compare, median_stat, ratio_stat, values_median_stat
+
 MIN_REPLIES = 200
 REL_CHANGE = 0.40
 MIN_CHANGED_METRICS = 2
 BASELINE_PAD_DAYS = 14
 HIST_STEPS = 32  # histogram bins per doubling
 MIN_SUPPORT = 30  # events a behaviour metric needs before its change counts
+MIN_SESSIONS = 5  # sessions each side needs before a verdict
+ALPHA = 0.05  # significance level a behaviour change must reach
 LATE_CUTOFF_DAYS = 7  # replies later than this after session start are not bucketed
 ACTIVE_GAP_MS = 30 * 60 * 1000  # longer gaps between replies are idle time
 CORRECTION_MAX_CHARS = 160  # longer prompts are never counted as corrections
@@ -190,45 +194,71 @@ def merge_bucket(dst: dict, src: dict) -> None:
 
 # ── Summary ────────────────────────────────────────────────────────────────
 
-_BEHAVIOUR_METRICS = ("multi_tool_share", "text_before_share",
-                      "median_bash_chars", "median_output_tokens")
+
+def _field(name):
+    return lambda b: b.get(name, 0)
 
 
-def _split_key(key: str):
-    """(model, atis) of a bucket key; the old summary ignores the rest."""
-    model, atis, _, _ = split_key(key)
-    return model, atis
+def _active_min(b):
+    return b.get("active_ms", 0) / 60000
+
+
+# Display order. stat: ("ratio", numerator, denominator), ("median", hist)
+# or ("session", fn of a session's merged bucket). Groups behaviour,
+# context and quality are effort-standardized over common support; the
+# session group uses every interactive reply, unweighted.
+METRICS = [
+    {"key": "multi_tool_share", "group": "behaviour", "kind": "share",
+     "stat": ("ratio", "multi_tool", "replies")},
+    {"key": "text_before_share", "group": "behaviour", "kind": "share",
+     "stat": ("ratio", "text_before", "tool_replies")},
+    {"key": "median_bash_chars", "group": "behaviour", "kind": "int",
+     "stat": ("median", "bash_hist")},
+    {"key": "median_output_tokens", "group": "behaviour", "kind": "int",
+     "stat": ("median", "out_hist")},
+    {"key": "cost_per_reply", "group": "context", "kind": "usd",
+     "stat": ("ratio", "cost", "replies")},
+    {"key": "session_cost", "group": "session", "kind": "usd",
+     "stat": ("session", _field("cost"))},
+    {"key": "session_replies", "group": "session", "kind": "int",
+     "stat": ("session", _field("replies"))},
+    {"key": "session_prompts", "group": "session", "kind": "int",
+     "stat": ("session", _field("prompts"))},
+    {"key": "session_tool_calls", "group": "session", "kind": "int",
+     "stat": ("session", _field("tool_calls"))},
+    {"key": "session_active_min", "group": "session", "kind": "int",
+     "stat": ("session", _active_min)},
+    {"key": "cost_per_prompt", "group": "session", "kind": "usd",
+     "stat": ("ratio", "cost", "prompts")},
+    {"key": "tool_error_rate", "group": "quality", "kind": "rate",
+     "stat": ("ratio", "tool_errors", "tool_calls")},
+    {"key": "repeat_call_rate", "group": "quality", "kind": "rate",
+     "stat": ("ratio", "repeat_calls", "tool_calls")},
+    {"key": "rejected_rate", "group": "quality", "kind": "rate",
+     "stat": ("ratio", "rejected", "tool_calls")},
+    {"key": "interrupt_rate", "group": "quality", "kind": "rate",
+     "stat": ("ratio", "interrupts", "prompts")},
+    {"key": "correction_rate", "group": "quality", "kind": "rate",
+     "stat": ("ratio", "corrections", "prompts")},
+    {"key": "re_edit_rate", "group": "quality", "kind": "rate",
+     "stat": ("ratio", "re_edits", "edit_calls")},
+]
+
+_DECIMALS = {"share": 4, "rate": 4, "int": 1, "usd": 6}
+_SUPPORT_KEYS = ("multi_tool", "tool_replies", "text_before", "bash_cmds")
 
 
 def _round(v, nd):
     return None if v is None else round(v, nd)
 
 
-def _metrics(b: dict) -> dict:
-    """Behaviour metrics of a (merged) bucket, unrounded."""
-    n = b.get("replies", 0)
-    tool = b.get("tool_replies", 0)
-    return {
-        "multi_tool_share": b.get("multi_tool", 0) / n if n else 0.0,
-        "text_before_share": b.get("text_before", 0) / tool if tool else None,
-        "median_bash_chars": hist_median(b.get("bash_hist", {})),
-        "median_output_tokens": hist_median(b.get("out_hist", {})),
-        "cost_per_reply": b.get("cost", 0.0) / n if n else 0.0,
-    }
-
-
-_SUPPORT_KEYS = ("replies", "tool_replies", "multi_tool", "text_before",
-                 "bash_cmds")
-
-
-def _support(b: dict) -> dict:
-    """Event counts behind the metrics of a (merged) bucket."""
-    return {k: b.get(k, 0) for k in _SUPPORT_KEYS}
+def _round_p(p):
+    return None if p is None else float(f"{p:.3g}")
 
 
 def _supported(k: str, s: dict, bs: dict) -> bool:
-    """Whether metric k has enough events on the ID side (s) and the
-    baseline side (bs) for its change to mean anything."""
+    """Whether behaviour metric k has enough events on the ID side (s) and
+    the baseline side (bs) for its change to mean anything."""
     if k == "multi_tool_share":
         return max(s["multi_tool"], bs["multi_tool"]) >= MIN_SUPPORT
     if k == "text_before_share":
@@ -239,38 +269,117 @@ def _supported(k: str, s: dict, bs: dict) -> bool:
     return True  # median_output_tokens: the MIN_REPLIES gate is enough
 
 
-def _changes(m: dict, bm: dict, s: dict, bs: dict) -> dict:
-    """Relative change per behaviour metric, None where it is unsupported
-    or the baseline value is missing or zero."""
-    out = {}
-    for k in _BEHAVIOUR_METRICS:
-        if (m[k] is None or not bm[k] or bm[k] <= 0
-                or not _supported(k, s, bs)):
-            out[k] = None
-        else:
-            out[k] = (m[k] - bm[k]) / bm[k]
+def _merged(buckets: list) -> dict:
+    """One bucket for a list of buckets; a single one is returned as is
+    (callers only read it), several are merged into a fresh bucket."""
+    if len(buckets) == 1:
+        return buckets[0]
+    out = new_bucket()
+    for b in buckets:
+        merge_bucket(out, b)
     return out
 
 
-def _rounded_metrics(m: dict) -> dict:
-    return {"multi_tool_share": _round(m["multi_tool_share"], 4),
-            "text_before_share": _round(m["text_before_share"], 4),
-            "median_bash_chars": _round(m["median_bash_chars"], 1),
-            "median_output_tokens": _round(m["median_output_tokens"], 1),
-            "cost_per_reply": _round(m["cost_per_reply"], 6)}
+def _mix(units: list) -> dict:
+    """Replies per effort stratum over all units."""
+    out = {}
+    for u in units:
+        for s, b in u.items():
+            out[s] = out.get(s, 0) + b.get("replies", 0)
+    return dict(sorted(out.items()))
 
 
-def _verdict(replies, base_replies, changes) -> str:
-    if replies < MIN_REPLIES or base_replies < MIN_REPLIES:
-        return "insufficient"
-    # Too few metrics could be compared (unsupported or no baseline value)
-    # to tell an effect from none.
-    if sum(1 for c in changes.values()
-           if c is not None) < MIN_CHANGED_METRICS:
-        return "insufficient"
-    n = sum(1 for c in changes.values()
-            if c is not None and abs(c) >= REL_CHANGE)
-    return "changed" if n >= MIN_CHANGED_METRICS else "no_effect"
+def _support_totals(units: list) -> dict:
+    out = {k: 0 for k in _SUPPORT_KEYS}
+    for u in units:
+        for b in u.values():
+            for k in _SUPPORT_KEYS:
+                out[k] += b.get(k, 0)
+    return out
+
+
+def _ratio_units(units: list, num: str, den: str) -> list:
+    return [{s: (b.get(num, 0), b.get(den, 0)) for s, b in u.items()}
+            for u in units]
+
+
+def _hist_units(units: list, field: str) -> list:
+    return [{s: b.get(field) or {} for s, b in u.items()} for u in units]
+
+
+def _metric_row(m: dict, id_side: dict, base_side: dict,
+                weights: dict) -> dict:
+    """One comparison row. A side is {"common": units restricted to the
+    common strata, "all": all units, "totals": merged bucket per unit}."""
+    stat = m["stat"]
+    if stat[0] == "session":
+        a = values_median_stat([stat[1](t) for t in id_side["totals"]])
+        b = values_median_stat([stat[1](t) for t in base_side["totals"]])
+        cmp, n, base_n = compare(a, b, "median"), a["n"], b["n"]
+    elif stat[0] == "ratio":
+        if m["group"] == "session":
+            a = ratio_stat(_ratio_units(id_side["all"], stat[1], stat[2]))
+            b = ratio_stat(_ratio_units(base_side["all"], stat[1], stat[2]))
+        else:
+            a = ratio_stat(_ratio_units(id_side["common"], stat[1], stat[2]))
+            b = ratio_stat(_ratio_units(base_side["common"], stat[1],
+                                        stat[2]), weights)
+        cmp, n, base_n = compare(a, b, "ratio"), int(a["x"]), int(b["x"])
+    else:
+        a = median_stat(_hist_units(id_side["common"], stat[1]),
+                        steps=HIST_STEPS)
+        b = median_stat(_hist_units(base_side["common"], stat[1]), weights,
+                        steps=HIST_STEPS)
+        cmp, n, base_n = compare(a, b, "median"), a["n"], b["n"]
+    nd = _DECIMALS[m["kind"]]
+    return {"key": m["key"], "group": m["group"], "kind": m["kind"],
+            "base": _round(b["est"], nd), "value": _round(a["est"], nd),
+            "change": _round(cmp["change"], 4), "lo": _round(cmp["lo"], 4),
+            "hi": _round(cmp["hi"], 4), "p": _round_p(cmp["p"]),
+            "n": n, "base_n": base_n, "comparable": False}
+
+
+def _verdict(rows: list, id_replies: int, base_replies: int,
+             id_sessions: int, base_sessions: int):
+    """(verdict, reason). Judged on the rounded row values, so the card
+    and its highlighted rows always agree."""
+    if id_replies < MIN_REPLIES or base_replies < MIN_REPLIES:
+        return "insufficient", "few_replies"
+    if id_sessions < MIN_SESSIONS or base_sessions < MIN_SESSIONS:
+        return "insufficient", "few_sessions"
+    judged = [r for r in rows if r["group"] == "behaviour" and r["comparable"]]
+    if len(judged) < MIN_CHANGED_METRICS:
+        return "insufficient", "few_metrics"
+    moved = sum(1 for r in judged
+                if r["change"] is not None and abs(r["change"]) >= REL_CHANGE
+                and r["p"] is not None and r["p"] < ALPHA)
+    return ("changed" if moved >= MIN_CHANGED_METRICS else "no_effect"), None
+
+
+def _short_ids(ids) -> dict:
+    """Shortest prefix (at least 3 chars) no other ID starts with; the
+    full ID when it is itself a prefix of another."""
+    ids = list(ids)
+    out = {}
+    for a in ids:
+        others = [o for o in ids if o != a]
+        out[a] = a
+        for n in range(3, len(a) + 1):
+            if not any(o.startswith(a[:n]) for o in others):
+                out[a] = a[:n]
+                break
+    return out
+
+
+def _day_of_ms(v):
+    """UTC day of an epoch-ms timestamp, None for anything else."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    try:
+        return datetime.fromtimestamp(v / 1000, tz=timezone.utc).date(
+        ).isoformat()
+    except (OverflowError, OSError, ValueError):
+        return None
 
 
 def session_experiment_ids(sess: dict) -> list:
@@ -327,78 +436,196 @@ def _parse_day(s):
         return None
 
 
-def build_experiment_summary(sessions: dict, dot_claude: dict) -> dict:
-    """Per-ID behaviour summary against a time-matched same-model baseline
-    (ID "" buckets within +-BASELINE_PAD_DAYS of the ID's days)."""
-    exp_buckets = {}    # (atis, model) -> {day: merged bucket}
-    base_buckets = {}   # model -> {day: merged bucket}
-    id_info = {}        # atis -> {"sessions": set, "days": {day: {src: n}}}
-    model_span = {}     # model -> [first day, last day] with any bucket
+
+
+def _collect(sessions: dict) -> dict:
+    """One pass over all sessions: the per-ID timeline (every reply) and
+    the interactive per-session units both sides of a card are built from.
+    Bucket lists are merged lazily, stored buckets are never mutated."""
+    acc = {
+        "id_info": {},     # atis -> {"sessions": set, "days": {day: {src: n}}}
+        "span": {},        # model -> [first day, last day], any bucket
+        "id_units": {},    # (atis, model) -> {sid: {stratum: [bucket]}}
+        "id_first": {},    # (atis, model) -> {sid: first day}
+        "id_range": {},    # (atis, model) -> [first day, last day]
+        "id_eps": {},      # (atis, model) -> {entrypoint: replies}
+        "base": {},        # model -> {sid: {day: {stratum: [bucket]}}}
+        "base_eps": {},    # model -> {day: {entrypoint: replies}}
+        "base_sdk": {},    # model -> {day: replies}
+        "id_late": {},     # (atis, model) -> late replies
+        "base_late": {},   # model -> {sid: late replies}
+        "starts": {},      # sid -> UTC day of exp_start_ms or None
+    }
     for sid, sess in (sessions or {}).items():
         exp = sess.get("experiments") if isinstance(sess, dict) else None
         if not isinstance(exp, dict):
             continue
         src = sess.get("source") or "unknown"
+        acc["starts"][sid] = _day_of_ms(sess.get("exp_start_ms"))
         for key, by_day in exp.items():
-            model, atis = _split_key(key)
-            if not isinstance(by_day, dict):
+            if not isinstance(key, str) or not isinstance(by_day, dict):
                 continue
+            model, atis, ep, effort = split_key(key)
+            inter = is_interactive(ep)
+            stratum = effort or "unknown"
             for dstr, b in by_day.items():
-                if _parse_day(dstr) is None or not b.get("replies"):
+                if (not isinstance(b, dict) or _parse_day(dstr) is None
+                        or not b.get("replies")):
                     continue
-                target = (base_buckets.setdefault(model, {}) if not atis
-                          else exp_buckets.setdefault((atis, model), {}))
-                merge_bucket(target.setdefault(dstr, new_bucket()), b)
-                span = model_span.setdefault(model, [dstr, dstr])
+                n = b["replies"]
+                span = acc["span"].setdefault(model, [dstr, dstr])
                 span[0] = min(span[0], dstr)
                 span[1] = max(span[1], dstr)
                 if atis:
-                    info = id_info.setdefault(
+                    info = acc["id_info"].setdefault(
                         atis, {"sessions": set(), "days": {}})
                     info["sessions"].add(sid)
                     cell = info["days"].setdefault(dstr, {})
-                    cell[src] = cell.get(src, 0) + b["replies"]
+                    cell[src] = cell.get(src, 0) + n
+                    if not inter:
+                        continue
+                    k = (atis, model)
+                    acc["id_units"].setdefault(k, {}).setdefault(
+                        sid, {}).setdefault(stratum, []).append(b)
+                    first = acc["id_first"].setdefault(k, {})
+                    if sid not in first or dstr < first[sid]:
+                        first[sid] = dstr
+                    rng = acc["id_range"].setdefault(k, [dstr, dstr])
+                    rng[0] = min(rng[0], dstr)
+                    rng[1] = max(rng[1], dstr)
+                    eps = acc["id_eps"].setdefault(k, {})
+                    eps[ep] = eps.get(ep, 0) + n
+                elif inter:
+                    acc["base"].setdefault(model, {}).setdefault(
+                        sid, {}).setdefault(dstr, {}).setdefault(
+                        stratum, []).append(b)
+                    eps = acc["base_eps"].setdefault(model, {}).setdefault(
+                        dstr, {})
+                    eps[ep] = eps.get(ep, 0) + n
+                else:
+                    sdk = acc["base_sdk"].setdefault(model, {})
+                    sdk[dstr] = sdk.get(dstr, 0) + n
+        late = sess.get("experiments_late")
+        if not isinstance(late, dict):
+            continue
+        for key, n in late.items():
+            if (not isinstance(key, str) or isinstance(n, bool)
+                    or not isinstance(n, int) or n <= 0):
+                continue
+            model, atis, ep, _ = split_key(key)
+            if not is_interactive(ep):
+                continue
+            if atis:
+                acc["id_late"][(atis, model)] = (
+                    acc["id_late"].get((atis, model), 0) + n)
+            else:
+                per = acc["base_late"].setdefault(model, {})
+                per[sid] = per.get(sid, 0) + n
+    return acc
 
+
+def _side(units: list, common: list) -> dict:
+    return {"all": units,
+            "common": [{s: u[s] for s in common if s in u} for u in units],
+            "totals": [_merged(list(u.values())) for u in units]}
+
+
+def _card(acc: dict, atis: str, model: str) -> dict:
+    """Comparison card of one ID and model against the interactive,
+    effort-standardized baseline of the same model."""
+    k = (atis, model)
+    by_sid = acc["id_units"][k]
+    sids = sorted(by_sid)
+    id_units = [{s: _merged(bs) for s, bs in by_sid[sid].items()}
+                for sid in sids]
+    first_day, last_day = acc["id_range"][k]
+    # Padded window, clamped to the days this model has data at all
+    # (any ID), so it never reaches before the logs or into the future.
+    span = acc["span"][model]
+    lo = max(span[0], (_parse_day(first_day) - timedelta(
+        days=BASELINE_PAD_DAYS)).isoformat())
+    hi = min(span[1], (_parse_day(last_day) + timedelta(
+        days=BASELINE_PAD_DAYS)).isoformat())
+
+    base_sids, base_units = [], []
+    for sid, days in acc["base"].get(model, {}).items():
+        strata = {}
+        for d, cell in days.items():
+            if lo <= d <= hi:
+                for s, bs in cell.items():
+                    strata.setdefault(s, []).extend(bs)
+        if strata:
+            base_sids.append(sid)
+            base_units.append({s: _merged(bs) for s, bs in strata.items()})
+    base_eps, base_sdk = {}, 0
+    for d, eps in acc["base_eps"].get(model, {}).items():
+        if lo <= d <= hi:
+            for ep, n in eps.items():
+                base_eps[ep] = base_eps.get(ep, 0) + n
+    for d, n in acc["base_sdk"].get(model, {}).items():
+        if lo <= d <= hi:
+            base_sdk += n
+
+    # Common support: effort strata with replies on both sides. The
+    # baseline is reweighted to the ID side's mix over those strata.
+    id_mix, base_mix = _mix(id_units), _mix(base_units)
+    common = [s for s in id_mix if id_mix[s] > 0 and base_mix.get(s, 0) > 0]
+    id_common = sum(id_mix[s] for s in common)
+    base_common = sum(base_mix[s] for s in common)
+    weights = ({s: id_mix[s] / id_common for s in common}
+               if id_common else {})
+    id_side, base_side = _side(id_units, common), _side(base_units, common)
+
+    rows = [_metric_row(m, id_side, base_side, weights) for m in METRICS]
+    sup = _support_totals(id_side["common"])
+    bsup = _support_totals(base_side["common"])
+    for r in rows:
+        if r["group"] == "behaviour":
+            r["comparable"] = (r["value"] is not None
+                               and r["base"] is not None
+                               and _supported(r["key"], sup, bsup))
+    verdict, reason = _verdict(
+        rows, id_common, base_common,
+        sum(1 for u in id_side["common"] if u),
+        sum(1 for u in base_side["common"] if u))
+
+    starts = [acc["starts"].get(sid) or acc["id_first"][k][sid]
+              for sid in sids]
+    base_late = acc["base_late"].get(model, {})
+    replies = sum(id_mix.values())
+    return {
+        "model": model, "replies": replies, "sessions": len(sids),
+        "first_day": first_day, "last_day": last_day,
+        "session_start_from": min(starts), "session_start_to": max(starts),
+        "entrypoints": dict(sorted(acc["id_eps"][k].items())),
+        "base_entrypoints": dict(sorted(base_eps.items())),
+        "base_sdk_replies": base_sdk,
+        "effort_mix": id_mix, "base_effort_mix": base_mix,
+        "unmatched_replies": replies - id_common,
+        "late_replies": acc["id_late"].get(k, 0),
+        "base_late_replies": sum(base_late.get(sid, 0) for sid in base_sids),
+        "baseline": {"replies": sum(base_mix.values()),
+                     "sessions": len(base_sids), "from": lo, "to": hi},
+        "rows": rows, "verdict": verdict, "reason": reason,
+    }
+
+
+def build_experiment_summary(sessions: dict, dot_claude: dict) -> dict:
+    """Per-ID behaviour against a same-model baseline (ID "" replies within
+    +-BASELINE_PAD_DAYS of the ID's days). Both sides are interactive only,
+    the baseline is standardized to the ID side's effort mix, and every
+    p-value and CI treats the session as the statistical unit."""
+    acc = _collect(sessions)
+    shorts = _short_ids(acc["id_info"])
     ids = []
-    for atis, info in id_info.items():
+    for atis, info in acc["id_info"].items():
         days = {d: dict(sorted(v.items()))
                 for d, v in sorted(info["days"].items())}
-        models = []
-        for (a, model), by_day in exp_buckets.items():
-            if a != atis:
-                continue
-            total = new_bucket()
-            for b in by_day.values():
-                merge_bucket(total, b)
-            first_day, last_day = min(by_day), max(by_day)
-            # Padded window, clamped to the days this model has data at all
-            # (any ID), so it never reaches before the logs or into the future.
-            span = model_span[model]
-            lo = max(span[0], (_parse_day(first_day) - timedelta(
-                days=BASELINE_PAD_DAYS)).isoformat())
-            hi = min(span[1], (_parse_day(last_day) + timedelta(
-                days=BASELINE_PAD_DAYS)).isoformat())
-            base = new_bucket()
-            for d, b in base_buckets.get(model, {}).items():
-                if lo <= d <= hi:
-                    merge_bucket(base, b)
-            m, bm = _metrics(total), _metrics(base)
-            sup, bsup = _support(total), _support(base)
-            changes = _changes(m, bm, sup, bsup)
-            models.append({
-                "model": model, "replies": total["replies"],
-                "first_day": first_day, "last_day": last_day,
-                "metrics": _rounded_metrics(m), "support": sup,
-                "baseline": {"replies": base["replies"], "from": lo,
-                             "to": hi, "metrics": _rounded_metrics(bm),
-                             "support": bsup},
-                "changes": {k: _round(v, 4) for k, v in changes.items()},
-                "verdict": _verdict(total["replies"], base["replies"],
-                                    changes),
-            })
+        models = [_card(acc, a, model) for (a, model) in acc["id_units"]
+                  if a == atis]
         models.sort(key=lambda r: (-r["replies"], r["model"]))
         ids.append({
-            "id": atis, "short": atis[:3],
+            "id": atis, "short": shorts[atis],
             "first_day": min(days), "last_day": max(days),
             "sources": sorted({s for v in days.values() for s in v}),
             "sessions": len(info["sessions"]),
@@ -410,7 +637,11 @@ def build_experiment_summary(sessions: dict, dot_claude: dict) -> dict:
         "thresholds": {"min_replies": MIN_REPLIES, "rel_change": REL_CHANGE,
                        "min_changed_metrics": MIN_CHANGED_METRICS,
                        "baseline_pad_days": BASELINE_PAD_DAYS,
-                       "min_support": MIN_SUPPORT},
+                       "min_support": MIN_SUPPORT,
+                       "min_sessions": MIN_SESSIONS, "alpha": ALPHA,
+                       "late_cutoff_days": LATE_CUTOFF_DAYS,
+                       "active_gap_min": ACTIVE_GAP_MS // 60000,
+                       "correction_max_chars": CORRECTION_MAX_CHARS},
         "current": _current_slots(dot_claude),
         "ids": ids,
     }

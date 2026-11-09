@@ -4,6 +4,10 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-09
+
+The experiments timeline fits the screen.
+
 ### Fixed
 - **Experiments timeline fits the screen.** The day cells shrink to fit the box, so on normal screens there is no horizontal scrollbar any more. Only on narrow screens does the timeline scroll, with a slim scrollbar in the theme colours, and it now opens at the newest days instead of the oldest.
 

@@ -9,9 +9,9 @@ The Experiments comparison is stricter and fairer: it compares like with like (i
 ### Changed
 - **The baseline is interactive use only.** SDK-driven runs (entrypoints starting with `sdk`) no longer enter the baseline, because they behave very differently from a person working in a terminal, an app or an editor. The card shows how many SDK replies were left out. Verdicts can change, see [MIGRATION.md](MIGRATION.md).
 - **The baseline is matched to the ID side's effort level.** Each row reweights the baseline to the effort mix of the replies under the ID, over the effort levels both sides have. Replies at an effort level the baseline lacks are not compared; the card says how many.
-- **Significance counts sessions, not replies.** Every row shows a 95% interval and a p-value that treat the session as the unit. The verdict "Behaviour changed" now needs at least 2 of the 4 behaviour measures with a change of 40% or more and p < 0.05, plus at least 200 replies and at least 5 sessions on each side (fewer sessions read "Too little data").
+- **Significance counts sessions, not replies.** Every row shows a 95% interval and a p-value that treat the session as the unit. The verdict "Behaviour changed" now needs at least 2 of the 4 behaviour measures with a change of 40% or more and p < 0.05, plus at least 200 replies and at least 5 sessions on each side (fewer sessions, or fewer than 2 behaviour measures with enough events to compare, read "Too little data").
 - **Replies more than 7 days after the session start are dropped.** A session carries the ID it started with, which can change on the server later. The card shows how many replies this removed.
-- **Medians of single replies are now within about 2%** (the histogram is finer than before; the old text said about 10%).
+- **Medians of single replies are now within about 2%** (the histogram is finer than before).
 
 ### Added
 - **"Per session" rows** on the comparison card: median cost, replies, prompts, tool calls and active minutes per session, plus cost per prompt.

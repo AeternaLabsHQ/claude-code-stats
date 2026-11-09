@@ -38,6 +38,20 @@ Highlights:
 - **Theming** - Light / dark / system theme, optional `custom.css` recolors the UI and charts live without touching source; a legacy preset restores the pre-1.1.0 chart colors
 - **Multi-user / migration** - Merge multiple `~/.claude` directories or import data from old machines; automatic session deduplication
 
+### Experiment IDs
+
+Anthropic runs server-side experiments on part of its users. Claude Code writes the ID you were assigned into your session logs. The dashboard groups your replies by that ID and compares them with replies of the same model made without a recorded experiment ID around the same time. You find it under **Insights & System > Experiments**, and the session table has an "Experiment" column that shows which ID a session ran under.
+
+For each ID and model you get a card with four measures: replies with 2+ tool calls, median Bash command length, the text-first share (of the replies that use tools, how many start with text) and median output tokens per reply. Cost per reply is shown for context, and the card gives a verdict. "Behaviour changed" means at least two of the four measures moved by 40% or more with at least 200 replies on each side; otherwise you see "No clear effect" or "Too little data". A measure only counts when at least 30 events back it (for example 30 Bash commands on each side); with fewer, its change reads "too few events". The baseline is the same model without a recorded experiment ID, within 14 days around the experiment's dates. Medians are approximate (histogram-based, within about 10%). The section always covers your full history and ignores the date and project filters.
+
+Read it with these caveats in mind:
+
+- The work you did differed between the periods, so a difference is a hint, not proof.
+- It measures how the model worked, not whether the results were better.
+- Thinking and effort are not recorded in the logs, so they cannot be compared.
+- "Current assignment" comes from this machine's `~/.claude.json` only.
+- Older Claude Code versions and API-key setups may not write experiment IDs; the section then shows an empty state.
+
 <details>
 <summary><b>Full feature list</b></summary>
 
@@ -114,6 +128,7 @@ Highlights:
 - Tools & Plugins: tool usage, installed plugins
 - Storage & Files: storage breakdown, file snapshots, todos
 - Workflows: plan-mode plans table, skills and hooks, git operations
+- Experiments: server-side experiment IDs from the session logs, timeline, current assignment and per-ID behaviour comparison against the same model without a recorded experiment ID
 
 #### Theming
 
@@ -172,7 +187,8 @@ See [`config.example.json`](config.example.json) for all options:
 | `palette`            | `string` | `"default"` | Chart color palette (`"default"` or `"colorblind"`); the colorblind palette is validated for red-green color vision deficiency, see [Palettes](#palettes) |
 | `favicon`            | `string` | `"terracotta"` | Favicon color (`"terracotta"` or `"indigo"`)                              |
 | `plan_history`       | `array`  | `[]`        | Your subscription plan history                                               |
-| `plan_capacity_override_pro_usd` | `number` | `null` | Manual per-window USD capacity of the Pro tier for the plan recommendation; overrides the empirical calibration (Max 5x / 20x scale ×5 / ×20) |
+| `plan_capacity_override_pro_usd` | `number` | `null` | Manual per-window USD capacity of the Pro tier for the plan recommendation; overrides the empirical calibration (Max / Ultra scale ×5 / ×20) |
+| `ultra_no_5h_limit_from` | `string\|null` | `"2026-10-30"` | From this date the Ultra plan (formerly Max 20x) has no 5-hour limit in the plan recommendation; set `null` if your Ultra account is not verified yet and still has a 5-hour limit |
 | `migration.enabled`  | `bool`   | `false`     | Enable data from a migration backup                                          |
 | `migration.label`    | `string` | `""`        | Label for migrated sessions (e.g. `"archive:laptop"`)                        |
 | `migration.dir`      | `string` | `null`      | Path to migration backup directory                                           |
@@ -207,6 +223,7 @@ Each entry in `plan_history` represents a subscription period:
 }
 ```
 
+- `plan` accepts `"Pro"`, `"Max"` (formerly Max 5x) and `"Ultra"` (formerly Max 20x); the old names `"Max 5x"` and `"Max 20x"` keep working. Since 2026-10-30 Ultra has no 5-hour limit for verified accounts (see `ultra_no_5h_limit_from`). Independent of that key, Ultra's weekly allowance counts as 10x Pro from 2026-10-30 on
 - `end: null` means the plan is currently active
 - `cost_local` + `currency_symbol` are display values (what you actually pay, in any currency). The legacy field `cost_eur` is still accepted as a fallback
 - `cost_usd` drives the savings / ROI math against API-equivalent value

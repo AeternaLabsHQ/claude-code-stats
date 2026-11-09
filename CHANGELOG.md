@@ -4,6 +4,19 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-09
+
+The Insights tab can now show whether a server-side experiment changed how Claude works for you, and the plan recommendation follows Anthropic's 2026-10-30 plan change (Ultra without a 5-hour limit).
+
+### Added
+- **Experiments section in Insights & System.** Anthropic runs server-side experiments on part of its users, and Claude Code writes the assigned experiment ID into the session logs. The new section "07 Experiments" shows a timeline (one row per ID, one cell per day), your current assignment per model, and a comparison card per ID and model (a model with very few replies under an ID, under 20, gets no card). Each card compares your replies under the ID with replies of the same model without a recorded experiment ID, using the baseline from within 14 days before and after the experiment's dates. Four measures are compared: replies with 2 or more tool calls, median Bash command length, median output tokens per reply, and the share of tool-using replies that start with text before the first tool call. Cost per reply is shown alongside for context and does not count towards the verdict. The verdict is "Behaviour changed" when at least 2 of the 4 measures differ by 40% or more and there are at least 200 replies on each side; otherwise it reads "No clear effect", or "Too little data" when either side has fewer than 200 replies. A measure only counts when at least 30 events back it (for example 30 Bash commands on each side, otherwise its change reads "too few events"), and when fewer than 2 measures can be compared the verdict is "Too little data" as well. Medians are approximate (histogram-based, within about 10%). The section always covers the full period and ignores the date and project filters.
+- **Experiment column in the session table.** It shows the first three characters of each experiment ID a session ran under (the full ID is in the tooltip), or a dash for none, and is on by default. If you saved your own column selection earlier, turn the column on in the gear menu.
+- IDs in both log formats (plain 16-character IDs and the longer `v1.` form) are recognized as the same experiment.
+- Only main-thread replies count. Subagent replies are left out, so a long agent run does not skew the comparison.
+
+### Changed
+- **The plan recommendation knows Anthropic's 2026-10-30 plan change.** Max 20x is now called Ultra and has no 5-hour limit for verified accounts, Max 5x is now called Max. The dashboard shows the new names (your data and config keep working with the old ones), and from 2026-10-30 on, 5-hour windows no longer count as Ultra limit hits or feed the Ultra calibration. Ultra's weekly allowance is now 10x Pro instead of 20x, applied to weeks starting on or after that date. Everything before 2026-10-30 is calculated as before. New config key `ultra_no_5h_limit_from` (default `"2026-10-30"`, set `null` if your Ultra account is not verified and still has a 5-hour limit), and the plan names `"Max"` and `"Ultra"` are accepted in `plan_history`.
+
 ## [1.3.0] - 2026-10-14
 
 The session table gets a totals row and stays usable on any screen width.

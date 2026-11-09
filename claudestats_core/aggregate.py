@@ -4,9 +4,11 @@ from datetime import datetime, timezone
 
 from . import settings
 from .limits import (_compute_5h_windows, _compute_weekly_buckets,
-                     _dedupe_limit_events, _detect_5h_fingerprint_events)
+                     _dedupe_limit_events, _detect_5h_fingerprint_events,
+                     _drop_impossible_5h_fingerprints)
 from .plan_analysis import build_plan_analysis
 from .attribution import WRITE_CATEGORIES
+from .experiments import build_experiment_summary, session_experiment_ids
 from .pricing import build_pricing_warnings, get_model_display
 from .sessions import split_session_by_day
 
@@ -221,6 +223,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
             "first_1m_at": sess.get("first_1m_at"),
             "api_calls": session_calls,
             "primary_model": primary_model,
+            "experiment_ids": session_experiment_ids(sess),
             "model_breakdown": model_breakdown,
             "per_day": session_per_day,
             "hour_hist": dict(sess["hour_hist"]),
@@ -510,7 +513,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
                 })
             except (OSError, ValueError):
                 continue
-    fingerprint_events = _detect_5h_fingerprint_events(all_user_prompts_for_limits)
+    fingerprint_events = _drop_impossible_5h_fingerprints(
+        _detect_5h_fingerprint_events(all_user_prompts_for_limits))
 
     # Aggregate explicit events from all sessions. Drop private fields.
     explicit_events = []
@@ -639,6 +643,7 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
         "_memories": memories or {},
         "_file_ops_by_session": {sid: sess.get("file_ops", []) for sid, sess in sessions.items()},
         "limit_events_all": all_limit_events,
+        "experiments": build_experiment_summary(sessions, dc),
     }
 
     return data

@@ -21,6 +21,13 @@ PLAN_TIER_FACTORS = {"Pro": 1.0, "Max 5x": 5.0, "Max 20x": 20.0}
 # and no config override is set. Heavily disclaimed in the UI.
 PRO_CAPACITY_USD_DEFAULT = 100.0
 
+# Anthropic removed the rolling 5h limit for the $200 tier (renamed Ultra) on
+# this date, and its weekly limit is 10x Pro instead of 20x. The 5h cutoff
+# is configurable (settings.ULTRA_NO_5H_FROM, verified accounts only); the
+# weekly change is not.
+ULTRA_LAUNCH_DATE = "2026-10-30"
+WEEKLY_TIER_FACTORS_ULTRA = {"Pro": 1.0, "Max 5x": 5.0, "Max 20x": 10.0}
+
 
 def _normalize_tier_name(raw):
     """Map user-config plan strings to PLAN_TIER_FACTORS keys."""
@@ -30,6 +37,10 @@ def _normalize_tier_name(raw):
     s = s.replace("(annual)", "").strip()
     if s in ("pro", "pro plan"):
         return "Pro"
+    if s == "max":
+        return "Max 5x"
+    if s == "ultra":
+        return "Max 20x"
     s_compact = s.replace(" ", "")
     if s_compact in ("max5x", "5x", "max-5x"):
         return "Max 5x"
@@ -39,6 +50,33 @@ def _normalize_tier_name(raw):
 
 
 FIVE_HOUR_MS = 5 * 60 * 60 * 1000
+
+
+def _utc_date(ts_ms):
+    """Epoch ms -> UTC date string YYYY-MM-DD, or None."""
+    if ts_ms is None:
+        return None
+    return datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+
+
+def _ultra_5h_free(ts_ms):
+    """True when the Ultra tier has no 5h limit at this timestamp."""
+    if not settings.ULTRA_NO_5H_FROM or ts_ms is None:
+        return False
+    return _utc_date(ts_ms) >= settings.ULTRA_NO_5H_FROM
+
+
+def _tier_on_date(date_str):
+    """Normalized plan tier active on a YYYY-MM-DD date (first matching
+    plan_history entry), or None."""
+    if date_str is None:
+        return None
+    for ph in settings.PLAN_HISTORY:
+        start = ph.get("start", "")
+        end = ph.get("end") or "9999-12-31"
+        if start <= date_str <= end:
+            return _normalize_tier_name(ph.get("plan", ""))
+    return None
 
 
 def _compute_5h_windows(turns):
@@ -304,6 +342,22 @@ def _dedupe_limit_events(events):
     return deduped + rest
 
 
+def _drop_impossible_5h_fingerprints(events):
+    """Drop 5h-gap fingerprints that cannot be a 5h limit: the gap started
+    while Ultra had no 5h limit and the active plan was Ultra. Explicit
+    banners and fingerprints on other tiers (or with an unparseable
+    gap_start) are kept."""
+    kept = []
+    for ev in events:
+        if ev.get("subtype") == "5h_fingerprint":
+            ms = _iso_to_ms(ev.get("gap_start"))
+            if (ms is not None and _ultra_5h_free(ms)
+                    and _tier_on_date(_utc_date(ms)) == "Max 20x"):
+                continue
+        kept.append(ev)
+    return kept
+
+
 def _match_limit_events_to_windows(events, windows):
     """Map limit events to the 5h-window that actually hit the cap.
 
@@ -329,18 +383,23 @@ def _match_limit_events_to_windows(events, windows):
     return matched
 
 
-def _count_5h_hits(indexed_windows, caps, tier_by_idx, anchor_ids):
+def _count_5h_hits(indexed_windows, caps, tier_by_idx, anchor_ids,
+                   ultra_free_ids=frozenset()):
     """Per-tier hit counts for a list of (window_index, window) pairs.
 
     A window counts as a hit for tier U when its cost exceeds U's cap, OR
     when it contains a detected limit event and U is not above the tier
     that was active -- a real hit on the active tier is by definition also
     a hit on every cheaper tier, regardless of what the USD proxy says.
+    For the Max 20x hypothesis, windows in ultra_free_ids never count: Ultra
+    has no 5h limit there.
     """
     hits = {}
     for tier, cap in caps.items():
         n = 0
         for i, w in indexed_windows:
+            if tier == "Max 20x" and i in ultra_free_ids:
+                continue
             active = tier_by_idx.get(i)
             anchored = (i in anchor_ids and active in PLAN_TIER_FACTORS
                         and tier in PLAN_TIER_FACTORS

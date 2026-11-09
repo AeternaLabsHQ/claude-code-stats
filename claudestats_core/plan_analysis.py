@@ -3,9 +3,11 @@ import calendar
 from datetime import datetime, timedelta, timezone
 
 from . import settings
-from .limits import (PLAN_TIER_FACTORS, _normalize_tier_name,
-                     _estimate_5h_window_cap_usd,
-                     _match_limit_events_to_windows, _count_5h_hits)
+from .limits import (PLAN_TIER_FACTORS, ULTRA_LAUNCH_DATE,
+                     WEEKLY_TIER_FACTORS_ULTRA, _normalize_tier_name,
+                     _estimate_5h_window_cap_usd, _tier_on_date, _utc_date,
+                     _ultra_5h_free, _match_limit_events_to_windows,
+                     _count_5h_hits)
 
 
 def _month_day_clamped(year, month, day):
@@ -391,7 +393,7 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
     if raw_current_tier and normalized_current is None:
         print(f"  WARN: plan name '{raw_current_tier}' not recognized for "
               f"recommendation; falling back to 'Max 5x'. Accepted forms: "
-              f"Pro / Max 5x / Max 20x (case-insensitive, '(annual)' suffix OK).")
+              f"Pro / Max (Max 5x) / Ultra (Max 20x) (case-insensitive, '(annual)' suffix OK).")
     if normalized_current is None:
         normalized_current = "Max 5x"
 
@@ -401,35 +403,47 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
 
     # Determine the tier that was active during each window (lookup against
     # PLAN_HISTORY using the window's start_ts).
-    def _tier_at_ts(ts_ms):
-        if ts_ms is None:
-            return None
-        d = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-        for ph in settings.PLAN_HISTORY:
-            start = ph.get("start", "")
-            end = ph.get("end") or "9999-12-31"
-            if start <= d <= end:
-                return _normalize_tier_name(ph.get("plan", ""))
-        return None
+    cycle_tier_by_window_idx = {i: _tier_on_date(_utc_date(w["start_ts"]))
+                                for i, w in enumerate(windows_5h)}
 
-    cycle_tier_by_window_idx = {i: _tier_at_ts(w["start_ts"]) for i, w in enumerate(windows_5h)}
+    # Windows where Ultra has no 5h limit: a limit event there is a weekly
+    # hit, and its cost says nothing about the 5h cap. Keep them out of the
+    # calibration (no anchor, no floor) when Ultra was the active tier.
+    ultra_free_ids = {i for i, w in enumerate(windows_5h)
+                      if _ultra_5h_free(w["start_ts"])}
+    ultra_calibration_excluded = {
+        i for i in ultra_free_ids if cycle_tier_by_window_idx[i] == "Max 20x"}
+    calibration_tier_by_idx = {
+        i: (None if i in ultra_calibration_excluded else t)
+        for i, t in cycle_tier_by_window_idx.items()}
 
     # Match limit events to their calibration-anchor windows -- the windows
     # whose cost ≈ 100% of the active tier's 5h cap.
-    limit_event_window_ids = _match_limit_events_to_windows(all_limit_events, windows_5h)
+    limit_event_window_ids = (
+        _match_limit_events_to_windows(all_limit_events, windows_5h)
+        - ultra_calibration_excluded)
 
     cap_info_5h = _estimate_5h_window_cap_usd(
         windows_5h, limit_event_window_ids,
-        cycle_tier_by_window_idx, settings.PLAN_CAPACITY_OVERRIDE_PRO_USD,
+        calibration_tier_by_idx, settings.PLAN_CAPACITY_OVERRIDE_PRO_USD,
     )
 
     # Weekly caps: rough estimate as WEEKLY_VS_5H_RATIO × 5h cap. We don't
     # have a separate weekly-fingerprint detector yet, so the calibration
     # source for weekly is "derived_from_5h", surfaced in the UI so the
     # estimate is not presented as primary evidence.
+    # From ULTRA_LAUNCH_DATE the Max 20x/Ultra weekly cap is 10x Pro instead
+    # of 20x, so weeks starting before that date use the old caps.
+    caps_before_ultra = {t: round(c * WEEKLY_VS_5H_RATIO, 2)
+                         for t, c in cap_info_5h["caps_per_window"].items()}
+    caps_per_week = dict(caps_before_ultra)
+    caps_per_week["Max 20x"] = round(
+        cap_info_5h["caps_per_window"]["Max 20x"]
+        * WEEKLY_TIER_FACTORS_ULTRA["Max 20x"] / PLAN_TIER_FACTORS["Max 20x"]
+        * WEEKLY_VS_5H_RATIO, 2)
     cap_info_weekly = {
-        "caps_per_week": {t: round(c * WEEKLY_VS_5H_RATIO, 2)
-                           for t, c in cap_info_5h["caps_per_window"].items()},
+        "caps_per_week": caps_per_week,
+        "caps_per_week_before_ultra": caps_before_ultra,
         "ratio_vs_5h": WEEKLY_VS_5H_RATIO,
         "source": "derived_from_5h",
     }
@@ -446,11 +460,22 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
         cycle_windows = [(i, w) for i, w in enumerate(windows_5h)
                          if _cycle_contains_ts(p, w["start_ts"])]
         cycle_weeks   = [b for b in weekly_buckets if _cycle_contains_ts(p, b["week_start_ts"])]
+        # Note: a banner in an excluded Ultra window no longer counts as a 5h hit for
+        # cheaper tiers either - after the cutoff it is a weekly limit, not a 5h one.
         hits_5h = _count_5h_hits(cycle_windows, cap_info_5h["caps_per_window"],
-                                 cycle_tier_by_window_idx, limit_event_window_ids)
+                                 calibration_tier_by_idx, limit_event_window_ids,
+                                 ultra_free_ids)
         hits_weekly = {}
-        for tier, cap in cap_info_weekly["caps_per_week"].items():
-            hits_weekly[tier] = sum(1 for b in cycle_weeks if b["cost"] > cap) if cap > 0 else 0
+        for tier in cap_info_weekly["caps_per_week"]:
+            new_cap = cap_info_weekly["caps_per_week"][tier]
+            old_cap = cap_info_weekly["caps_per_week_before_ultra"][tier]
+            n = 0
+            for b in cycle_weeks:
+                cap = (new_cap if _utc_date(b["week_start_ts"]) >= ULTRA_LAUNCH_DATE
+                       else old_cap)
+                if cap > 0 and b["cost"] > cap:
+                    n += 1
+            hits_weekly[tier] = n
         rec_cycles.append({
             "cycle_start": p["start"],
             "cycle_end":   p["end"],
@@ -485,6 +510,8 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
         "tier_total_weekly_hits": tier_total_weekly,
         "calibration_5h":      cap_info_5h,
         "calibration_weekly":  cap_info_weekly,
+        "ultra_no_5h_from": settings.ULTRA_NO_5H_FROM,
+        "ultra_launch_date": ULTRA_LAUNCH_DATE,
         "cycles": rec_cycles,
     }
 

@@ -281,7 +281,7 @@ def sudo_file_size(path, sudo_user):
     except ValueError:
         return 0
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 OUTPUT_DIR = Path(__file__).parent / "public"
 DASHBOARD_DATA = OUTPUT_DIR / "dashboard_data.json"
@@ -293,10 +293,17 @@ PLAN_HISTORY = CONFIG.get("plan_history", [])
 PLAN_CAPACITY_OVERRIDE_PRO_USD = CONFIG.get("plan_capacity_override_pro_usd")
 
 import claudestats_core.settings as _core_settings
+
+# Date from which the Ultra tier has no rolling 5h limit ("YYYY-MM-DD").
+# null = account not verified (Ultra keeps the 5h limit). Missing key or an
+# invalid value falls back to the default.
+ULTRA_NO_5H_FROM = _core_settings.parse_ultra_cutoff(
+    CONFIG.get("ultra_no_5h_limit_from", _core_settings.MISSING))
 _core_settings.configure(
     week_anchor=WEEK_ANCHOR,
     plan_history=PLAN_HISTORY,
     plan_capacity_override_pro_usd=PLAN_CAPACITY_OVERRIDE_PRO_USD,
+    ultra_no_5h_from=ULTRA_NO_5H_FROM,
     cache_eff_min_messages=CACHE_EFF_MIN_MESSAGES,
     source_label=SOURCE_LABEL,
     locale=LOCALE,
@@ -1822,8 +1829,10 @@ def _get_html_template():
     filters_css = (base_dir / "templates" / "components" / "session_filters.css").read_text(encoding="utf-8")
     filters_js = (base_dir / "templates" / "components" / "session_filters.js").read_text(encoding="utf-8")
     shared_js = (base_dir / "templates" / "components" / "shared_helpers.js").read_text(encoding="utf-8")
-    css = filters_css + "\n" + table_css + "\n" + css
-    js = shared_js + "\n" + filters_js + "\n" + table_js + "\n" + js
+    exp_css = (base_dir / "templates" / "components" / "experiments.css").read_text(encoding="utf-8")
+    exp_js = (base_dir / "templates" / "components" / "experiments.js").read_text(encoding="utf-8")
+    css = filters_css + "\n" + table_css + "\n" + exp_css + "\n" + css
+    js = shared_js + "\n" + filters_js + "\n" + table_js + "\n" + exp_js + "\n" + js
     html = html.replace("<!-- STYLES -->", f"<style>{_font_face_css()}{css}</style>")
     html = html.replace("<!-- SCRIPTS -->", f"{_locale_script_tag()}\n<script>{js}</script>")
     return html

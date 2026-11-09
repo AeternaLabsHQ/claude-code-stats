@@ -88,10 +88,6 @@ class SubagentFlagExportTest(unittest.TestCase):
         self.assertIs(by_id["S1"]["is_subagent"], False)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class CostByTypeTest(unittest.TestCase):
     def test_cost_by_type_adds_up_with_tiered_haiku(self):
         # One Haiku 5.5 call under 100k, one over: the long one is billed at
@@ -116,3 +112,34 @@ class CostByTypeTest(unittest.TestCase):
         self.assertAlmostEqual(cbt["output"], 0.0325, places=2)
         # Savings use each call's own tier: 50k x (0.10-0.01) + 150k x (0.50-0.05).
         self.assertAlmostEqual(cbt["cache_savings"], 0.07, places=2)
+
+
+class ExperimentsDataTest(unittest.TestCase):
+    def test_session_row_has_experiment_ids(self):
+        tmp = Path(tempfile.mkdtemp(prefix="cs-exp-"))
+        data = _build(tmp, [
+            {"type": "atis-latch", "atis": "v1.5ddd0466fd524dad.tX.y",
+             "sessionId": "S1"},
+            user_line(),
+            assistant_line(msg_id="m1"),
+        ])
+        self.assertIn("experiments", data)
+        self.assertTrue(data["sessions"])
+        for row in data["sessions"]:
+            self.assertIsInstance(row["experiment_ids"], list)
+        self.assertEqual(data["sessions"][0]["experiment_ids"],
+                         ["5ddd0466fd524dad"])
+        self.assertTrue(data["experiments"]["has_data"])
+
+    def test_no_latch_lines_means_empty_summary(self):
+        tmp = Path(tempfile.mkdtemp(prefix="cs-noexp-"))
+        data = _build(tmp, [user_line(), assistant_line()])
+        self.assertFalse(data["experiments"]["has_data"])
+        self.assertEqual(data["experiments"]["ids"], [])
+        self.assertEqual(data["experiments"]["current"], [])
+        for row in data["sessions"]:
+            self.assertEqual(row["experiment_ids"], [])
+
+
+if __name__ == "__main__":
+    unittest.main()

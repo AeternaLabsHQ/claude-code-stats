@@ -302,6 +302,18 @@
   letter-spacing: 0.04em;
 }
 
+.st-exp-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--vc-accent-soft, color-mix(in srgb, var(--vc-accent) 16%, transparent));
+  border-radius: var(--vc-radius-sm, 6px);
+  font-family: var(--vc-font-mono, inherit);
+  font-size: 10px;
+  color: var(--vc-accent);
+  letter-spacing: 0.04em;
+  cursor: help;
+}
+
 .st-link-soft {
   color: var(--vc-accent, #c2562f);
   text-decoration: none;

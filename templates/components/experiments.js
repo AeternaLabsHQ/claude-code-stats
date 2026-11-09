@@ -17,7 +17,7 @@
   function texts(L) {
     L = L || {};
     return {
-      intro: L.intro || 'Anthropic sometimes tests changed behaviour on part of its users, and Claude Code records the ID of such an experiment in the session logs. This section compares replies made under an ID with replies of the same model without one. Keep in mind: the work itself differed between the periods, this measures how the model worked, not whether the results were better, and thinking and effort are not in the logs.',
+      intro: L.intro || 'Anthropic sometimes tests changed behaviour on part of its users, and Claude Code records the ID of such an experiment in the session logs. This section compares replies made under an ID with replies of the same model without a recorded experiment ID. Keep in mind: the work itself differed between the periods, this measures how the model worked, not whether the results were better, and thinking and effort are not in the logs.',
       empty: L.empty || 'No experiment IDs found in your session logs. Claude Code records them since late summer 2026; older logs and API-key setups may not have them.',
       current_title: L.current_title || 'Current assignment',
       current_none: L.current_none || 'none',
@@ -37,13 +37,14 @@
       col_baseline: L.col_baseline || 'Without ID',
       col_experiment: L.col_experiment || 'With ID',
       col_change: L.col_change || 'Change',
+      change_na: L.change_na || 'too few events',
       m_multi_tool_share: L.m_multi_tool_share || 'Replies with 2+ tool calls',
       m_text_before_share: L.m_text_before_share || 'Tool replies with text first',
       m_median_bash_chars: L.m_median_bash_chars || 'Median Bash command length',
       m_median_output_tokens: L.m_median_output_tokens || 'Median output tokens per reply',
       m_cost_per_reply: L.m_cost_per_reply || 'Cost per reply',
-      card_foot: L.card_foot || 'Without ID: same model, no experiment ID, {from} to {to} ({base} replies). With ID: {n} replies.',
-      method: L.method || 'Verdict: "Behaviour changed" means at least {n} of the four behaviour metrics moved by {pct}% or more, with at least {min} replies on both sides. The comparison uses the same model without an ID, up to {pad} days before and after. Cost per reply is context only and does not count.',
+      card_foot: L.card_foot || 'Without ID: same model without a recorded experiment ID, {from} to {to} ({base} replies). With ID: {n} replies.',
+      method: L.method || 'Verdict: "Behaviour changed" means at least {n} of the four behaviour metrics moved by {pct}% or more, with at least {min} replies on both sides. "Too little data" means fewer replies than that, or fewer than {n} metrics that could be compared. A metric only counts with at least {support} events behind it: replies with 2+ tool calls on one side or the other, tool replies on each side plus text-first replies on one side, Bash commands on each side. Otherwise its change reads "too few events". The comparison uses the same model without a recorded experiment ID, up to {pad} days before and after, as far as the logs reach. Medians are approximate (histogram-based, within about 10%). Cost per reply is context only and does not count.',
     };
   }
 
@@ -197,11 +198,16 @@
     let body = '';
     METRICS.forEach(function(spec) {
       const c = changes[spec.key];
-      const sig = judged && c != null && isFinite(c) && Math.abs(c) >= rel;
+      // null: too few events (or no baseline value) to compare, so the
+      // values stay visible but the change is withheld.
+      const na = c == null || !isFinite(c);
+      const sig = judged && !na && Math.abs(c) >= rel;
+      const chg = na ? '<span class="exp-chg na">' + esc(T.change_na) + '</span>'
+        : '<span class="exp-chg' + (sig ? ' sig' : '') + '">' + esc(fmtChange(c)) + '</span>';
       body += '<tr><td>' + esc(T['m_' + spec.key]) + '</td>'
         + '<td class="num">' + esc(fmtValue(bx[spec.key], spec.kind)) + '</td>'
         + '<td class="num">' + esc(fmtValue(mx[spec.key], spec.kind)) + '</td>'
-        + '<td class="num"><span class="exp-chg' + (sig ? ' sig' : '') + '">' + esc(fmtChange(c)) + '</span></td></tr>';
+        + '<td class="num">' + chg + '</td></tr>';
     });
     const bc = bx.cost_per_reply, ec = mx.cost_per_reply;
     const costChg = (bc > 0 && ec != null) ? (ec - bc) / bc : null;
@@ -210,7 +216,8 @@
       + '<td class="num">' + esc(fmtValue(ec, 'usd')) + '</td>'
       + '<td class="num"><span class="exp-chg">' + esc(fmtChange(costChg)) + '</span></td></tr>';
 
-    const meta = [dayRange(e.first_day, e.last_day),
+    // Days this ID ran on this model, not the ID-wide range.
+    const meta = [dayRange(m.first_day || e.first_day, m.last_day || e.last_day),
       (e.sources || []).map(src).join(', '),
       num(e.sessions || 0, 0) + ' ' + T.sessions].filter(Boolean);
     const foot = fill(T.card_foot, {
@@ -266,6 +273,7 @@
       pct: String(Math.round(rel * 100)),
       n: String(th.min_changed_metrics != null ? th.min_changed_metrics : 2),
       pad: String(th.baseline_pad_days != null ? th.baseline_pad_days : 14),
+      support: num(th.min_support != null ? th.min_support : 30, 0),
     });
 
     return '<div class="exp">'

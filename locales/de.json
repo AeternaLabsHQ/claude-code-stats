@@ -442,7 +442,7 @@
     "section_meta": "Experiment-IDs · Verhalten vs. Vergleich",
     "full_period_label": "immer voller Zeitraum",
     "full_period_hint": "Zeitraum-Filter (All / 7D / 30D ...) und Projektfilter gelten hier nicht. Experimente beziehen sich immer auf alle erfassten Sessions.",
-    "intro": "Anthropic testet geändertes Verhalten manchmal an einem Teil der Nutzer, und Claude Code schreibt die ID eines solchen Experiments in die Session-Logs. Dieser Bereich vergleicht Antworten unter einer ID mit Antworten desselben Modells ohne ID. Zur Einordnung: Die Arbeit selbst war in den Zeiträumen eine andere, gemessen wird, wie das Modell gearbeitet hat, nicht ob die Ergebnisse besser waren, und Thinking und Effort stehen nicht in den Logs.",
+    "intro": "Anthropic testet geändertes Verhalten manchmal an einem Teil der Nutzer, und Claude Code schreibt die ID eines solchen Experiments in die Session-Logs. Dieser Bereich vergleicht Antworten unter einer ID mit Antworten desselben Modells ohne erfasste Experiment-ID. Zur Einordnung: Die Arbeit selbst war in den Zeiträumen eine andere, gemessen wird, wie das Modell gearbeitet hat, nicht ob die Ergebnisse besser waren, und Thinking und Effort stehen nicht in den Logs.",
     "empty": "Keine Experiment-IDs in den Session-Logs gefunden. Claude Code schreibt sie seit Spätsommer 2026 mit; ältere Logs und Setups mit API-Key enthalten sie eventuell nicht.",
     "current_title": "Aktuelle Zuteilung",
     "current_none": "keins",
@@ -462,12 +462,13 @@
     "col_baseline": "Ohne ID",
     "col_experiment": "Mit ID",
     "col_change": "Änderung",
+    "change_na": "zu wenige Ereignisse",
     "m_multi_tool_share": "Antworten mit 2+ Tool-Aufrufen",
     "m_text_before_share": "Tool-Antworten mit Text vorab",
     "m_median_bash_chars": "Median-Länge der Bash-Befehle",
     "m_median_output_tokens": "Median Output-Tokens pro Antwort",
     "m_cost_per_reply": "Kosten pro Antwort",
-    "card_foot": "Ohne ID: gleiches Modell ohne Experiment-ID, {from} bis {to} ({base} Antworten). Mit ID: {n} Antworten.",
-    "method": "Bewertung: \"Verhalten geändert\" heißt, mindestens {n} der vier Verhaltens-Kennzahlen weichen um {pct}% oder mehr ab, bei mindestens {min} Antworten auf beiden Seiten. Verglichen wird mit demselben Modell ohne ID, bis zu {pad} Tage davor und danach. Kosten pro Antwort dienen nur zur Einordnung und zählen nicht mit."
+    "card_foot": "Ohne ID: gleiches Modell ohne erfasste Experiment-ID, {from} bis {to} ({base} Antworten). Mit ID: {n} Antworten.",
+    "method": "Bewertung: \"Verhalten geändert\" heißt, mindestens {n} der vier Verhaltens-Kennzahlen weichen um {pct}% oder mehr ab, bei mindestens {min} Antworten auf beiden Seiten. \"Zu wenig Daten\" heißt, es gibt weniger Antworten, oder weniger als {n} Kennzahlen ließen sich vergleichen. Eine Kennzahl zählt nur mit mindestens {support} Ereignissen dahinter: Antworten mit 2+ Tool-Aufrufen auf einer der beiden Seiten, Tool-Antworten auf jeder Seite plus Antworten mit Text vorab auf einer Seite, Bash-Befehle auf jeder Seite. Sonst steht bei der Änderung \"zu wenige Ereignisse\". Verglichen wird mit demselben Modell ohne erfasste Experiment-ID, bis zu {pad} Tage davor und danach, soweit die Logs reichen. Die Mediane sind Näherungen (aus einem Histogramm, auf etwa 10% genau). Kosten pro Antwort dienen nur zur Einordnung und zählen nicht mit."
   }
 }

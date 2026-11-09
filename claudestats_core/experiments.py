@@ -11,6 +11,7 @@ REL_CHANGE = 0.40
 MIN_CHANGED_METRICS = 2
 BASELINE_PAD_DAYS = 14
 HIST_STEPS = 8  # histogram bins per doubling
+MIN_SUPPORT = 30  # events a behaviour metric needs before its change counts
 
 
 def normalize_atis(raw) -> str:
@@ -125,6 +126,41 @@ def _metrics(b: dict) -> dict:
     }
 
 
+_SUPPORT_KEYS = ("replies", "tool_replies", "multi_tool", "text_before",
+                 "bash_cmds")
+
+
+def _support(b: dict) -> dict:
+    """Event counts behind the metrics of a (merged) bucket."""
+    return {k: b.get(k, 0) for k in _SUPPORT_KEYS}
+
+
+def _supported(k: str, s: dict, bs: dict) -> bool:
+    """Whether metric k has enough events on the ID side (s) and the
+    baseline side (bs) for its change to mean anything."""
+    if k == "multi_tool_share":
+        return max(s["multi_tool"], bs["multi_tool"]) >= MIN_SUPPORT
+    if k == "text_before_share":
+        return (min(s["tool_replies"], bs["tool_replies"]) >= MIN_SUPPORT
+                and max(s["text_before"], bs["text_before"]) >= MIN_SUPPORT)
+    if k == "median_bash_chars":
+        return min(s["bash_cmds"], bs["bash_cmds"]) >= MIN_SUPPORT
+    return True  # median_output_tokens: the MIN_REPLIES gate is enough
+
+
+def _changes(m: dict, bm: dict, s: dict, bs: dict) -> dict:
+    """Relative change per behaviour metric, None where it is unsupported
+    or the baseline value is missing or zero."""
+    out = {}
+    for k in _BEHAVIOUR_METRICS:
+        if (m[k] is None or not bm[k] or bm[k] <= 0
+                or not _supported(k, s, bs)):
+            out[k] = None
+        else:
+            out[k] = (m[k] - bm[k]) / bm[k]
+    return out
+
+
 def _rounded_metrics(m: dict) -> dict:
     return {"multi_tool_share": _round(m["multi_tool_share"], 4),
             "text_before_share": _round(m["text_before_share"], 4),
@@ -135,6 +171,11 @@ def _rounded_metrics(m: dict) -> dict:
 
 def _verdict(replies, base_replies, changes) -> str:
     if replies < MIN_REPLIES or base_replies < MIN_REPLIES:
+        return "insufficient"
+    # Too few metrics could be compared (unsupported or no baseline value)
+    # to tell an effect from none.
+    if sum(1 for c in changes.values()
+           if c is not None) < MIN_CHANGED_METRICS:
         return "insufficient"
     n = sum(1 for c in changes.values()
             if c is not None and abs(c) >= REL_CHANGE)
@@ -201,6 +242,7 @@ def build_experiment_summary(sessions: dict, dot_claude: dict) -> dict:
     exp_buckets = {}    # (atis, model) -> {day: merged bucket}
     base_buckets = {}   # model -> {day: merged bucket}
     id_info = {}        # atis -> {"sessions": set, "days": {day: {src: n}}}
+    model_span = {}     # model -> [first day, last day] with any bucket
     for sid, sess in (sessions or {}).items():
         exp = sess.get("experiments") if isinstance(sess, dict) else None
         if not isinstance(exp, dict):
@@ -216,6 +258,9 @@ def build_experiment_summary(sessions: dict, dot_claude: dict) -> dict:
                 target = (base_buckets.setdefault(model, {}) if not atis
                           else exp_buckets.setdefault((atis, model), {}))
                 merge_bucket(target.setdefault(dstr, new_bucket()), b)
+                span = model_span.setdefault(model, [dstr, dstr])
+                span[0] = min(span[0], dstr)
+                span[1] = max(span[1], dstr)
                 if atis:
                     info = id_info.setdefault(
                         atis, {"sessions": set(), "days": {}})
@@ -234,26 +279,28 @@ def build_experiment_summary(sessions: dict, dot_claude: dict) -> dict:
             total = new_bucket()
             for b in by_day.values():
                 merge_bucket(total, b)
-            first = _parse_day(min(by_day))
-            last = _parse_day(max(by_day))
-            lo = (first - timedelta(days=BASELINE_PAD_DAYS)).isoformat()
-            hi = (last + timedelta(days=BASELINE_PAD_DAYS)).isoformat()
+            first_day, last_day = min(by_day), max(by_day)
+            # Padded window, clamped to the days this model has data at all
+            # (any ID), so it never reaches before the logs or into the future.
+            span = model_span[model]
+            lo = max(span[0], (_parse_day(first_day) - timedelta(
+                days=BASELINE_PAD_DAYS)).isoformat())
+            hi = min(span[1], (_parse_day(last_day) + timedelta(
+                days=BASELINE_PAD_DAYS)).isoformat())
             base = new_bucket()
             for d, b in base_buckets.get(model, {}).items():
                 if lo <= d <= hi:
                     merge_bucket(base, b)
             m, bm = _metrics(total), _metrics(base)
-            changes = {}
-            for k in _BEHAVIOUR_METRICS:
-                if m[k] is None or not bm[k] or bm[k] <= 0:
-                    changes[k] = None
-                else:
-                    changes[k] = (m[k] - bm[k]) / bm[k]
+            sup, bsup = _support(total), _support(base)
+            changes = _changes(m, bm, sup, bsup)
             models.append({
                 "model": model, "replies": total["replies"],
-                "metrics": _rounded_metrics(m),
+                "first_day": first_day, "last_day": last_day,
+                "metrics": _rounded_metrics(m), "support": sup,
                 "baseline": {"replies": base["replies"], "from": lo,
-                             "to": hi, "metrics": _rounded_metrics(bm)},
+                             "to": hi, "metrics": _rounded_metrics(bm),
+                             "support": bsup},
                 "changes": {k: _round(v, 4) for k, v in changes.items()},
                 "verdict": _verdict(total["replies"], base["replies"],
                                     changes),
@@ -271,7 +318,8 @@ def build_experiment_summary(sessions: dict, dot_claude: dict) -> dict:
         "has_data": bool(ids),
         "thresholds": {"min_replies": MIN_REPLIES, "rel_change": REL_CHANGE,
                        "min_changed_metrics": MIN_CHANGED_METRICS,
-                       "baseline_pad_days": BASELINE_PAD_DAYS},
+                       "baseline_pad_days": BASELINE_PAD_DAYS,
+                       "min_support": MIN_SUPPORT},
         "current": _current_slots(dot_claude),
         "ids": ids,
     }

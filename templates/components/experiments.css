@@ -130,6 +130,7 @@
 .vc .exp-table th.num { font-family: var(--vc-font-sans); }
 .vc .exp-table tr.exp-cost td { color: var(--vc-fg-2); border-bottom: none; }
 .vc .exp-chg { color: var(--vc-fg-3); }
+.vc .exp-chg.na { font-family: var(--vc-font-sans); font-size: 11px; font-style: italic; }
 .vc .exp-chg.sig {
   color: var(--vc-neg); background: var(--vc-neg-soft); font-weight: 600;
   padding: 1px 6px; border-radius: var(--vc-radius-pill);

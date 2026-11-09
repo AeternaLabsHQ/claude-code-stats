@@ -49,11 +49,12 @@ def metrics(multi, text, bash, out, cost):
 
 
 def summary(verdict="changed", model="claude-opus-5", sources=("cortex",),
-            current=None):
+            current=None, text_change=-0.55):
     return {
         "has_data": True,
         "thresholds": {"min_replies": 200, "rel_change": 0.4,
-                       "min_changed_metrics": 2, "baseline_pad_days": 14},
+                       "min_changed_metrics": 2, "baseline_pad_days": 14,
+                       "min_support": 30},
         "current": current or [],
         "ids": [{
             "id": FULL, "short": "21e",
@@ -63,17 +64,20 @@ def summary(verdict="changed", model="claude-opus-5", sources=("cortex",),
                      "2026-06-22": {s: 200 for s in sources}},
             "models": [{
                 "model": model, "replies": 300,
+                # Narrower than the ID-wide range: the card shows these.
+                "first_day": "2026-06-21", "last_day": "2026-06-22",
                 "metrics": metrics(0.4, 0.09, 650.0, 940.0, 0.0123),
                 "baseline": {"replies": 400, "from": "2026-06-06",
                              "to": "2026-07-06",
                              "metrics": metrics(0.2, 0.2, 300.0, 450.0, 0.01)},
                 "changes": {"multi_tool_share": 1.0,
-                            "text_before_share": -0.55,
+                            "text_before_share": text_change,
                             "median_bash_chars": 1.1667,
                             "median_output_tokens": 0.1},
                 "verdict": verdict,
             }, {
                 "model": "tiny-model", "replies": 5,
+                "first_day": "2026-06-20", "last_day": "2026-06-20",
                 "metrics": metrics(0.0, None, None, 10.0, 0.0),
                 "baseline": {"replies": 0, "from": "2026-06-06",
                              "to": "2026-07-06",
@@ -117,6 +121,9 @@ class ExperimentsHtmlTest(unittest.TestCase):
             "anon": {"exp": summary(sources=("cortex", "galatea")),
                      "L": cls.L, "anon": True},
             "no_locale": {"exp": summary(), "L": {}},
+            "null_change": {"exp": summary(text_change=None), "L": cls.L},
+            "null_change_no_locale": {"exp": summary(text_change=None),
+                                      "L": {}},
         }
         res = subprocess.run(
             ["node", "-e", NODE_HARNESS, str(COMPONENTS / "shared_helpers.js"),
@@ -188,6 +195,36 @@ class ExperimentsHtmlTest(unittest.TestCase):
         self.assertIn("40%", h)
         self.assertNotIn("{min}", h)
         self.assertNotIn("{pct}", h)
+        self.assertNotIn("{support}", h)
+
+    def test_footnote_mentions_support_floor(self):
+        h = self.out["changed"]
+        method = h[h.index('class="exp-method"'):]
+        self.assertIn("30", method)
+        self.assertIn("10%", method)   # medians are approximate
+
+    def test_unsupported_change_shows_too_few_events(self):
+        h = self.out["null_change"]
+        self.assertEqual(h.count("exp-chg na"), 1)
+        self.assertIn(self.L["change_na"], h)
+        self.assertEqual(h.count("exp-chg sig"), 2)   # 1.0 and 1.1667
+        # The values themselves are still shown.
+        self.assertIn("9.0%", h)
+        self.assertIn("20.0%", h)
+        self.assertIn("too few events",
+                      self.out["null_change_no_locale"])
+
+    def test_cost_row_keeps_dash(self):
+        h = self.out["null_change"]
+        cost = h[h.index("exp-cost"):]
+        self.assertNotIn("exp-chg na", cost)
+
+    def test_card_meta_uses_model_days(self):
+        h = self.out["changed"]
+        meta = h[h.index('class="exp-card-meta"'):]
+        meta = meta[:meta.index("</div>")]
+        self.assertIn("Jun 21, 2026 - Jun 22, 2026", meta)
+        self.assertNotIn("Jun 20", meta)
 
     def test_escapes_model_name(self):
         h = self.out["escaped"]

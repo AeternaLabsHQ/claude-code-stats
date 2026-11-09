@@ -357,15 +357,15 @@ def absorb_file(sessions, meta, parsed_objs):
 
     hooks_old_format, has_stop_summary, hook_run_ids = _hook_file_profile(parsed_objs)
 
+    # Experiment ID in force. Claude Code writes atis-latch lines through a
+    # transcript; a reply belongs to the latest value before it.
+    cur_atis = ""
+
     # Collapse stream-split assistant rows (Claude Code writes
     # one JSONL line per content block, each repeating the same
     # usage) into one entry per response before any accounting,
     # so tokens/cost/calls/message counts are not multiplied by
     # the block count. See _merge_streamed_assistant_entries.
-    # Experiment ID in force. Claude Code writes atis-latch lines through a
-    # transcript; a reply belongs to the latest value before it.
-    cur_atis = ""
-
     for obj in _merge_streamed_assistant_entries(parsed_objs):
             msg_type = obj.get("type")
             if msg_type == "atis-latch":

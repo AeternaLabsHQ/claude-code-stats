@@ -34,7 +34,7 @@ def bucket(n, multi=0.0, text_before=0.0, bash_len=300, out=450, cost=0.01):
     return b
 
 
-def session(buckets, source="cortex"):
+def session(buckets, source="desktop"):
     """buckets: {(model, atis_id, day): bucket}"""
     exp = {}
     for (model, atis, day), b in buckets.items():
@@ -312,8 +312,8 @@ class BaselineWindowTest(unittest.TestCase):
         sess = {
             "a": session({(MODEL, "", day(-2)): bucket(30),
                           ("other-model", "", day(-2)): bucket(500),
-                          (MODEL, FULL, day(0)): bucket(5)}, source="cortex"),
-            "b": session({(MODEL, "", day(-1)): bucket(40)}, source="galatea"),
+                          (MODEL, FULL, day(0)): bucket(5)}, source="desktop"),
+            "b": session({(MODEL, "", day(-1)): bucket(40)}, source="laptop"),
         }
         b = model_row(build_experiment_summary(sess, {}))["baseline"]
         self.assertEqual(b["replies"], 70)
@@ -328,18 +328,18 @@ class IdEntryTest(unittest.TestCase):
     def test_id_entry_aggregates_sources_days_sessions(self):
         sess = {
             "a": session({(MODEL, FULL, day(0)): bucket(5),
-                          ("m2", FULL, day(0)): bucket(2)}, source="cortex"),
-            "b": session({(MODEL, FULL, day(2)): bucket(7)}, source="galatea"),
-            "c": session({(MODEL, "", day(2)): bucket(7)}, source="galatea"),
+                          ("m2", FULL, day(0)): bucket(2)}, source="desktop"),
+            "b": session({(MODEL, FULL, day(2)): bucket(7)}, source="laptop"),
+            "c": session({(MODEL, "", day(2)): bucket(7)}, source="laptop"),
         }
         s = build_experiment_summary(sess, {})
         e = s["ids"][0]
         self.assertEqual(e["first_day"], day(0))
         self.assertEqual(e["last_day"], day(2))
-        self.assertEqual(e["sources"], ["cortex", "galatea"])
+        self.assertEqual(e["sources"], ["desktop", "laptop"])
         self.assertEqual(e["sessions"], 2)
-        self.assertEqual(e["days"], {day(0): {"cortex": 7},
-                                     day(2): {"galatea": 7}})
+        self.assertEqual(e["days"], {day(0): {"desktop": 7},
+                                     day(2): {"laptop": 7}})
         self.assertEqual([m["model"] for m in e["models"]], [MODEL, "m2"])
         self.assertEqual([m["replies"] for m in e["models"]], [12, 2])
         self.assertEqual((e["models"][0]["first_day"],

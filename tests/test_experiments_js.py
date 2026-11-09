@@ -48,7 +48,7 @@ def metrics(multi, text, bash, out, cost):
             "cost_per_reply": cost}
 
 
-def summary(verdict="changed", model="claude-opus-5", sources=("cortex",),
+def summary(verdict="changed", model="claude-opus-5", sources=("desktop",),
             current=None, text_change=-0.55):
     return {
         "has_data": True,
@@ -116,9 +116,9 @@ class ExperimentsHtmlTest(unittest.TestCase):
             "no_effect": {"exp": summary("no_effect"), "L": cls.L},
             "insufficient": {"exp": summary("insufficient"), "L": cls.L},
             "escaped": {"exp": summary(model="<b>x</b>"), "L": cls.L},
-            "plain": {"exp": summary(sources=("cortex", "galatea")),
+            "plain": {"exp": summary(sources=("desktop", "laptop")),
                       "L": cls.L},
-            "anon": {"exp": summary(sources=("cortex", "galatea")),
+            "anon": {"exp": summary(sources=("desktop", "laptop")),
                      "L": cls.L, "anon": True},
             "no_locale": {"exp": summary(), "L": {}},
             "null_change": {"exp": summary(text_change=None), "L": cls.L},
@@ -233,13 +233,13 @@ class ExperimentsHtmlTest(unittest.TestCase):
 
     def test_sources_shown_without_anon(self):
         h = self.out["plain"]
-        self.assertIn("cortex", h)
-        self.assertIn("galatea", h)
+        self.assertIn("desktop", h)
+        self.assertIn("laptop", h)
 
     def test_sources_masked_in_anon_mode(self):
         h = self.out["anon"]
-        self.assertNotIn("cortex", h)
-        self.assertNotIn("galatea", h)
+        self.assertNotIn("desktop", h)
+        self.assertNotIn("laptop", h)
         self.assertIn("Source 6", h)   # anonSource stub: 'Source ' + len
         self.assertIn("Source 7", h)
 

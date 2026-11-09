@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 
 from . import settings
 from .limits import (_compute_5h_windows, _compute_weekly_buckets,
-                     _dedupe_limit_events, _detect_5h_fingerprint_events)
+                     _dedupe_limit_events, _detect_5h_fingerprint_events,
+                     _drop_impossible_5h_fingerprints)
 from .plan_analysis import build_plan_analysis
 from .attribution import WRITE_CATEGORIES
 from .experiments import build_experiment_summary, session_experiment_ids
@@ -512,7 +513,8 @@ def build_dashboard_data(sessions, stats_cache, dot_claude, history,
                 })
             except (OSError, ValueError):
                 continue
-    fingerprint_events = _detect_5h_fingerprint_events(all_user_prompts_for_limits)
+    fingerprint_events = _drop_impossible_5h_fingerprints(
+        _detect_5h_fingerprint_events(all_user_prompts_for_limits))
 
     # Aggregate explicit events from all sessions. Drop private fields.
     explicit_events = []

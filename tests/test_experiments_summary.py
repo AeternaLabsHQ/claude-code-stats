@@ -130,7 +130,7 @@ class EmptyAndShapeTest(unittest.TestCase):
             "min_changed_metrics": 2, "baseline_pad_days": 14,
             "min_support": 30, "min_sessions": 5, "alpha": 0.05,
             "late_cutoff_days": 7, "active_gap_min": 30,
-            "correction_max_chars": 160})
+            "correction_max_chars": 160, "think_min_replies": 20})
         self.assertIsInstance(s["thresholds"]["active_gap_min"], int)
 
     def test_constants(self):
@@ -912,6 +912,29 @@ class ThinkingTable(unittest.TestCase):
         self.assertEqual(cell["replies"], 20)
         self.assertEqual(cell["mean"], 280.0)
         self.assertEqual(list(rows[1]["cells"]), ["max"])
+
+    def test_thinking_nonzero_share(self):
+        sess = {"a": session({
+            (MODEL, "", day(0), "cli", "high"):
+                think_bucket([0] * 15 + [100] * 5),
+            (MODEL, "", day(0), "cli", "low"): think_bucket([50] * 20),
+            (MODEL, "", day(0), "cli", "max"): think_bucket([0] * 20)}),
+            "b": session({(MODEL, FULL, day(1), "cli", "high"):
+                          think_bucket([5] * 3)})}
+        cells = self.thinking(sess)[0]["rows"][0]["cells"]
+        self.assertEqual(cells["high"]["nonzero_share"], 0.25)
+        self.assertEqual(cells["low"]["nonzero_share"], 1.0)
+        self.assertEqual(cells["max"]["nonzero_share"], 0.0)
+        self.assertEqual(cells["max"]["median"], 0.0)
+
+    def test_thinking_nonzero_share_rounded(self):
+        sess = {"a": session({
+            (MODEL, "", day(0), "cli", "high"):
+                think_bucket([0] * 20 + [7])}),
+            "b": session({(MODEL, FULL, day(1), "cli", "high"):
+                          think_bucket([5] * 3)})}
+        cell = self.thinking(sess)[0]["rows"][0]["cells"]["high"]
+        self.assertEqual(cell["nonzero_share"], round(1 / 21, 4))
 
     def test_thinking_skips_replies_without_field(self):
         sess = {

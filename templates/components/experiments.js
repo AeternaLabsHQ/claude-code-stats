@@ -71,13 +71,14 @@
       card_foot: L.card_foot || 'Without ID: same model without a recorded experiment ID, {from} to {to} ({base} replies in {sessions} sessions). With ID: {n} replies.',
       entrypoints_line: L.entrypoints_line || 'Entrypoints (replies) - with ID: {id}. Without ID: {base}.',
       sdk_excluded: L.sdk_excluded || '{n} SDK replies excluded',
-      effort_line: L.effort_line || 'Effort mix with ID: {mix}. Baseline reweighted to this mix.',
+      effort_line: L.effort_line || 'Effort mix with ID: {mix}. Each row reweights the baseline to the ID side\'s mix of that row\'s own base (for example tool replies or Bash commands), over the effort levels both sides have. Per-session rows are not reweighted.',
       unmatched: L.unmatched || '{n} replies at effort levels the baseline lacks are not compared.',
       late_line: L.late_line || 'Replies more than {days} days after session start are dropped: {n} with ID, {base} without.',
       thinking_title: L.thinking_title || 'Thinking tokens per effort level',
-      thinking_hint: L.thinking_hint || 'Median thinking tokens per reply (replies counted in brackets), by effort level, for replies that report thinking tokens. Cells with fewer than 20 such replies are left out.',
+      thinking_hint: L.thinking_hint || 'Mean thinking tokens per reply (n = replies counted), by effort level, among replies that report thinking tokens. Hover a cell for the median and the share of replies with any thinking. Cells with fewer than {min} such replies are left out.',
+      thinking_cell: L.thinking_cell || 'Median {median}, {share}% of replies with thinking',
       thinking_no_id: L.thinking_no_id || 'No ID',
-      method: L.method || 'How the comparison works: replies made under an ID are compared with replies of the same model without a recorded experiment ID, up to {pad} days before and after the days of the ID, as far as the logs reach. Only interactive use counts (a person working in a terminal, an app or an editor); SDK-driven runs are left out. The baseline is reweighted to the effort mix of the ID side. The verdict rule is printed on every card. A behaviour metric only counts with at least {support} events behind it, otherwise its change reads "too few events". Intervals and p-values treat the session as the unit. Medians are approximate (histogram-based, within about 10%). Cost per reply, the per-session rows and the quality proxies are context and do not enter the verdict.',
+      method: L.method || 'How the comparison works: replies made under an ID are compared with replies of the same model without a recorded experiment ID, up to {pad} days before and after the days of the ID, as far as the logs reach. Only interactive use counts (a person working in a terminal, an app or an editor); SDK-driven runs are left out. Behaviour rows, cost per reply and the quality proxies are reweighted by effort level: each row uses its own base (for example tool replies, Bash commands, tool calls, prompts or edits) and only the effort levels both sides have. The per-session rows, including cost per prompt, are not reweighted. The verdict rule is printed on every card. A behaviour metric only counts with at least {support} events behind it, otherwise its change reads "too few events". Intervals and p-values treat the session as the unit. Medians of single replies are histogram-based and within about 2%; per-session medians are exact. Cost per reply, the per-session rows and the quality proxies are context and do not enter the verdict.',
       caveats_title: L.caveats_title || 'Caveats',
       caveats: L.caveats || [
         'Latch records in the logs have no timestamp of their own, so the date comes from neighbouring lines.',
@@ -367,7 +368,7 @@
 
   // One table per model: rows "No ID" + IDs, one column per effort level
   // that has a cell, "median (n)" in each.
-  function thinkingBox(thinking, T) {
+  function thinkingBox(thinking, T, th) {
     if (!Array.isArray(thinking) || !thinking.length) return '';
     const tables = thinking.map(function(t) {
       const rows = t.rows || [];
@@ -381,7 +382,12 @@
       const body = rows.map(function(r) {
         return '<tr><td>' + esc(r.id ? r.short : T.thinking_no_id) + '</td>' + levels.map(function(l) {
           const c = r.cells && r.cells[l];
-          return '<td class="num">' + (c ? esc(num(c.median, 0) + ' (' + num(c.replies, 0) + ')') : DASH) + '</td>';
+          if (!c) return '<td class="num">' + DASH + '</td>';
+          // Mean is the headline (most replies report 0 thinking tokens, so
+          // the median is mostly 0); median and share go into the tooltip.
+          const tip = c.nonzero_share == null ? '' : ' title="' + esc(fill(T.thinking_cell, {
+            median: num(c.median, 0), share: String(Math.round(c.nonzero_share * 100)) })) + '"';
+          return '<td class="num"' + tip + '>' + esc(num(c.mean, 0) + ' (n=' + num(c.replies, 0) + ')') + '</td>';
         }).join('') + '</tr>';
       }).join('');
       return '<div class="exp-table-wrap"><table class="exp-table exp-think-table"><thead>' + head
@@ -390,7 +396,8 @@
     if (!tables) return '';
     return '<div class="chart-box exp-think">'
       + '<h3>' + esc(T.thinking_title) + '</h3>'
-      + '<p class="vc-card-note">' + esc(T.thinking_hint) + '</p>'
+      + '<p class="vc-card-note">' + esc(fill(T.thinking_hint, {
+        min: num(th.think_min_replies != null ? th.think_min_replies : 20, 0) })) + '</p>'
       + tables + '</div>';
   }
 
@@ -460,7 +467,7 @@
       + '<div class="exp-cards-bar"><h3 class="exp-cards-h">' + esc(T.cards_title) + '</h3>' + hideSwitch + '</div>'
       + (cards ? '<div class="exp-cards">' + cards + '</div>'
                : '<p class="exp-none">' + esc(T.no_cards) + '</p>')
-      + thinkingBox(exp.thinking, T)
+      + thinkingBox(exp.thinking, T, th)
       + '<p class="exp-method">' + esc(method) + '</p>'
       + '<div class="exp-caveats-box"><h4 class="exp-caveats-h">' + esc(T.caveats_title) + '</h4>'
       + '<ul class="exp-caveats">' + caveats + '</ul></div>'

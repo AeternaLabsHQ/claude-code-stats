@@ -120,7 +120,7 @@ def summary(verdict="changed", model="claude-opus-5", sources=("desktop",),
                        "min_changed_metrics": 2, "baseline_pad_days": 14,
                        "min_support": 30, "min_sessions": 5, "alpha": 0.05,
                        "late_cutoff_days": 7, "active_gap_min": 30,
-                       "correction_max_chars": 160},
+                       "correction_max_chars": 160, "think_min_replies": 25},
         "current": current or [],
         "ids": [{
             "id": FULL, "short": "21e",
@@ -143,13 +143,14 @@ def summary(verdict="changed", model="claude-opus-5", sources=("desktop",),
             "model": model,
             "rows": [
                 {"id": "", "short": "",
-                 "cells": {"high": {"replies": 500, "median": 812.0,
-                                    "mean": 900.5},
+                 "cells": {"high": {"replies": 500, "median": 0.0,
+                                    "mean": 812.4, "nonzero_share": 0.3125},
                            "xhigh": {"replies": 120, "median": 1500.0,
-                                     "mean": 1650.2}}},
+                                     "mean": 1650.2,
+                                     "nonzero_share": 1.0}}},
                 {"id": FULL, "short": "21e",
                  "cells": {"high": {"replies": 80, "median": 401.0,
-                                    "mean": 450.1}}},
+                                    "mean": 450.1, "nonzero_share": 0.9}}},
             ],
         }],
     }
@@ -296,7 +297,7 @@ class ExperimentsHtmlTest(unittest.TestCase):
         h = self.out["changed"]
         method = h[h.index('class="exp-method"'):]
         self.assertIn("30", method)
-        self.assertIn("10%", method)   # medians are approximate
+        self.assertIn("2%", method)    # per-reply medians: histogram bins
 
     def test_unsupported_change_shows_too_few_events(self):
         h = self.out["null_change"]
@@ -479,17 +480,62 @@ class ExperimentsHtmlTest(unittest.TestCase):
     def test_thinking_table(self):
         h = self.out["changed"]
         self.assertIn(self.L["thinking_title"], h)
-        self.assertIn(self.L["thinking_hint"], h)
+        self.assertIn(self.L["thinking_hint"].replace("{min}", "25"), h)
         box = h[h.index("exp-think"):]
         self.assertIn(self.L["thinking_no_id"], box)
         self.assertIn("xhigh", box)
-        self.assertIn("812 (500)", box)
-        self.assertIn("1,500 (120)", box)
-        self.assertIn("401 (80)", box)
+        # mean is the primary value, with n
+        self.assertIn(">812 (n=500)<", box)
+        self.assertIn(">1,650 (n=120)<", box)
+        self.assertIn(">450 (n=80)<", box)
+        self.assertNotIn(">0 (n=500)<", box)
         self.assertIn("claude-opus-5", box)
-        self.assertGreater(box.index("812 (500)"), box.index("thinking"))
+        self.assertGreater(box.index("812 (n=500)"), box.index("thinking"))
         # after the cards
         self.assertGreater(h.index("exp-think"), h.index("</article>"))
+
+    def test_thinking_cell_tooltip_has_median_and_share(self):
+        h = self.out["changed"]
+        box = h[h.index("exp-think"):]
+        self.assertIn('title="Median 0, 31% of replies with thinking"', box)
+        self.assertIn('title="Median 1,500, 100% of replies with thinking"',
+                      box)
+        self.assertIn('title="Median 401, 90% of replies with thinking"', box)
+        # anon: tooltips stay free of IDs
+        anon = self.out["anon"]
+        self.assertNotIn(FULL, anon[anon.index("exp-think"):])
+
+    def test_thinking_hint_uses_think_min_replies(self):
+        h = self.out["changed"]
+        hint = self.L["thinking_hint"].replace("{min}", "25")
+        self.assertNotIn("{", hint)
+        self.assertIn(hint, h)
+        self.assertNotIn("fewer than 20 such", h)
+
+    def test_thinking_hint_default_min_without_threshold(self):
+        exp = summary("changed")
+        del exp["thresholds"]["think_min_replies"]
+        out = self.render({"x": {"exp": exp, "L": {}}})["x"]
+        self.assertIn("fewer than 20 such", out)
+        self.assertNotIn("{min}", out)
+
+    def test_method_states_median_accuracy_and_reweighting(self):
+        for name in ("en", "de"):
+            sec = load_locale(name)["experiments"]
+            self.assertNotIn("10%", sec["method"], name)
+            self.assertIn("2%", sec["method"], name)
+        h = self.out["changed"]
+        method = h[h.index('class="exp-method"'):]
+        method = method[:method.index("</p>")]
+        self.assertIn("exact", method)
+        self.assertIn("not reweighted", method)
+        self.assertNotIn("10%", method)
+        # the fallback (no locale) says the same
+        nl = self.out["no_locale"]
+        nl = nl[nl.index('class="exp-method"'):]
+        self.assertIn("within about 2%", nl)
+        self.assertNotIn("10%", nl[:nl.index("</p>")])
+        self.assertIn("not reweighted", self.L["effort_line"])
 
     def test_no_thinking_box_without_data(self):
         exp = summary("changed")

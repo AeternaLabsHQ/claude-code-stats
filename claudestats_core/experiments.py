@@ -676,7 +676,10 @@ def _thinking(acc: dict, ids: list) -> list:
                 cells[stratum] = {
                     "replies": t[0],
                     "median": round(med, 1),
-                    "mean": round(t[1] / t[0], 1)}
+                    "mean": round(t[1] / t[0], 1),
+                    # Share of reporting replies with any thinking at all
+                    # (bin "0" holds the zero-token replies).
+                    "nonzero_share": round(1 - t[2].get("0", 0) / t[0], 4)}
             if cells:
                 rows.append({"id": atis, "short": short, "cells": cells})
         if rows:
@@ -715,7 +718,8 @@ def build_experiment_summary(sessions: dict, dot_claude: dict) -> dict:
                        "min_sessions": MIN_SESSIONS, "alpha": ALPHA,
                        "late_cutoff_days": LATE_CUTOFF_DAYS,
                        "active_gap_min": ACTIVE_GAP_MS // 60000,
-                       "correction_max_chars": CORRECTION_MAX_CHARS},
+                       "correction_max_chars": CORRECTION_MAX_CHARS,
+                       "think_min_replies": THINK_MIN_REPLIES},
         "current": _current_slots(dot_claude),
         "ids": ids,
         "thinking": _thinking(acc, ids),

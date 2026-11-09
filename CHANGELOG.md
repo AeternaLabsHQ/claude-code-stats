@@ -4,7 +4,9 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
-The Insights tab can now show whether a server-side experiment changed how Claude works for you.
+## [1.4.0] - 2026-11-09
+
+The Insights tab can now show whether a server-side experiment changed how Claude works for you, and the plan recommendation follows Anthropic's 2026-10-30 plan change (Ultra without a 5-hour limit).
 
 ### Added
 - **Experiments section in Insights & System.** Anthropic runs server-side experiments on part of its users, and Claude Code writes the assigned experiment ID into the session logs. The new section "07 Experiments" shows a timeline (one row per ID, one cell per day), your current assignment per model, and a comparison card per ID and model (a model with very few replies under an ID, under 20, gets no card). Each card compares your replies under the ID with replies of the same model without a recorded experiment ID, using the baseline from within 14 days before and after the experiment's dates. Four measures are compared: replies with 2 or more tool calls, median Bash command length, median output tokens per reply, and the share of tool-using replies that start with text before the first tool call. Cost per reply is shown alongside for context and does not count towards the verdict. The verdict is "Behaviour changed" when at least 2 of the 4 measures differ by 40% or more and there are at least 200 replies on each side; otherwise it reads "No clear effect", or "Too little data" when either side has fewer than 200 replies. A measure only counts when at least 30 events back it (for example 30 Bash commands on each side, otherwise its change reads "too few events"), and when fewer than 2 measures can be compared the verdict is "Too little data" as well. Medians are approximate (histogram-based, within about 10%). The section always covers the full period and ignores the date and project filters.

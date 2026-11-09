@@ -4,8 +4,15 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-11-09
+
+A switch for cleaner experiment screenshots, and an up-to-date README.
+
 ### Added
 - **"Hide cards with too little data" switch in the Experiments section.** It sits above the comparison cards, shows how many cards it hides, and is remembered in your browser. Handy for a screenshot that only shows the IDs with a verdict. The switch only appears when there are cards of both kinds.
+
+### Fixed
+- **README brought up to date.** It now states the real minimum Python version (3.10, as `pyproject.toml` already required; it said 3.8), the cron example logs errors to the log file (the redirects were in the wrong order), and the feature list covers experiment IDs, the session totals row and column chooser, and the Pro / Max / Ultra plan names.
 
 ## [1.4.1] - 2026-11-09
 

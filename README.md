@@ -31,7 +31,8 @@ Highlights:
 - **Cache health & anomaly detection** - Idle-gap (TTL) overhead tracking plus detection of no-gap cache invalidations like the 2026 Claude Code cache bugs, with a per-day flush chart as an early-warning signal
 - **Session replay & table** - Interactive node-graph with timeline playback, plus a searchable, sortable session table with CSV / XLSX / Markdown / ZIP export
 - **Multi-attribute filtering** - Range sliders for tokens, cost, duration, tool calls, agent dispatches, errors; one-click presets and persistent state across reloads
-- **Limits & plan recommendation (beta)** - Detects rate-limit and server-overload events from transcripts, 5-hour rolling-window tracker, empirically calibrated plan-tier suggestion
+- **Limits & plan recommendation (beta)** - Detects rate-limit and server-overload events from transcripts, 5-hour window and weekly tracking, empirically calibrated plan suggestion (Pro / Max / Ultra; Ultra has no 5-hour limit since 2026-10-30)
+- **Experiment IDs** - Shows which server-side experiment Anthropic assigned you and whether Claude worked measurably differently under it, see [Experiment IDs](#experiment-ids)
 - **Per-tool token attribution** - Output tokens and cost broken out by tool per session, plus a separate reasoning bucket; live-recomputed donut on the dashboard
 - **Privacy** - F2 anonymization mode for screenshots, `--no-memories` flag to exclude project memory content
 - **Accessibility** - A colorblind chart palette (`"palette": "colorblind"`), validated for red-green color vision deficiency; every chart color is a CSS token, see [Palettes](#palettes)
@@ -91,7 +92,7 @@ Read it with these caveats in mind:
 - One-click presets ("long sessions", "high-cost sessions", etc.)
 - Free-text search across project / session id
 - Active-filter chip row with per-chip clear; state persists across reloads
-- Sortable, resizable session table; sessions that span more than one calendar day are badged in the date column
+- Sortable, resizable session table with a column chooser (gear menu), a totals row over all filtered sessions and an Experiment column; sessions that span more than one calendar day are badged in the date column
 - Per-session detail pages with chat replay and Markdown / CSV / XLSX / ZIP export
 - Per-session cache-efficiency badge and flush counter
 - Chat replay marks errors, compactions, slash commands, interrupts, and rejected tool calls; multi-select event filters, a thinking indicator, and output tokens attributed to each slash command
@@ -113,14 +114,14 @@ Read it with these caveats in mind:
 #### Limits (beta)
 
 - Rate-limit and server-overload events detected from transcripts; legend distinguishes explicit API markers from heuristic signals
-- 5-hour rolling-window tracker (matches Anthropic's enforcement)
+- 5-hour rolling-window tracker (matches Anthropic's enforcement for Pro and Max; Ultra has no 5-hour limit since 2026-10-30)
 - Weekly hit-count summary
 - Idle-gap correlation with short / medium / long buckets
-- Plan-tier recommendation with empirical per-day calibration
+- Plan recommendation (Pro / Max / Ultra) with caps calibrated from the windows that actually hit a limit
 
 #### Insights & System
 
-- Numbered sub-navigation: Cache & Tokens, Agents, Errors & Reliability, Tools & Plugins, Storage & Files, Workflows
+- Numbered sub-navigation: Cache & Tokens, Agents, Errors & Reliability, Tools & Plugins, Storage & Files, Workflows, Experiments
 - Cache & Tokens: cache-efficiency KPIs and per-day box plot, output-token share by tool, output tokens by activity, plus the cache anomaly card (idle-gap overhead and no-gap flush events) and a "Cache Flushes per Day" chart
 - Cache anomaly detection separates TTL/idle-gap flushes from no-gap invalidations (the cache was rebuilt although it cannot have expired - the pattern behind the 2026 Claude Code cache bugs); compaction rebuilds are excluded to avoid false alarms
 - Agents: subagent type and dispatch distribution, task overview
@@ -212,7 +213,7 @@ Each entry in `plan_history` represents a subscription period:
 
 ```json
 {
-  "plan": "Max 20x",
+  "plan": "Ultra",
   "start": "2026-04-27",
   "end": null,
   "cost_local": 214.2,
@@ -288,7 +289,7 @@ Then add `~/winbox-claude/.claude` (and `~/winbox-claude/.claude.json`) as an ad
 The calibrated domain logic (costs, cache anomalies, limits, attribution) is available as a stdlib-only package `claudestats_core`. `extract_stats.py` is the CLI driver on top of it; other consumers can install the package directly:
 
 ```bash
-pip install "claudestats-core @ git+https://github.com/AeternaLabsHQ/claude-code-stats@v1.0.0"
+pip install "claudestats-core @ git+https://github.com/AeternaLabsHQ/claude-code-stats@v1.4.1"
 ```
 
 Settings (week anchor, plan history, locale) are configured via `claudestats_core.settings.configure(...)`; without a call, sensible defaults apply.
@@ -341,7 +342,7 @@ python3 extract_stats.py --verify-cache  # prove a cached run matches a cold one
 To auto-refresh the dashboard periodically:
 
 ```bash
-*/10 * * * * cd /path/to/claude-stats && python3 extract_stats.py 2>&1 >> update.log
+*/10 * * * * cd /path/to/claude-stats && python3 extract_stats.py >> update.log 2>&1
 ```
 
 ## Security & Privacy
@@ -369,7 +370,7 @@ To preserve your data, add `cleanupPeriodDays` to your `~/.claude/settings.json`
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.10+
 - No external dependencies (stdlib only)
 - Claude Code installed with session data in `~/.claude/`
 

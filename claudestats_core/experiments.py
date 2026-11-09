@@ -3,15 +3,25 @@ transcripts and bucket reply behaviour per (model, ID, day).
 
 Buckets are plain dicts of numbers and string-keyed histograms so they
 survive the JSON round trip of the scan cache without any rehydration."""
+import json
 import math
+import re
 from datetime import date, datetime, timedelta, timezone
 
 MIN_REPLIES = 200
 REL_CHANGE = 0.40
 MIN_CHANGED_METRICS = 2
 BASELINE_PAD_DAYS = 14
-HIST_STEPS = 8  # histogram bins per doubling
+HIST_STEPS = 32  # histogram bins per doubling
 MIN_SUPPORT = 30  # events a behaviour metric needs before its change counts
+LATE_CUTOFF_DAYS = 7  # replies later than this after session start are not bucketed
+ACTIVE_GAP_MS = 30 * 60 * 1000  # longer gaps between replies are idle time
+CORRECTION_MAX_CHARS = 160  # longer prompts are never counted as corrections
+DEFAULT_CORRECTION_WORDS = [
+    "nein", "no", "falsch", "wrong", "nochmal", "again", "revert",
+    "rückgängig", "undo", "stimmt nicht", "funktioniert nicht",
+    "doesn't work"]
+EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
 
 
 def normalize_atis(raw) -> str:
@@ -23,6 +33,42 @@ def normalize_atis(raw) -> str:
     if raw.startswith("v1."):
         return raw.split(".")[1].strip()
     return raw
+
+
+def _part(v) -> str:
+    """Key component: the string itself, "" for anything else."""
+    return v.replace("|", "/") if isinstance(v, str) else ""
+
+
+def bucket_key(model, atis, entrypoint, effort) -> str:
+    """Bucket key "model|atis|entrypoint|effort"; missing parts are blank."""
+    return "|".join((_part(model), _part(atis), _part(entrypoint),
+                     _part(effort)))
+
+
+def split_key(key: str) -> tuple:
+    """(model, atis, entrypoint, effort) of a bucket key. A legacy two-part
+    "model|atis" key yields blank entrypoint and effort."""
+    parts = key.split("|", 3)
+    parts += [""] * (4 - len(parts))
+    return tuple(parts)
+
+
+def is_interactive(entrypoint: str) -> bool:
+    """Whether an entrypoint is a person at a terminal or desktop app
+    rather than an SDK-driven run."""
+    return not entrypoint.startswith("sdk")
+
+
+def is_correction(text: str, words: list) -> bool:
+    """Short prompt containing a correction word on word boundaries."""
+    text = (text or "").strip()
+    if not text or len(text) > CORRECTION_MAX_CHARS:
+        return False
+    return any(
+        re.search(r"(?<!\w)" + re.escape(w) + r"(?!\w)", text,
+                  re.IGNORECASE)
+        for w in words if w)
 
 
 def hist_bin(v: float) -> str:
@@ -50,16 +96,35 @@ def hist_median(hist: dict):
 def new_bucket() -> dict:
     return {"replies": 0, "multi_tool": 0, "tool_replies": 0,
             "text_before": 0, "output_tokens": 0, "cost": 0.0,
-            "bash_cmds": 0, "out_hist": {}, "bash_hist": {}}
+            "bash_cmds": 0, "out_hist": {}, "bash_hist": {},
+            "tool_calls": 0, "prompts": 0, "corrections": 0,
+            "interrupts": 0, "rejected": 0, "tool_errors": 0,
+            "repeat_calls": 0, "edit_calls": 0, "re_edits": 0,
+            "active_ms": 0, "think_replies": 0, "think_tokens": 0,
+            "think_hist": {}}
 
 
 def _bump(hist: dict, key: str, n: int = 1) -> None:
     hist[key] = hist.get(key, 0) + n
 
 
+def _call_key(block: dict) -> str:
+    try:
+        inp = json.dumps(block.get("input"), sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        inp = repr(block.get("input"))
+    return str(block.get("name")) + inp
+
+
 def add_reply(bucket: dict, content_blocks: list, output_tokens: int,
-              cost: float) -> None:
-    """Count one main-thread reply into a bucket."""
+              cost: float, thinking_tokens=None, active_ms: int = 0,
+              seen_calls=None, seen_paths=None) -> None:
+    """Count one main-thread reply into a bucket.
+
+    thinking_tokens: reported thinking tokens, None when the log has none
+    (such replies stay out of the thinking counts). seen_calls / seen_paths:
+    per-file sets of earlier tool calls and edited paths, enabling the
+    repeat-call and re-edit counts."""
     blocks = [b for b in (content_blocks or []) if isinstance(b, dict)]
     tool_uses = [b for b in blocks if b.get("type") == "tool_use"]
     bucket["replies"] += 1
@@ -78,6 +143,31 @@ def add_reply(bucket: dict, content_blocks: list, output_tokens: int,
                 bucket["text_before"] += 1
                 break
     _bump(bucket["out_hist"], hist_bin(output_tokens))
+    bucket["tool_calls"] += len(tool_uses)
+    bucket["active_ms"] += active_ms
+    if isinstance(thinking_tokens, int) and not isinstance(
+            thinking_tokens, bool):
+        bucket["think_replies"] += 1
+        bucket["think_tokens"] += thinking_tokens
+        _bump(bucket["think_hist"], hist_bin(thinking_tokens))
+    if seen_calls is not None:
+        for b in tool_uses:
+            ck = _call_key(b)
+            if ck in seen_calls:
+                bucket["repeat_calls"] += 1
+            seen_calls.add(ck)
+    if seen_paths is not None:
+        for b in tool_uses:
+            if b.get("name") not in EDIT_TOOLS:
+                continue
+            bucket["edit_calls"] += 1
+            inp = b.get("input")
+            path = (inp.get("file_path") or inp.get("notebook_path")
+                    if isinstance(inp, dict) else None)
+            if isinstance(path, str) and path:
+                if path in seen_paths:
+                    bucket["re_edits"] += 1
+                seen_paths.add(path)
     for b in tool_uses:
         if b.get("name") == "Bash":
             inp = b.get("input")
@@ -105,7 +195,8 @@ _BEHAVIOUR_METRICS = ("multi_tool_share", "text_before_share",
 
 
 def _split_key(key: str):
-    model, _, atis = key.rpartition("|")
+    """(model, atis) of a bucket key; the old summary ignores the rest."""
+    model, atis, _, _ = split_key(key)
     return model, atis
 
 
@@ -187,7 +278,7 @@ def session_experiment_ids(sess: dict) -> list:
     exp = sess.get("experiments") if isinstance(sess, dict) else None
     if not isinstance(exp, dict):
         return []
-    return sorted({a for a in (_split_key(k)[1] for k in exp) if a})
+    return sorted({a for a in (split_key(k)[1] for k in exp) if a})
 
 
 def _current_slots(dot_claude) -> list:

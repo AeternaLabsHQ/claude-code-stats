@@ -13,7 +13,9 @@ from .attribution import (WRITE_CATEGORIES, attribute_turn_tokens,
 from .classify import (_classify_api_error, _classify_tool_error,
                        _classify_user_entry, _is_user_plan_limit_text,
                        _merge_streamed_assistant_entries, _route_tool_error)
-from .experiments import add_reply, new_bucket, normalize_atis
+from .experiments import (ACTIVE_GAP_MS, LATE_CUTOFF_DAYS, add_reply,
+                          bucket_key, is_correction, new_bucket,
+                          normalize_atis)
 from .pricing import calc_cost_by_type
 
 
@@ -320,6 +322,16 @@ def _attachment_hook_run(att, has_stop_summary, run_ids):
     return hook_name
 
 
+def _prompt_text(obj) -> str:
+    """Text of a typed user prompt (plain string or first text block)."""
+    content = (obj.get("message") or {}).get("content", "")
+    if isinstance(content, list):
+        content = next((b.get("text", "") for b in content
+                        if isinstance(b, dict) and b.get("type") == "text"),
+                       "")
+    return content if isinstance(content, str) else ""
+
+
 def absorb_file(sessions, meta, parsed_objs):
     """Fold the parsed JSONL objects of ONE transcript file into sessions.
 
@@ -360,6 +372,10 @@ def absorb_file(sessions, meta, parsed_objs):
     # Experiment ID in force. Claude Code writes atis-latch lines through a
     # transcript; a reply belongs to the latest value before it.
     cur_atis = ""
+    # Per-file reply state, keyed by session id. Kept out of the session
+    # dict: it holds sets and bucket references, which the JSON scan cache
+    # cannot store.
+    exp_state = {}
 
     # Collapse stream-split assistant rows (Claude Code writes
     # one JSONL line per content block, each repeating the same
@@ -470,6 +486,18 @@ def absorb_file(sessions, meta, parsed_objs):
                     if _ts_counts_for_duration:
                         sess["timestamps"].append(ts_ms_for_msg)
 
+            # Session start for the experiment late cutoff: earliest
+            # conversational timestamp seen so far.
+            if _ts_counts_for_duration and ts_ms_for_msg is not None:
+                _start = sess.get("exp_start_ms")
+                if _start is None or ts_ms_for_msg < _start:
+                    sess["exp_start_ms"] = ts_ms_for_msg
+            _xs = None
+            if not is_subagent:
+                _xs = exp_state.setdefault(session_id, {
+                    "calls": set(), "paths": set(), "bucket": None,
+                    "ts": None, "prompts": 0, "corrections": 0})
+
             # API-error messages flagged by Claude Code itself.
             # This is the canonical channel for real user-plan
             # rate-limit hits (e.g. "You've hit your limit ·
@@ -535,6 +563,16 @@ def absorb_file(sessions, meta, parsed_objs):
                 # interrupts and meta entries are tracked as their
                 # own metrics so they no longer inflate User Msgs.
                 _ucat = _classify_user_entry(obj)
+                if _xs is not None:
+                    # Typed prompts count towards the next reply, an
+                    # interrupt towards the reply it cut off.
+                    if _ucat == "prompt":
+                        _xs["prompts"] += 1
+                        if is_correction(_prompt_text(obj),
+                                         settings.EXP_CORRECTION_WORDS):
+                            _xs["corrections"] += 1
+                    elif _ucat == "interrupt" and _xs["bucket"] is not None:
+                        _xs["bucket"]["interrupts"] += 1
                 if _ucat == "prompt":
                     sess["message_count"] += 1
                     sess["user_message_count"] += 1
@@ -587,6 +625,12 @@ def absorb_file(sessions, meta, parsed_objs):
                                 # under its own "rejected" source).
                                 if eff_source == "rejected":
                                     sess["rejected_count"] += 1
+                                if (_xs is not None
+                                        and _xs["bucket"] is not None):
+                                    if eff_source == "rejected":
+                                        _xs["bucket"]["rejected"] += 1
+                                    elif eff_source == "tool":
+                                        _xs["bucket"]["tool_errors"] += 1
                                 sess["error_count"] += 1
                                 sess["errors_by_source"][eff_source] += 1
                                 sess["errors"].append({
@@ -684,13 +728,41 @@ def absorb_file(sessions, meta, parsed_objs):
                     turn_output = usage.get("output_tokens", 0)
                     if (not is_subagent and turn_ts_ms is not None
                             and model != "<synthetic>"):
-                        add_reply(
-                            sess.setdefault("experiments", {})
-                                .setdefault(f"{model}|{cur_atis}", {})
-                                .setdefault(_day_from_ms(turn_ts_ms),
-                                            new_bucket()),
-                            message.get("content", []), turn_output,
-                            turn_cost)
+                        _bkey = bucket_key(model, cur_atis,
+                                           obj.get("entrypoint"),
+                                           obj.get("effort"))
+                        _start = sess.get("exp_start_ms", turn_ts_ms)
+                        if turn_ts_ms > _start + LATE_CUTOFF_DAYS * 86400000:
+                            # Too long after session start: not bucketed,
+                            # only tallied so the share stays visible.
+                            _late = sess.setdefault("experiments_late", {})
+                            _late[_bkey] = _late.get(_bkey, 0) + 1
+                            _xs["bucket"] = None
+                        else:
+                            _bucket = (
+                                sess.setdefault("experiments", {})
+                                    .setdefault(_bkey, {})
+                                    .setdefault(_day_from_ms(turn_ts_ms),
+                                                new_bucket()))
+                            _gap = (0 if _xs["ts"] is None
+                                    else turn_ts_ms - _xs["ts"])
+                            _details = usage.get("output_tokens_details")
+                            _think = (_details.get("thinking_tokens")
+                                      if isinstance(_details, dict)
+                                      else None)
+                            add_reply(
+                                _bucket, message.get("content", []),
+                                turn_output, turn_cost,
+                                thinking_tokens=_think,
+                                active_ms=(_gap if 0 <= _gap <= ACTIVE_GAP_MS
+                                           else 0),
+                                seen_calls=_xs["calls"],
+                                seen_paths=_xs["paths"])
+                            _bucket["prompts"] += _xs["prompts"]
+                            _bucket["corrections"] += _xs["corrections"]
+                            _xs["prompts"] = _xs["corrections"] = 0
+                            _xs["bucket"] = _bucket
+                            _xs["ts"] = turn_ts_ms
                     if turn_ts_ms is not None:
                         sess["_assistant_turns"].append({
                             "ts": turn_ts_ms,

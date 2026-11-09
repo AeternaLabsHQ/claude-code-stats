@@ -8,7 +8,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from claudestats_core import experiments
-from claudestats_core.experiments import (add_reply, build_experiment_summary,
+from claudestats_core.experiments import (add_reply, bucket_key,
+                                          build_experiment_summary,
                                           new_bucket, session_experiment_ids)
 
 FULL = "21e0afd842ce5836"
@@ -38,7 +39,7 @@ def session(buckets, source="desktop"):
     """buckets: {(model, atis_id, day): bucket}"""
     exp = {}
     for (model, atis, day), b in buckets.items():
-        exp.setdefault(f"{model}|{atis}", {})[day] = b
+        exp.setdefault(bucket_key(model, atis, "cli", "high"), {})[day] = b
     return {"source": source, "experiments": exp}
 
 

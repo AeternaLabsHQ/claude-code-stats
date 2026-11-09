@@ -38,18 +38,34 @@
 .vc .exp-chip.on .exp-chip-m { color: var(--vc-fg-2); }
 
 /* Timeline */
+/* Cells shrink from 14px down to 6px to fit the box; only when even 6px
+   cells do not fit does the box scroll. direction: rtl on the scroll box
+   makes it start at the right end (newest days) without JS, which also
+   works while the section is still hidden; the grid itself is ltr. The
+   scrollbar is thin and theme-coloured. */
 .vc .exp-timeline {
   overflow-x: auto;
+  direction: rtl;
   padding-bottom: 4px;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vc-grid) transparent;
 }
+.vc .exp-timeline::-webkit-scrollbar { height: 8px; }
+.vc .exp-timeline::-webkit-scrollbar-track { background: transparent; }
+.vc .exp-timeline::-webkit-scrollbar-thumb { background: var(--vc-grid); border-radius: 4px; }
+.vc .exp-timeline::-webkit-scrollbar-thumb:hover { background: var(--vc-fg-3); }
 .vc .exp-tl-grid {
-  --exp-cell: 14px;
   display: grid;
-  grid-template-columns: 56px repeat(var(--exp-days, 1), var(--exp-cell));
+  grid-template-columns: 56px repeat(var(--exp-days, 1), minmax(6px, 14px));
   grid-auto-rows: 18px;
   gap: 3px;
-  width: max-content;
+  direction: ltr;
+  width: 100%;
+  min-width: min-content;
+}
+@media (max-width: 640px) {
+  .vc .exp-tl-grid { gap: 2px; }
 }
 .vc .exp-tl-label {
   position: sticky; left: 0; z-index: 1;

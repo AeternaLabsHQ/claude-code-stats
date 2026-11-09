@@ -4,6 +4,9 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- **Experiments timeline fits the screen.** The day cells shrink to fit the box, so on normal screens there is no horizontal scrollbar any more. Only on narrow screens does the timeline scroll, with a slim scrollbar in the theme colours, and it now opens at the newest days instead of the oldest.
+
 ## [1.4.0] - 2026-11-09
 
 The Insights tab can now show whether a server-side experiment changed how Claude works for you, and the plan recommendation follows Anthropic's 2026-10-30 plan change (Ultra without a 5-hour limit).

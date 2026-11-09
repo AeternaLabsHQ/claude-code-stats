@@ -122,7 +122,7 @@
     "col_source": "Source",
     "col_model": "Model",
     "col_experiment": "Experiment",
-    "experiment_tip": "Server-side experiment ID this session ran under. See Insights > Experiments.",
+    "experiment_tip": "Server-side experiment ID this session ran under. See Insights & System > Experiments.",
     "col_duration": "Duration",
     "col_messages": "Messages",
     "col_user_messages": "User Msgs",

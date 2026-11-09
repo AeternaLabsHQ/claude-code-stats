@@ -38,6 +38,20 @@ Highlights:
 - **Theming** - Light / dark / system theme, optional `custom.css` recolors the UI and charts live without touching source; a legacy preset restores the pre-1.1.0 chart colors
 - **Multi-user / migration** - Merge multiple `~/.claude` directories or import data from old machines; automatic session deduplication
 
+### Experiment IDs
+
+Anthropic runs server-side experiments on part of its users. Claude Code writes the ID you were assigned into your session logs. The dashboard groups your replies by that ID and compares them with replies of the same model made without an experiment around the same time. You find it under **Insights & System > Experiments**, and the session table has an "Experiment" column that shows which ID a session ran under.
+
+For each ID and model you get a card with four measures (replies with 2+ tool calls, median Bash command length, how often a reply starts with text before the tools, median output tokens per reply), cost per reply for context, and a verdict. "Behaviour changed" means at least two of the four measures moved by 40% or more with at least 200 replies on each side; otherwise you see "No clear effect" or "Too little data". The baseline is the same model without an experiment, within 14 days around the experiment's dates. The section always covers your full history and ignores the date filter.
+
+Read it with these caveats in mind:
+
+- The work you did differed between the periods, so a difference is a hint, not proof.
+- It measures how the model worked, not whether the results were better.
+- Thinking and effort are not recorded in the logs, so they cannot be compared.
+- "Current assignment" comes from this machine's `~/.claude.json` only.
+- Older Claude Code versions and API-key setups may not write experiment IDs; the section then shows an empty state.
+
 <details>
 <summary><b>Full feature list</b></summary>
 
@@ -114,6 +128,7 @@ Highlights:
 - Tools & Plugins: tool usage, installed plugins
 - Storage & Files: storage breakdown, file snapshots, todos
 - Workflows: plan-mode plans table, skills and hooks, git operations
+- Experiments: server-side experiment IDs from the session logs, timeline, current assignment and per-ID behaviour comparison against the same model without an experiment
 
 #### Theming
 

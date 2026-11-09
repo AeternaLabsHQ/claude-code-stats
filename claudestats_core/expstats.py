@@ -12,46 +12,45 @@ Z95 = 1.959964
 _EPS = 1e-12
 
 
-def _unit_totals(unit: dict, strata):
-    y = x = 0.0
-    for s in strata:
-        yx = unit.get(s)
-        if yx:
-            y += yx[0]
-            x += yx[1]
-    return y, x
+def _centre_at(centre, s, default: float) -> float:
+    """Linearisation point of stratum s: the estimate itself (default), one
+    value for every stratum, or a per-stratum {stratum: value} dict."""
+    if centre is None:
+        return default
+    if isinstance(centre, dict):
+        return centre[s]
+    return centre
 
 
 def ratio_stat(units: list, weights: dict | None = None,
-               centre: float | None = None) -> dict:
+               centre=None) -> dict:
     """Ratio estimate sum(y)/sum(x) with a cluster-robust standard error.
 
     units: one dict per session, {stratum: (y, x)}.
     weights: optional {stratum: w} (summing to 1) for direct standardization,
     est = sum_e w_e * Y_e / X_e.
-    n_units counts sessions with any x > 0. se is None below 2 such units;
-    est is None when there is no x (or a weighted stratum has none), or when
-    weights are given but none is non-zero.
-    centre: centre the influence values at this ratio instead of the
-    estimate itself (median_stat uses 0.5, the null value of F(median)).
+    n_units counts sessions with any x > 0; y and x are the totals over all
+    units. se is None below 2 such units; est is None when there is no x (or
+    a weighted stratum has none), or when weights are given but none is
+    non-zero.
+    centre: centre the influence values here instead of at the estimate (or
+    at each stratum's own ratio when weighted): a number for every stratum,
+    or a {stratum: value} dict. median_stat uses this for Woodruff.
     """
+    total_y = sum(xy[0] for u in units for xy in u.values())
     total_x = sum(xy[1] for u in units for xy in u.values())
     c = sum(1 for u in units if any(xy[1] > 0 for xy in u.values()))
-    out = {"est": None, "se": None, "n_units": c, "x": total_x}
+    out = {"est": None, "se": None, "n_units": c, "y": total_y,
+           "x": total_x}
 
     if weights is None:
-        strata = {s for u in units for s in u}
-        big_y = sum(xy[0] for u in units for xy in u.values())
-        big_x = sum(xy[1] for u in units for xy in u.values())
-        if big_x <= 0:
+        if total_x <= 0:
             return out
-        est = big_y / big_x
+        est = total_y / total_x
         out["est"] = est
-        mid = est if centre is None else centre
-        zs = []
-        for u in units:
-            y, x = _unit_totals(u, strata)
-            zs.append((y - mid * x) / big_x)
+        zs = [sum(y - _centre_at(centre, s, est) * x
+                  for s, (y, x) in u.items()) / total_x
+              for u in units]
     else:
         used = {s: w for s, w in weights.items() if w}
         if not used:
@@ -62,16 +61,15 @@ def ratio_stat(units: list, weights: dict | None = None,
             sx = sum(u[s][1] for u in units if s in u)
             if sx <= 0:
                 return out
-            sums[s] = (sy, sx, sy / sx)
-        est = sum(used[s] * sums[s][2] for s in used)
-        out["est"] = est
+            sums[s] = (sx, sy / sx)
+        out["est"] = sum(used[s] * sums[s][1] for s in used)
         zs = []
         for u in units:
             z = 0.0
             for s, w in used.items():
                 if s in u:
-                    _, sx, r = sums[s]
-                    mid = r if centre is None else centre
+                    sx, r = sums[s]
+                    mid = _centre_at(centre, s, r)
                     z += w * (u[s][0] - mid * u[s][1]) / sx
             zs.append(z)
 
@@ -93,13 +91,19 @@ def median_stat(units: list, weights: dict | None = None,
 
     units: one dict per session, {stratum: {bin: count}}. steps must match the
     histogram's bins-per-doubling. The CDF is pooled over all counts, or
-    standardized with weights. The CI inverts the CDF at 0.5 -/+ Z95*se, where
-    se is the cluster-robust error of F(median bin) with influence values
-    centred at 0.5 (not at F-hat, which is >= 0.5 and can be 1.0 in the top
-    occupied bin, collapsing the CI), so it is never narrower than one bin. lo/hi are None when se is None.
+    standardized with weights. The CI inverts the CDF at 0.5 -/+ Z95*se,
+    where se is the cluster-robust error of F(median bin), so it is never
+    narrower than one bin. lo/hi are None when se is None.
+
+    Influence values are centred at 0.5, not at F-hat (which is >= 0.5 and
+    can be 1.0 in the top occupied bin, collapsing the CI). Standardized,
+    stratum e is centred at F_e(m) - (F(m) - 0.5): the weighted centres sum
+    to 0.5 as before, but a stratum whose own F_e(m) is far from 0.5 adds
+    no spurious spread (one 0.5 for every stratum inflated the CI).
     """
     n_total = 0
     mass = {}  # bin -> share of the (standardized) distribution
+    per_stratum = {}  # stratum -> ({bin: count}, total), weighted only
     if weights is None:
         pooled = {}
         for u in units:
@@ -120,14 +124,16 @@ def median_stat(units: list, weights: dict | None = None,
                         per[int(b)] = per.get(int(b), 0) + n
             n_s = sum(per.values())
             if n_s <= 0:
-                return {"est": None, "lo": None, "hi": None,
+                return {"est": None, "lo": None, "hi": None, "se": None,
                         "n_units": 0, "n": 0}
+            per_stratum[s] = (per, n_s)
             n_total += n_s
             for b, n in per.items():
                 mass[b] = mass.get(b, 0.0) + w * n / n_s
 
     if not mass:
-        return {"est": None, "lo": None, "hi": None, "n_units": 0, "n": 0}
+        return {"est": None, "lo": None, "hi": None, "se": None,
+                "n_units": 0, "n": 0}
 
     bins = sorted(mass)
     cdf = []
@@ -144,6 +150,12 @@ def median_stat(units: list, weights: dict | None = None,
 
     m = bin_at(0.5)
     est = _bin_edges(m, steps)[2]
+    centre = 0.5
+    if weights is not None:
+        f_at = {s: sum(n for b, n in per.items() if b <= m) / n_s
+                for s, (per, n_s) in per_stratum.items()}
+        shift = sum(weights[s] * f for s, f in f_at.items()) - 0.5
+        centre = {s: f - shift for s, f in f_at.items()}
 
     cluster_units = []
     for u in units:
@@ -157,9 +169,9 @@ def median_stat(units: list, weights: dict | None = None,
                         y += n
             cu[s] = (y, x)
         cluster_units.append(cu)
-    r = ratio_stat(cluster_units, weights, centre=0.5)
+    r = ratio_stat(cluster_units, weights, centre=centre)
 
-    out = {"est": est, "lo": None, "hi": None,
+    out = {"est": est, "lo": None, "hi": None, "se": r["se"],
            "n_units": r["n_units"], "n": n_total}
     if r["se"] is not None:
         half = Z95 * r["se"]

@@ -335,9 +335,12 @@ def _restrict(units: list, strata) -> list:
 
 def _metric_row(m: dict, id_side: dict, base_side: dict) -> dict:
     """One comparison row. A side is {"all": units, "totals": merged
-    bucket per unit}. Standardized rows apply the same per-row weights to
-    both sides, so the ID side's estimate is its pooled value over the
-    strata the row keeps."""
+    bucket per unit}. Standardized rows weight the baseline to the ID
+    side's own mix of the row's denominator over the strata the row keeps.
+    With those weights the ID side's estimate is simply its pooled value
+    over the kept strata, so the ID side is computed pooled: same estimate,
+    and a standard error that counts the effort mix as part of the sample
+    (the weights come from the same sessions)."""
     stat = m["stat"]
     id_r = base_r = None
     if stat[0] == "session":
@@ -354,7 +357,7 @@ def _metric_row(m: dict, id_side: dict, base_side: dict) -> dict:
                          lambda bk: bk.get(den, 0))
         id_r = _restrict(id_side["all"], w)
         base_r = _restrict(base_side["all"], w)
-        a = ratio_stat(_ratio_units(id_r, stat[1], den), w)
+        a = ratio_stat(_ratio_units(id_r, stat[1], den))
         b = ratio_stat(_ratio_units(base_r, stat[1], den), w)
         cmp, n, base_n = compare(a, b, "ratio"), int(a["x"]), int(b["x"])
     else:
@@ -363,7 +366,7 @@ def _metric_row(m: dict, id_side: dict, base_side: dict) -> dict:
                          lambda bk: _hist_size(bk.get(field)))
         id_r = _restrict(id_side["all"], w)
         base_r = _restrict(base_side["all"], w)
-        a = median_stat(_hist_units(id_r, field), w, steps=HIST_STEPS)
+        a = median_stat(_hist_units(id_r, field), steps=HIST_STEPS)
         b = median_stat(_hist_units(base_r, field), w, steps=HIST_STEPS)
         cmp, n, base_n = compare(a, b, "median"), a["n"], b["n"]
     nd = _DECIMALS[m["kind"]]

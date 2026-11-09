@@ -622,6 +622,56 @@ class EntrypointAndEffortTest(unittest.TestCase):
         self.assertEqual(r["base"], 0.45)
         self.assertEqual(r["change"], 0.0)
 
+    def test_id_side_is_pooled_over_kept_strata(self):
+        # Effort-pure ID sessions with very different rates per level. The
+        # ID side's own denominator shares are its weights, so its estimate
+        # is the pooled one; its standard error must be the pooled one too
+        # (the weights are estimated from the same sessions), while the
+        # baseline keeps the weighted error.
+        from claudestats_core.expstats import (compare, median_stat,
+                                               ratio_stat)
+        ids, base, sess = [], [], {}
+        for i in range(12):
+            eff = "high" if i < 6 else "medium"
+            multi = (0.5 if i % 2 else 0.4) if eff == "high" else (
+                0.1 if i % 2 else 0.0)
+            out = (900 if i % 2 else 700) if eff == "high" else (
+                300 if i % 2 else 200)
+            b = bucket(30, multi, 0.2, out=out)
+            ids.append((eff, b))
+            sess[f"i{i}"] = session({(MODEL, FULL, day(0), "cli", eff): b})
+        for i in range(8):
+            hb = bucket(20, 0.3 + 0.1 * (i % 2), 0.2, out=600 + 100 * (i % 2))
+            mb = bucket(20, 0.05 * (i % 2), 0.2, out=250)
+            base.append({"high": hb, "medium": mb})
+            sess[f"b{i}"] = session({
+                (MODEL, "", day(-2), "cli", "high"): hb,
+                (MODEL, "", day(-2), "cli", "medium"): mb})
+        c = card(build_experiment_summary(sess, {}))
+        w = {"high": 0.5, "medium": 0.5}  # ID replies 180 / 180
+
+        a = ratio_stat([{e: (b["multi_tool"], b["replies"])}
+                        for e, b in ids])
+        bb = ratio_stat([{e: (b["multi_tool"], b["replies"])
+                          for e, b in u.items()} for u in base], w)
+        r = row(c, "multi_tool_share")
+        self.assertAlmostEqual(r["value"], round(a["est"], 4), 9)
+        aw = ratio_stat([{e: (b["multi_tool"], b["replies"])}
+                         for e, b in ids], w)
+        self.assertAlmostEqual(aw["est"], a["est"], 12)   # value unchanged
+        self.assertNotAlmostEqual(aw["se"], a["se"], 4)
+        self.assertEqual(r["p"], float(f"{compare(a, bb, 'ratio')['p']:.3g}"))
+
+        steps = experiments.HIST_STEPS
+        a = median_stat([{e: b["out_hist"]} for e, b in ids], steps=steps)
+        bb = median_stat([{e: b["out_hist"] for e, b in u.items()}
+                          for u in base], w, steps=steps)
+        r = row(c, "median_output_tokens")
+        self.assertAlmostEqual(r["value"], round(a["est"], 1), 9)
+        cm = compare(a, bb, "median")
+        self.assertEqual(r["p"], float(f"{cm['p']:.3g}"))
+        self.assertEqual(r["lo"], round(cm["lo"], 4))
+
     def test_identical_bins_are_not_shared_data(self):
         self.assertEqual(hist_bin(300), hist_bin(303))
         self.assertNotEqual(hist_bin(300), hist_bin(450))

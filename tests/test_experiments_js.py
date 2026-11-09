@@ -106,6 +106,10 @@ class ExperimentsHtmlTest(unittest.TestCase):
                 "id": FULL, "at": "2026-11-08T10:00:00+00:00"},
                {"model": "claude-sonnet-5", "entrypoint": "cli",
                 "id": "", "at": "2026-11-08T10:00:00+00:00"}]
+        # One judged card plus one "too little data" card (tiny-model
+        # raised above the 20-reply card cutoff).
+        mixed = summary("changed")
+        mixed["ids"][0]["models"][1]["replies"] = 50
         cases = {
             "null": {"exp": None, "L": cls.L},
             "nodata": {"exp": {"has_data": False, "ids": [], "current": []},
@@ -124,6 +128,7 @@ class ExperimentsHtmlTest(unittest.TestCase):
             "null_change": {"exp": summary(text_change=None), "L": cls.L},
             "null_change_no_locale": {"exp": summary(text_change=None),
                                       "L": {}},
+            "mixed": {"exp": mixed, "L": cls.L},
         }
         res = subprocess.run(
             ["node", "-e", NODE_HARNESS, str(COMPONENTS / "shared_helpers.js"),
@@ -176,6 +181,19 @@ class ExperimentsHtmlTest(unittest.TestCase):
         self.assertIn(self.L["verdict_insufficient"], h)
         self.assertIn("+100%", h)
         self.assertNotIn("exp-chg sig", h)
+
+    def test_hide_switch_with_mixed_cards(self):
+        h = self.out["mixed"]
+        self.assertIn("data-exp-hide-insufficient", h)
+        self.assertIn(self.L["hide_insufficient"].replace("{n}", "1"), h)
+        self.assertEqual(h.count("exp-card--insufficient"), 1)
+        self.assertEqual(h.count('<article class="chart-box exp-card"'), 1)
+
+    def test_no_hide_switch_without_both_kinds(self):
+        # Only judged cards, or only "too little data" cards: hiding would
+        # either do nothing or leave the section empty.
+        self.assertNotIn("data-exp-hide-insufficient", self.out["changed"])
+        self.assertNotIn("data-exp-hide-insufficient", self.out["insufficient"])
 
     def test_no_effect_badge(self):
         h = self.out["no_effect"]

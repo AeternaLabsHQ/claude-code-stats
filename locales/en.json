@@ -457,6 +457,7 @@
     "replies": "replies",
     "sessions": "sessions",
     "cards_title": "Comparison per ID and model",
+    "hide_insufficient": "Hide cards with too little data ({n})",
     "no_cards": "No model has enough replies under an ID yet for a comparison.",
     "verdict_changed": "Behaviour changed",
     "verdict_no_effect": "No clear effect",

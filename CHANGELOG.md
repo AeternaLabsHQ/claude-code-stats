@@ -4,6 +4,9 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- **"Hide cards with too little data" switch in the Experiments section.** It sits above the comparison cards, shows how many cards it hides, and is remembered in your browser. Handy for a screenshot that only shows the IDs with a verdict. The switch only appears when there are cards of both kinds.
+
 ## [1.4.1] - 2026-11-09
 
 The experiments timeline fits the screen.

@@ -9,6 +9,7 @@
   'use strict';
 
   const MIN_CARD_REPLIES = 20;   // display cutoff, not the verdict threshold
+  const HIDE_KEY = 'vc-exp-hide-insufficient';
   const DAY_MS = 86400000;
   const DASH = '-';
 
@@ -29,6 +30,7 @@
       replies: L.replies || 'replies',
       sessions: L.sessions || 'sessions',
       cards_title: L.cards_title || 'Comparison per ID and model',
+      hide_insufficient: L.hide_insufficient || 'Hide cards with too little data ({n})',
       no_cards: L.no_cards || 'No model has enough replies under an ID yet for a comparison.',
       verdict_changed: L.verdict_changed || 'Behaviour changed',
       verdict_no_effect: L.verdict_no_effect || 'No clear effect',
@@ -224,7 +226,8 @@
       from: fmtDay(base.from, true), to: fmtDay(base.to, true),
       base: num(base.replies || 0, 0), n: num(m.replies || 0, 0),
     });
-    return '<article class="chart-box exp-card">'
+    const cls = m.verdict === 'insufficient' ? ' exp-card--insufficient' : '';
+    return '<article class="chart-box exp-card' + cls + '">'
       + '<header class="exp-card-h">'
       + '<span class="exp-id" title="' + esc(e.id) + '">' + esc(e.short) + '</span>'
       + '<span class="exp-model">' + esc(m.model) + '</span>'
@@ -261,12 +264,19 @@
     const th = exp.thresholds || {};
     const rel = th.rel_change != null ? Number(th.rel_change) : 0.4;
 
-    let cards = '';
+    let cards = '', nInsufficient = 0, nJudged = 0;
     ids.forEach(function(e) {
       (e.models || []).forEach(function(m) {
-        if ((m.replies || 0) >= MIN_CARD_REPLIES) cards += card(e, m, T, rel, src);
+        if ((m.replies || 0) < MIN_CARD_REPLIES) return;
+        cards += card(e, m, T, rel, src);
+        if (m.verdict === 'insufficient') nInsufficient++; else nJudged++;
       });
     });
+    // Only offer the switch when it leaves something to show.
+    const hideSwitch = (nInsufficient && nJudged)
+      ? '<label class="vc-checkbox exp-hide-switch"><input type="checkbox" data-exp-hide-insufficient />'
+        + '<span>' + esc(fill(T.hide_insufficient, { n: String(nInsufficient) })) + '</span></label>'
+      : '';
 
     const method = fill(T.method, {
       min: num(th.min_replies != null ? th.min_replies : 200, 0),
@@ -282,7 +292,7 @@
       + currentRow(current, T)
       + '</div>'
       + timeline(ids, T, src)
-      + '<h3 class="exp-cards-h">' + esc(T.cards_title) + '</h3>'
+      + '<div class="exp-cards-bar"><h3 class="exp-cards-h">' + esc(T.cards_title) + '</h3>' + hideSwitch + '</div>'
       + (cards ? '<div class="exp-cards">' + cards + '</div>'
                : '<p class="exp-none">' + esc(T.no_cards) + '</p>')
       + '<p class="exp-method">' + esc(method) + '</p>'
@@ -293,6 +303,20 @@
     if (!rootEl) return;
     const L = (window.__LOCALE__ && window.__LOCALE__.experiments) || {};
     rootEl.innerHTML = html(exp, L, opts);
+    // "Hide cards with too little data": remembered per browser, re-applied
+    // on every render (the section re-renders on filter changes).
+    const box = rootEl.querySelector('[data-exp-hide-insufficient]');
+    const wrap = rootEl.querySelector('.exp');
+    if (!box || !wrap) return;
+    let on = false;
+    try { on = localStorage.getItem(HIDE_KEY) === '1'; } catch (err) {}
+    const apply = function() { wrap.classList.toggle('exp--hide-insufficient', box.checked); };
+    box.checked = on;
+    apply();
+    box.addEventListener('change', function() {
+      apply();
+      try { localStorage.setItem(HIDE_KEY, box.checked ? '1' : '0'); } catch (err) {}
+    });
   }
 
   window.VCExperiments = { html: html, render: render };

@@ -457,6 +457,7 @@
     "replies": "Antworten",
     "sessions": "Sessions",
     "cards_title": "Vergleich pro ID und Modell",
+    "hide_insufficient": "Karten mit zu wenig Daten ausblenden ({n})",
     "no_cards": "Noch kein Modell hat genug Antworten unter einer ID für einen Vergleich.",
     "verdict_changed": "Verhalten geändert",
     "verdict_no_effect": "Kein klarer Effekt",

@@ -153,6 +153,18 @@
         return html;
       }
     },
+    { id: 'experiment', label: 'Experiment', group: 'identity', align: 'left', sortable: true,
+      defaultIn: ['dashboard','projectDetail'],
+      tipKey: 'experiment_tip',
+      get: (s) => (s.experiment_ids || []).join(','),
+      render: (s) => {
+        const ids = s.experiment_ids || [];
+        if (!ids.length) return '<span class="st-muted">—</span>';
+        // Short form is the first 3 chars; the full ID sits in the tooltip.
+        return ids.map(id => '<span class="st-exp-badge" title="' + escHtml(id) + '">' +
+          escHtml(String(id).slice(0, 3)) + '</span>').join(' ');
+      }
+    },
 
     // Volume
     { id: 'duration', label: 'Duration', group: 'volume', align: 'right', sortable: true,
@@ -721,6 +733,7 @@
         const lbl = document.createElement('span');
         lbl.className = 'st-th-label';
         lbl.textContent = c.label;
+        if (c.tipKey) th.title = stL(c.tipKey, '');
         th.appendChild(lbl);
 
         const handle = document.createElement('span');

@@ -121,6 +121,8 @@
     "col_first_prompt": "Erster Prompt",
     "col_source": "Quelle",
     "col_model": "Modell",
+    "col_experiment": "Experiment",
+    "experiment_tip": "Serverseitige Experiment-ID, unter der diese Session lief. Details unter Insights > Experimente.",
     "col_duration": "Dauer",
     "col_messages": "Nachrichten",
     "col_user_messages": "User-Msgs",

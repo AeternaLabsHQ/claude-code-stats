@@ -393,7 +393,7 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
     if raw_current_tier and normalized_current is None:
         print(f"  WARN: plan name '{raw_current_tier}' not recognized for "
               f"recommendation; falling back to 'Max 5x'. Accepted forms: "
-              f"Pro / Max 5x / Max 20x (case-insensitive, '(annual)' suffix OK).")
+              f"Pro / Max (Max 5x) / Ultra (Max 20x) (case-insensitive, '(annual)' suffix OK).")
     if normalized_current is None:
         normalized_current = "Max 5x"
 
@@ -434,13 +434,16 @@ def build_plan_analysis(daily_cost_series, session_list, first_session=None,
     # estimate is not presented as primary evidence.
     # From ULTRA_LAUNCH_DATE the Max 20x/Ultra weekly cap is 10x Pro instead
     # of 20x, so weeks starting before that date use the old caps.
-    base_pro = cap_info_5h["base_pro_per_window_usd"]
+    caps_before_ultra = {t: round(c * WEEKLY_VS_5H_RATIO, 2)
+                         for t, c in cap_info_5h["caps_per_window"].items()}
+    caps_per_week = dict(caps_before_ultra)
+    caps_per_week["Max 20x"] = round(
+        cap_info_5h["caps_per_window"]["Max 20x"]
+        * WEEKLY_TIER_FACTORS_ULTRA["Max 20x"] / PLAN_TIER_FACTORS["Max 20x"]
+        * WEEKLY_VS_5H_RATIO, 2)
     cap_info_weekly = {
-        "caps_per_week": {t: round(base_pro * f * WEEKLY_VS_5H_RATIO, 2)
-                           for t, f in WEEKLY_TIER_FACTORS_ULTRA.items()},
-        "caps_per_week_before_ultra": {
-            t: round(c * WEEKLY_VS_5H_RATIO, 2)
-            for t, c in cap_info_5h["caps_per_window"].items()},
+        "caps_per_week": caps_per_week,
+        "caps_per_week_before_ultra": caps_before_ultra,
         "ratio_vs_5h": WEEKLY_VS_5H_RATIO,
         "source": "derived_from_5h",
     }

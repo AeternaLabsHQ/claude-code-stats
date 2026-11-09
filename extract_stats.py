@@ -297,19 +297,8 @@ import claudestats_core.settings as _core_settings
 # Date from which the Ultra tier has no rolling 5h limit ("YYYY-MM-DD").
 # null = account not verified (Ultra keeps the 5h limit). Missing key or an
 # invalid value falls back to the default.
-ULTRA_NO_5H_FROM = _core_settings.ULTRA_NO_5H_FROM
-if "ultra_no_5h_limit_from" in CONFIG:
-    _ultra_cfg = CONFIG["ultra_no_5h_limit_from"]
-    if _ultra_cfg is None:
-        ULTRA_NO_5H_FROM = None
-    else:
-        try:
-            datetime.strptime(str(_ultra_cfg), "%Y-%m-%d")
-            ULTRA_NO_5H_FROM = str(_ultra_cfg)
-        except ValueError:
-            print(f"  WARNING: invalid ultra_no_5h_limit_from {_ultra_cfg!r} "
-                  f"(expected YYYY-MM-DD or null); using default "
-                  f"{ULTRA_NO_5H_FROM}")
+ULTRA_NO_5H_FROM = _core_settings.parse_ultra_cutoff(
+    CONFIG.get("ultra_no_5h_limit_from", _core_settings.MISSING))
 _core_settings.configure(
     week_anchor=WEEK_ANCHOR,
     plan_history=PLAN_HISTORY,

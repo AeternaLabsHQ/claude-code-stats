@@ -29,9 +29,11 @@ def _ph(plan, start, end=None):
 
 @pytest.fixture(autouse=True)
 def _restore_settings():
-    saved = (settings.PLAN_HISTORY, settings.ULTRA_NO_5H_FROM)
+    saved = (settings.PLAN_HISTORY, settings.ULTRA_NO_5H_FROM,
+             settings.PLAN_CAPACITY_OVERRIDE_PRO_USD)
     yield
-    settings.PLAN_HISTORY, settings.ULTRA_NO_5H_FROM = saved
+    (settings.PLAN_HISTORY, settings.ULTRA_NO_5H_FROM,
+     settings.PLAN_CAPACITY_OVERRIDE_PRO_USD) = saved
 
 
 def test_normalize_new_names():
@@ -158,3 +160,25 @@ def test_weekly_caps_and_cutoff_by_week_start():
     rec = _analysis(WINS, EVS, weeks=[("2026-11-02", mid), ("2026-10-05", mid)])
     assert _cycle(rec, "2026-11-01")["tier_weekly_hits"]["Max 20x"] == 1
     assert _cycle(rec, "2026-10-01")["tier_weekly_hits"]["Max 20x"] == 0
+
+
+def test_weekly_caps_exact_for_non_round_base():
+    settings.configure(ultra_no_5h_from="2026-10-30",
+                       plan_capacity_override_pro_usd=12.3456)
+    wk = _analysis(WINS, EVS)["calibration_weekly"]
+    new, old = wk["caps_per_week"], wk["caps_per_week_before_ultra"]
+    assert new["Pro"] == old["Pro"]
+    assert new["Max 5x"] == old["Max 5x"]
+    assert old["Max 5x"] == 432.11
+    assert abs(new["Max 20x"] - old["Max 20x"] / 2) <= 0.01
+
+
+def test_parse_ultra_cutoff(capsys):
+    assert settings.parse_ultra_cutoff() == "2026-10-30"
+    assert settings.parse_ultra_cutoff(settings.MISSING, default="x") == "x"
+    assert settings.parse_ultra_cutoff(None) is None
+    assert settings.parse_ultra_cutoff("2026-11-05") == "2026-11-05"
+    assert settings.parse_ultra_cutoff("2026-10-3") == "2026-10-03"
+    assert capsys.readouterr().out == ""
+    assert settings.parse_ultra_cutoff("garbage") == "2026-10-30"
+    assert "WARNING" in capsys.readouterr().out

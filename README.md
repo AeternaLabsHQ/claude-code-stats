@@ -40,9 +40,9 @@ Highlights:
 
 ### Experiment IDs
 
-Anthropic runs server-side experiments on part of its users. Claude Code writes the ID you were assigned into your session logs. The dashboard groups your replies by that ID and compares them with replies of the same model made without an experiment around the same time. You find it under **Insights & System > Experiments**, and the session table has an "Experiment" column that shows which ID a session ran under.
+Anthropic runs server-side experiments on part of its users. Claude Code writes the ID you were assigned into your session logs. The dashboard groups your replies by that ID and compares them with replies of the same model made without a recorded experiment ID around the same time. You find it under **Insights & System > Experiments**, and the session table has an "Experiment" column that shows which ID a session ran under.
 
-For each ID and model you get a card with four measures (replies with 2+ tool calls, median Bash command length, how often a reply starts with text before the tools, median output tokens per reply), cost per reply for context, and a verdict. "Behaviour changed" means at least two of the four measures moved by 40% or more with at least 200 replies on each side; otherwise you see "No clear effect" or "Too little data". The baseline is the same model without an experiment, within 14 days around the experiment's dates. The section always covers your full history and ignores the date filter.
+For each ID and model you get a card with four measures: replies with 2+ tool calls, median Bash command length, the text-first share (of the replies that use tools, how many start with text) and median output tokens per reply. Cost per reply is shown for context, and the card gives a verdict. "Behaviour changed" means at least two of the four measures moved by 40% or more with at least 200 replies on each side; otherwise you see "No clear effect" or "Too little data". A measure only counts when at least 30 events back it (for example 30 Bash commands on each side); with fewer, its change reads "too few events". The baseline is the same model without a recorded experiment ID, within 14 days around the experiment's dates. Medians are approximate (histogram-based, within about 10%). The section always covers your full history and ignores the date and project filters.
 
 Read it with these caveats in mind:
 
@@ -128,7 +128,7 @@ Read it with these caveats in mind:
 - Tools & Plugins: tool usage, installed plugins
 - Storage & Files: storage breakdown, file snapshots, todos
 - Workflows: plan-mode plans table, skills and hooks, git operations
-- Experiments: server-side experiment IDs from the session logs, timeline, current assignment and per-ID behaviour comparison against the same model without an experiment
+- Experiments: server-side experiment IDs from the session logs, timeline, current assignment and per-ID behaviour comparison against the same model without a recorded experiment ID
 
 #### Theming
 

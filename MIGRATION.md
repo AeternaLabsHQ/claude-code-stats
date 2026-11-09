@@ -1,3 +1,15 @@
+# Upgrading the Experiments comparison (after 1.4.2)
+
+Nothing is required of you. `python3 extract_stats.py` rescans your logs once (the new per-reply details are part of the scan cache key) and writes the new comparison cards. Verdicts can change, because the comparison is stricter and fairer than before:
+
+- **The baseline excludes SDK-driven runs.** Replies from entrypoints starting with `sdk` are no longer part of the "without ID" side. If most of your baseline was SDK work, the baseline now moves a lot and so can the verdict. The card shows how many SDK replies it left out.
+- **The baseline is matched to the effort level of the ID side.** Each row reweights the baseline to the ID side's mix of that row's own base (for example tool replies, Bash commands or prompts) over the effort levels both sides have; the per-session rows are not reweighted. Replies at an effort level the baseline lacks are listed as "not compared".
+- **Replies more than 7 days after the session start are dropped** on both sides, because the experiment ID is the value at session start.
+- **Significance is per session.** "Behaviour changed" needs at least 2 of the 4 behaviour measures with a change of 40% or more and p < 0.05, plus at least 200 replies and at least 5 sessions on each side. Cards with fewer than 5 sessions on a side now read "Too little data", and cards that read "Behaviour changed" before only because of many replies in few sessions can now read "No clear effect".
+- **New optional config key `experiments.correction_words`.** It sets the words that count a short prompt as a correction in the quality proxies. Without it the defaults apply; `[]` switches correction counting off. Changing it triggers one rescan.
+
+---
+
 # Migrating from 0.8.x to 1.0.0
 
 Nothing is required of you. `python3 extract_stats.py` runs against your existing `config.json` and produces the new dashboard. This document explains what changed, and how to get pieces of the old behavior back if you want them.

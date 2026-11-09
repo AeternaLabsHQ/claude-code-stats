@@ -32,7 +32,7 @@ Highlights:
 - **Session replay & table** - Interactive node-graph with timeline playback, plus a searchable, sortable session table with CSV / XLSX / Markdown / ZIP export
 - **Multi-attribute filtering** - Range sliders for tokens, cost, duration, tool calls, agent dispatches, errors; one-click presets and persistent state across reloads
 - **Limits & plan recommendation (beta)** - Detects rate-limit and server-overload events from transcripts, 5-hour window and weekly tracking, empirically calibrated plan suggestion (Pro / Max / Ultra; Ultra has no 5-hour limit since 2026-10-30)
-- **Experiment IDs** - Shows which server-side experiment Anthropic assigned you and whether Claude worked measurably differently under it, see [Experiment IDs](#experiment-ids)
+- **Experiment IDs** - Shows which server-side experiment Anthropic assigned you and whether Claude worked measurably differently under it, compared with your own interactive replies at the same effort level, with session-based confidence intervals and p-values, see [Experiment IDs](#experiment-ids)
 - **Per-tool token attribution** - Output tokens and cost broken out by tool per session, plus a separate reasoning bucket; live-recomputed donut on the dashboard
 - **Privacy** - F2 anonymization mode for screenshots, `--no-memories` flag to exclude project memory content
 - **Accessibility** - A colorblind chart palette (`"palette": "colorblind"`), validated for red-green color vision deficiency; every chart color is a CSS token, see [Palettes](#palettes)
@@ -41,15 +41,27 @@ Highlights:
 
 ### Experiment IDs
 
-Anthropic runs server-side experiments on part of its users. Claude Code writes the ID you were assigned into your session logs. The dashboard groups your replies by that ID and compares them with replies of the same model made without a recorded experiment ID around the same time. You find it under **Insights & System > Experiments**, and the session table has an "Experiment" column that shows which ID a session ran under.
+Anthropic runs server-side experiments on part of its users. Claude Code writes the ID you were assigned into your session logs. The dashboard groups your replies by that ID and compares them with your interactive replies (CLI, desktop app, VS Code; SDK runs excluded) of the same model without a recorded experiment ID around the same time, reweighted to the same effort mix. You find it under **Insights & System > Experiments**, and the session table has an "Experiment" column that shows which ID a session ran under.
 
-For each ID and model you get a card with four measures: replies with 2+ tool calls, median Bash command length, the text-first share (of the replies that use tools, how many start with text) and median output tokens per reply. Cost per reply is shown for context, and the card gives a verdict. "Behaviour changed" means at least two of the four measures moved by 40% or more with at least 200 replies on each side; otherwise you see "No clear effect" or "Too little data". A measure only counts when at least 30 events back it (for example 30 Bash commands on each side); with fewer, its change reads "too few events". The baseline is the same model without a recorded experiment ID, within 14 days around the experiment's dates. Medians are approximate (histogram-based, within about 10%). The section always covers your full history and ignores the date and project filters. To share a clean view, tick "Hide cards with too little data" above the cards; the dashboard remembers the setting in your browser.
+For each ID and model you get a card, and the card gives a verdict:
+
+- **What is compared.** Only interactive use counts on both sides: a person working in a terminal, a desktop app or an editor. SDK-driven runs are left out, because they behave very differently from interactive use and would mask the effect. The baseline is the same model without a recorded experiment ID, within 14 days around the experiment's dates. The card shows how many SDK replies it left out.
+- **Same effort level.** Claude Code records the effort level of a reply (low, medium, high, xhigh, max) in newer versions, and the effort level changes behaviour a lot. So each row reweights the baseline to the ID side's mix of that row's own base (for example tool replies or Bash commands) over the effort levels both sides have. Replies at an effort level the baseline lacks are not compared; the card says how many. The per-session rows are not reweighted.
+- **Four behaviour measures decide the verdict:** replies with 2+ tool calls, median Bash command length, the text-first share (of the replies that use tools, how many start with text) and median output tokens per reply. "Behaviour changed" means at least two of the four moved by 40% or more with p < 0.05, with at least 200 replies and at least 5 sessions on each side; otherwise you see "No clear effect" or "Too little data". A measure only counts when at least 30 events back it (for example 30 Bash commands on each side); with fewer, its change reads "too few events", and when fewer than 2 behaviour measures can be compared the verdict is "Too little data" as well.
+- **Confidence intervals and p-values count sessions, not replies.** Replies of one session are not independent of each other, so each row shows a 95% interval and a p-value that treat the session as the unit. Medians of single replies are histogram-based (within about 2%); per-session medians are exact.
+- **Replies late in a session are dropped.** A session carries the ID it started with, and experiments can change on the server while a session runs. Replies more than 7 days after the session start are therefore left out, and the card shows how many.
+- **More rows for context, not for the verdict.** Cost per reply, a "per session" group (median cost, replies, prompts, tool calls and active minutes, plus cost per prompt) and a "quality proxies" group (tool calls ending in an error, repeated identical tool calls, tool calls you rejected, prompts that interrupted a reply, prompts that look like corrections, edits of a file already edited). Corrections are short prompts that contain a word from `experiments.correction_words` (see [Configuration](#configuration)). These are hints, not a quality verdict. Cost per reply, cost per prompt and the quality proxies show a change only with at least 30 events in their base on each side (for example 30 tool calls) and, for a rate, at least 30 counted events on one side (for example 30 tool errors); otherwise the change reads "too few events".
+- **Thinking tokens per effort level.** A table below the cards shows the mean thinking tokens per reply for each ID and effort level, among replies that report thinking tokens (hover a cell for the median and the share of replies with any thinking). Cells with fewer than 20 such replies are left out.
+
+The section always covers your full history and ignores the date and project filters. To share a clean view, tick "Hide cards with too little data" above the cards; the dashboard remembers the setting in your browser. In the F2 screenshot mode the section shows only shortened IDs and no tooltips with the full ID.
 
 Read it with these caveats in mind:
 
 - The work you did differed between the periods, so a difference is a hint, not proof.
 - It measures how the model worked, not whether the results were better.
-- Thinking and effort are not recorded in the logs, so they cannot be compared.
+- Effort and thinking tokens are only recorded by newer Claude Code versions. Replies without an effort level form their own "unknown" group, and the thinking table only covers replies that report thinking tokens.
+- Per-session and per-prompt rows only count the card's model: replies of other models in the same session are left out, and each prompt counts toward the model that gave the first reply to it. A session that switched models is split between cards, so a model that rarely answered a prompt first can show few or no prompts per session.
+- Baseline sessions only count their replies inside the baseline window: a session that runs across the edge of the window enters the per-session rows with the part inside it.
 - "Current assignment" comes from this machine's `~/.claude.json` only.
 - Older Claude Code versions and API-key setups may not write experiment IDs; the section then shows an empty state.
 
@@ -129,7 +141,7 @@ Read it with these caveats in mind:
 - Tools & Plugins: tool usage, installed plugins
 - Storage & Files: storage breakdown, file snapshots, todos
 - Workflows: plan-mode plans table, skills and hooks, git operations
-- Experiments: server-side experiment IDs from the session logs, timeline, current assignment and per-ID behaviour comparison against the same model without a recorded experiment ID
+- Experiments: server-side experiment IDs from the session logs, timeline, current assignment, per-ID comparison against interactive replies of the same model without a recorded ID at the same effort mix (behaviour, per-session and quality-proxy rows with 95% intervals and p-values), and a thinking-tokens-per-effort table
 
 #### Theming
 
@@ -190,6 +202,7 @@ See [`config.example.json`](config.example.json) for all options:
 | `plan_history`       | `array`  | `[]`        | Your subscription plan history                                               |
 | `plan_capacity_override_pro_usd` | `number` | `null` | Manual per-window USD capacity of the Pro tier for the plan recommendation; overrides the empirical calibration (Max / Ultra scale ×5 / ×20) |
 | `ultra_no_5h_limit_from` | `string\|null` | `"2026-10-30"` | From this date the Ultra plan (formerly Max 20x) has no 5-hour limit in the plan recommendation; set `null` if your Ultra account is not verified yet and still has a 5-hour limit |
+| `experiments.correction_words` | `array` | 12 English and German words | Words that mark a short prompt (up to 160 characters) as a correction in the Experiments quality proxies, matched case-insensitively on word boundaries (curly apostrophes count as straight ones). An empty list `[]` disables correction counting; changing the list rescans your logs once |
 | `migration.enabled`  | `bool`   | `false`     | Enable data from a migration backup                                          |
 | `migration.label`    | `string` | `""`        | Label for migrated sessions (e.g. `"archive:laptop"`)                        |
 | `migration.dir`      | `string` | `null`      | Path to migration backup directory                                           |

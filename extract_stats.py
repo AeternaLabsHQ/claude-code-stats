@@ -299,6 +299,28 @@ import claudestats_core.settings as _core_settings
 # invalid value falls back to the default.
 ULTRA_NO_5H_FROM = _core_settings.parse_ultra_cutoff(
     CONFIG.get("ultra_no_5h_limit_from", _core_settings.MISSING))
+
+
+def parse_correction_words(raw=_core_settings.MISSING):
+    """Resolve config experiments.correction_words: words that mark a short
+    prompt as a correction. MISSING (key absent) -> defaults; a list of
+    non-blank strings -> that list; anything else prints a WARNING and
+    falls back to the defaults."""
+    from claudestats_core.experiments import DEFAULT_CORRECTION_WORDS
+    if raw is _core_settings.MISSING:
+        return list(DEFAULT_CORRECTION_WORDS)
+    if (not isinstance(raw, list)
+            or not all(isinstance(w, str) and w.strip() for w in raw)):
+        print(f"  WARNING: invalid experiments.correction_words {raw!r} "
+              f"(expected a list of non-empty strings); using defaults")
+        return list(DEFAULT_CORRECTION_WORDS)
+    return [w.strip() for w in raw]
+
+
+_exp_cfg = CONFIG.get("experiments")
+EXP_CORRECTION_WORDS = parse_correction_words(
+    _exp_cfg.get("correction_words", _core_settings.MISSING)
+    if isinstance(_exp_cfg, dict) else _core_settings.MISSING)
 _core_settings.configure(
     week_anchor=WEEK_ANCHOR,
     plan_history=PLAN_HISTORY,
@@ -308,6 +330,7 @@ _core_settings.configure(
     source_label=SOURCE_LABEL,
     locale=LOCALE,
     display_name=CONFIG.get("display_name"),
+    exp_correction_words=EXP_CORRECTION_WORDS,
 )
 
 

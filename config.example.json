@@ -30,6 +30,13 @@
   ],
   "plan_capacity_override_pro_usd": null,
   "ultra_no_5h_limit_from": "2026-10-30",
+  "experiments": {
+    "correction_words": [
+      "nein", "no", "falsch", "wrong", "nochmal", "again", "revert",
+      "rückgängig", "undo", "stimmt nicht", "funktioniert nicht",
+      "doesn't work"
+    ]
+  },
   "migration": {
     "enabled": false,
     "label": "",

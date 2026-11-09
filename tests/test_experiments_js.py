@@ -593,10 +593,37 @@ class ExperimentsHtmlTest(unittest.TestCase):
         self.assertIn(self.L["caveats_title"], h)
         items = self.L["caveats"]
         self.assertIsInstance(items, list)
-        self.assertEqual(len(items), 8)
+        self.assertEqual(len(items), 10)
+
+        def shown(c):   # as escHtml writes it
+            return c.replace("{late}", "7").replace("'", "&#39;")
         for c in items:
-            self.assertIn(c.replace("{late}", "7"), h)
-        self.assertEqual(h.count("<li>"), 8)
+            self.assertIn(shown(c), h)
+        self.assertEqual(h.count("<li>"), 10)
+        # The English fallback carries the same list.
+        nl = self.out["no_locale"]
+        for c in items:
+            self.assertIn(shown(c), nl)
+        self.assertEqual(len(load_locale("de")["experiments"]["caveats"]), 10)
+
+    def test_caveats_name_model_scope_and_window_cut(self):
+        blob = " ".join(self.L["caveats"])
+        self.assertIn("each prompt counts toward the model", blob)
+        self.assertIn("inside the baseline window", blob)
+        de = " ".join(load_locale("de")["experiments"]["caveats"])
+        self.assertIn("jeder Prompt zählt für das Modell", de)
+        self.assertIn("innerhalb des Baseline-Zeitraums", de)
+
+    def test_method_names_event_floor_for_context_rows(self):
+        for name in ("changed", "no_locale"):
+            h = self.out[name]
+            method = h[h.index('class="exp-method"'):]
+            method = method[:method.index("</p>")]
+            self.assertIn("the quality proxies show a change only with at "
+                          "least 30 events", method, name)
+        self.assertIn("Qualitäts-Indikatoren zeigen eine Änderung nur mit "
+                      "mindestens {support} Ereignissen",
+                      load_locale("de")["experiments"]["method"])
 
     def test_table_wrapped_for_scroll(self):
         h = self.out["changed"]

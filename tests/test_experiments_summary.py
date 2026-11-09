@@ -681,12 +681,13 @@ class EntrypointAndEffortTest(unittest.TestCase):
         self.assertEqual(r["base"], 0.45)
         self.assertEqual(r["change"], 0.0)
 
-    def test_id_side_is_pooled_over_kept_strata(self):
+    def test_id_side_uses_the_row_weights(self):
         # Effort-pure ID sessions with very different rates per level. The
-        # ID side's own denominator shares are its weights, so its estimate
-        # is the pooled one; its standard error must be the pooled one too
-        # (the weights are estimated from the same sessions), while the
-        # baseline keeps the weighted error.
+        # ID side's own denominator shares are the row weights, so its
+        # estimate equals the pooled one. Both sides are standardized to the
+        # same realized weights, so the effort mix cancels in the contrast:
+        # the ID side's error is the weighted one (weights held fixed),
+        # not the pooled one, which would count the mix a second time.
         from claudestats_core.expstats import (compare, median_stat,
                                                ratio_stat)
         ids, base, sess = [], [], {}
@@ -709,27 +710,60 @@ class EntrypointAndEffortTest(unittest.TestCase):
         c = card(build_experiment_summary(sess, {}))
         w = {"high": 0.5, "medium": 0.5}  # ID replies 180 / 180
 
+        pooled = ratio_stat([{e: (b["multi_tool"], b["replies"])}
+                             for e, b in ids])
         a = ratio_stat([{e: (b["multi_tool"], b["replies"])}
-                        for e, b in ids])
+                        for e, b in ids], w)
         bb = ratio_stat([{e: (b["multi_tool"], b["replies"])
                           for e, b in u.items()} for u in base], w)
+        self.assertAlmostEqual(a["est"], pooled["est"], 12)
+        self.assertLess(a["se"], pooled["se"])
         r = row(c, "multi_tool_share")
-        self.assertAlmostEqual(r["value"], round(a["est"], 4), 9)
-        aw = ratio_stat([{e: (b["multi_tool"], b["replies"])}
-                         for e, b in ids], w)
-        self.assertAlmostEqual(aw["est"], a["est"], 12)   # value unchanged
-        self.assertNotAlmostEqual(aw["se"], a["se"], 4)
-        self.assertEqual(r["p"], float(f"{compare(a, bb, 'ratio')['p']:.3g}"))
+        self.assertAlmostEqual(r["value"], round(pooled["est"], 4), 9)
+        cr = compare(a, bb, "ratio")
+        self.assertNotEqual(float(f"{cr['p']:.3g}"),
+                            float(f"{compare(pooled, bb, 'ratio')['p']:.3g}"))
+        self.assertEqual(r["p"], float(f"{cr['p']:.3g}"))
+        self.assertEqual((r["lo"], r["hi"]),
+                         (round(cr["lo"], 4), round(cr["hi"], 4)))
 
         steps = experiments.HIST_STEPS
-        a = median_stat([{e: b["out_hist"]} for e, b in ids], steps=steps)
+        pooled = median_stat([{e: b["out_hist"]} for e, b in ids],
+                             steps=steps)
+        a = median_stat([{e: b["out_hist"]} for e, b in ids], w, steps=steps)
         bb = median_stat([{e: b["out_hist"] for e, b in u.items()}
                           for u in base], w, steps=steps)
         r = row(c, "median_output_tokens")
-        self.assertAlmostEqual(r["value"], round(a["est"], 1), 9)
+        self.assertAlmostEqual(r["value"], round(pooled["est"], 1), 9)
         cm = compare(a, bb, "median")
         self.assertEqual(r["p"], float(f"{cm['p']:.3g}"))
-        self.assertEqual(r["lo"], round(cm["lo"], 4))
+        self.assertEqual((r["lo"], r["hi"]),
+                         (round(cm["lo"], 4), round(cm["hi"], 4)))
+
+    def test_standardized_row_holds_its_size_under_the_null(self):
+        # Effort-pure sessions, rates 0.5 (high) and 0.05 (medium) on both
+        # sides, ID mix 50/50, baseline mix 30/70: no effect. At alpha 0.05
+        # the row must reject about 5% of the time (a pooled ID-side error
+        # double-counts the effort mix and almost never rejects).
+        import random
+        rng = random.Random(20261109)
+        rates = {"high": 0.5, "medium": 0.05}
+        m = next(x for x in METRICS if x["key"] == "multi_tool_share")
+
+        def side(n, p_high):
+            units = []
+            for _ in range(n):
+                e = "high" if rng.random() < p_high else "medium"
+                k = sum(rng.random() < rates[e] for _ in range(10))
+                units.append({e: {"replies": 10, "multi_tool": k}})
+            return {"all": units, "totals": []}
+
+        reps, hits = 300, 0
+        for _ in range(reps):
+            r = experiments._metric_row(m, side(40, 0.5), side(80, 0.3))
+            hits += r["p"] is not None and r["p"] < 0.05
+        self.assertGreaterEqual(hits / reps, 0.01)
+        self.assertLessEqual(hits / reps, 0.12)
 
     def test_identical_bins_are_not_shared_data(self):
         self.assertEqual(hist_bin(300), hist_bin(303))

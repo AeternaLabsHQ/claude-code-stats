@@ -15,7 +15,7 @@ The Experiments comparison is stricter and fairer: it compares like with like (i
 
 ### Added
 - **"Per session" rows** on the comparison card: median cost, replies, prompts, tool calls and active minutes per session, plus cost per prompt.
-- **"Quality proxies" rows:** tool calls ending in an error, repeated identical tool calls, tool calls you rejected, prompts that interrupted a reply, prompts that look like corrections, and edits of a file already edited. They are hints, not a quality verdict, and do not enter the verdict. Like cost per reply and cost per prompt, they show a change only with at least 30 events behind them, otherwise "too few events".
+- **"Quality proxies" rows:** tool calls ending in an error, repeated identical tool calls, tool calls you rejected, prompts that interrupted a reply, prompts that look like corrections, and edits of a file already edited. They are hints, not a quality verdict, and do not enter the verdict. Like cost per reply and cost per prompt, they show a change only with a base of at least 30 on each side (for example 30 tool calls) and, for a rate, at least 30 counted events on one side (for example 30 tool errors); otherwise the change reads "too few events".
 - **`experiments.correction_words` in `config.json`** sets the words that mark a short prompt as a correction (default: a short list of English and German words, an empty list switches correction counting off).
 - **Thinking tokens per effort level** as a table under the cards, per ID and model.
 - **Caveats and the verdict rule on the card.** Every card prints its rule, the entrypoints and effort mix of both sides, and the caveats of the method.

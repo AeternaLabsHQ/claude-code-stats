@@ -22,14 +22,18 @@ def _unit_totals(unit: dict, strata):
     return y, x
 
 
-def ratio_stat(units: list, weights: dict | None = None) -> dict:
+def ratio_stat(units: list, weights: dict | None = None,
+               centre: float | None = None) -> dict:
     """Ratio estimate sum(y)/sum(x) with a cluster-robust standard error.
 
     units: one dict per session, {stratum: (y, x)}.
     weights: optional {stratum: w} (summing to 1) for direct standardization,
     est = sum_e w_e * Y_e / X_e.
     n_units counts sessions with any x > 0. se is None below 2 such units;
-    est is None when there is no x (or a weighted stratum has none).
+    est is None when there is no x (or a weighted stratum has none), or when
+    weights are given but none is non-zero.
+    centre: centre the influence values at this ratio instead of the
+    estimate itself (median_stat uses 0.5, the null value of F(median)).
     """
     total_x = sum(xy[1] for u in units for xy in u.values())
     c = sum(1 for u in units if any(xy[1] > 0 for xy in u.values()))
@@ -43,12 +47,15 @@ def ratio_stat(units: list, weights: dict | None = None) -> dict:
             return out
         est = big_y / big_x
         out["est"] = est
+        mid = est if centre is None else centre
         zs = []
         for u in units:
             y, x = _unit_totals(u, strata)
-            zs.append((y - est * x) / big_x)
+            zs.append((y - mid * x) / big_x)
     else:
         used = {s: w for s, w in weights.items() if w}
+        if not used:
+            return out
         sums = {}
         for s in used:
             sy = sum(u[s][0] for u in units if s in u)
@@ -64,7 +71,8 @@ def ratio_stat(units: list, weights: dict | None = None) -> dict:
             for s, w in used.items():
                 if s in u:
                     _, sx, r = sums[s]
-                    z += w * (u[s][0] - r * u[s][1]) / sx
+                    mid = r if centre is None else centre
+                    z += w * (u[s][0] - mid * u[s][1]) / sx
             zs.append(z)
 
     if c >= 2:
@@ -86,8 +94,9 @@ def median_stat(units: list, weights: dict | None = None,
     units: one dict per session, {stratum: {bin: count}}. steps must match the
     histogram's bins-per-doubling. The CDF is pooled over all counts, or
     standardized with weights. The CI inverts the CDF at 0.5 -/+ Z95*se, where
-    se is the cluster-robust error of F(median bin), so it is never narrower
-    than one bin. lo/hi are None when se is None.
+    se is the cluster-robust error of F(median bin) with influence values
+    centred at 0.5 (not at F-hat, which is >= 0.5 and can be 1.0 in the top
+    occupied bin, collapsing the CI), so it is never narrower than one bin. lo/hi are None when se is None.
     """
     n_total = 0
     mass = {}  # bin -> share of the (standardized) distribution
@@ -148,7 +157,7 @@ def median_stat(units: list, weights: dict | None = None,
                         y += n
             cu[s] = (y, x)
         cluster_units.append(cu)
-    r = ratio_stat(cluster_units, weights)
+    r = ratio_stat(cluster_units, weights, centre=0.5)
 
     out = {"est": est, "lo": None, "hi": None,
            "n_units": r["n_units"], "n": n_total}

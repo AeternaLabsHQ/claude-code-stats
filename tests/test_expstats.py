@@ -45,6 +45,20 @@ class RatioStatTests(unittest.TestCase):
         self.assertIsNone(r["se"])
         self.assertEqual(r["n_units"], 0)
 
+    def test_empty_or_zero_weights_give_no_estimate(self):
+        for w in ({}, {"a": 0}, {"a": 0.0, "b": 0}):
+            r = ratio_stat([{"a": (1, 10)}, {"a": (3, 10)}], w)
+            self.assertIsNone(r["est"])
+            self.assertIsNone(r["se"])
+
+    def test_centre_overrides_linearisation_point(self):
+        units = [{"a": (10, 10)}, {"a": (10, 10)}]
+        self.assertEqual(ratio_stat(units)["se"], 0.0)
+        r = ratio_stat(units, centre=0.5)
+        self.assertEqual(r["est"], 1.0)
+        # z = (10 - 5)/20 = 0.25 each, Σz² = 0.125, factor 2
+        self.assertAlmostEqual(r["se"], 0.5, places=6)
+
     def test_units_without_x_do_not_count(self):
         r = ratio_stat([{"a": (1, 10)}, {"a": (0, 0)}, {"a": (3, 10)}])
         self.assertEqual(r["n_units"], 2)
@@ -73,6 +87,25 @@ class MedianStatTests(unittest.TestCase):
         self.assertIsNotNone(b["lo"])
         if a["lo"] is not None:
             self.assertGreater(a["hi"] / a["lo"], b["hi"] / b["lo"])
+
+    def test_ci_spans_both_bins_when_cdf_straddles_half(self):
+        low, high = bin_of(10), bin_of(1000)
+        # 13 all-low and 12 all-high sessions: F(low) = 0.52, median in low.
+        units = ([{"a": {low: 50}} for _ in range(13)]
+                 + [{"a": {high: 50}} for _ in range(12)])
+        r = median_stat(units, steps=STEPS)
+        self.assertLess(r["est"], 20)
+        self.assertGreater(r["hi"], 900)
+        self.assertLess(r["lo"], 10)
+
+    def test_median_in_top_bin_does_not_collapse_ci(self):
+        low, high = bin_of(10), bin_of(1000)
+        # F(low) = 0.48 so the median is the top occupied bin (F = 1.0).
+        units = ([{"a": {low: 50}} for _ in range(12)]
+                 + [{"a": {high: 50}} for _ in range(13)])
+        r = median_stat(units, steps=STEPS)
+        self.assertGreater(r["est"], 500)
+        self.assertGreater(r["hi"] / r["lo"], 50)  # reaches down into low bin
 
     def test_single_unit_has_no_ci(self):
         r = median_stat([{"a": {bin_of(300): 10}}], steps=STEPS)

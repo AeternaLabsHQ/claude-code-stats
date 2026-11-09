@@ -13,6 +13,7 @@ from .attribution import (WRITE_CATEGORIES, attribute_turn_tokens,
 from .classify import (_classify_api_error, _classify_tool_error,
                        _classify_user_entry, _is_user_plan_limit_text,
                        _merge_streamed_assistant_entries, _route_tool_error)
+from .experiments import add_reply, new_bucket, normalize_atis
 from .pricing import calc_cost_by_type
 
 
@@ -361,8 +362,16 @@ def absorb_file(sessions, meta, parsed_objs):
     # usage) into one entry per response before any accounting,
     # so tokens/cost/calls/message counts are not multiplied by
     # the block count. See _merge_streamed_assistant_entries.
+    # Experiment ID in force. Claude Code writes atis-latch lines through a
+    # transcript; a reply belongs to the latest value before it.
+    cur_atis = ""
+
     for obj in _merge_streamed_assistant_entries(parsed_objs):
             msg_type = obj.get("type")
+            if msg_type == "atis-latch":
+                # Bookkeeping line: no timestamp, never a message or session.
+                cur_atis = normalize_atis(obj.get("atis"))
+                continue
             # For subagent files, use the file stem as session_id
             # (the sessionId field points to the parent)
             session_id = file_session_id if is_subagent else obj.get("sessionId", file_session_id)
@@ -673,6 +682,15 @@ def absorb_file(sessions, meta, parsed_objs):
                         elif isinstance(timestamp, (int, float)):
                             turn_ts_ms = int(timestamp)
                     turn_output = usage.get("output_tokens", 0)
+                    if (not is_subagent and turn_ts_ms is not None
+                            and model != "<synthetic>"):
+                        add_reply(
+                            sess.setdefault("experiments", {})
+                                .setdefault(f"{model}|{cur_atis}", {})
+                                .setdefault(_day_from_ms(turn_ts_ms),
+                                            new_bucket()),
+                            message.get("content", []), turn_output,
+                            turn_cost)
                     if turn_ts_ms is not None:
                         sess["_assistant_turns"].append({
                             "ts": turn_ts_ms,

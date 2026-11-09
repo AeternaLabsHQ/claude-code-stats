@@ -4,6 +4,13 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- **Fable 5.2 and Mythos 5.2** in the pricing table: $8 / $40, cache reads $0.20 / MTok, cache writes $10 (5m) and $16 (1h).
+- **Mythos 5.1 and Mythos 5** in the pricing table, at the same rates as Fable 5.1 and Fable 5. Mythos models have limited availability. Until now they fell through to the default estimate ($3 / $15). In the charts they show in the neutral colour for now, as Mythos has no colour family of its own yet.
+
+### Fixed
+- **Sonnet 5.5 cache reads cost $0.10 / MTok, not $0.20.** Like Opus 5.5, Sonnet 5.5 bills cache hits at 0.05x the base input price. Costs for Sonnet 5.5 sessions with a lot of cache reads go down accordingly.
+
 ## [1.4.2] - 2026-11-09
 
 A switch for cleaner experiment screenshots, and an up-to-date README.

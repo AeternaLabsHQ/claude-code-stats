@@ -10,10 +10,11 @@ PRICING = {
         "cache_read": 0.20, "cache_write_5m": 5.00, "cache_write_1h": 8.00,
         "display": "Opus 5.5"
     },
-    # Sonnet 5.5: same rates as Sonnet 5, standard 0.1x cache reads.
+    # Sonnet 5.5: same base rates as Sonnet 5, but like Opus 5.5 its cache
+    # reads are 0.05x base input instead of the usual 0.1x.
     "claude-sonnet-5-5": {
         "input": 2.00, "output": 10.00,
-        "cache_read": 0.20, "cache_write_5m": 2.50, "cache_write_1h": 4.00,
+        "cache_read": 0.10, "cache_write_5m": 2.50, "cache_write_1h": 4.00,
         "display": "Sonnet 5.5"
     },
     # Haiku 5.5: first model with prompt-length tiers. A request whose prompt
@@ -28,6 +29,29 @@ PRICING = {
             "cache_read": 0.05, "cache_write_5m": 0.625, "cache_write_1h": 1.00,
         },
         "display": "Haiku 5.5"
+    },
+    # Fable 5.2 / Mythos 5.2: cheaper than 5.1 across the board, cache reads
+    # stay at 0.025x base input. Mythos has limited availability and the same
+    # rates as the Fable model of the same version.
+    "claude-fable-5-2": {
+        "input": 8.00, "output": 40.00,
+        "cache_read": 0.20, "cache_write_5m": 10.00, "cache_write_1h": 16.00,
+        "display": "Fable 5.2"
+    },
+    "claude-mythos-5-2": {
+        "input": 8.00, "output": 40.00,
+        "cache_read": 0.20, "cache_write_5m": 10.00, "cache_write_1h": 16.00,
+        "display": "Mythos 5.2"
+    },
+    "claude-mythos-5-1": {
+        "input": 10.00, "output": 50.00,
+        "cache_read": 0.25, "cache_write_5m": 12.50, "cache_write_1h": 20.00,
+        "display": "Mythos 5.1"
+    },
+    "claude-mythos-5": {
+        "input": 10.00, "output": 50.00,
+        "cache_read": 1.00, "cache_write_5m": 12.50, "cache_write_1h": 20.00,
+        "display": "Mythos 5"
     },
     # Fable 5.1 (flagship tier, above Opus). Same base rates as Fable 5, but
     # cache reads are 0.025x base input instead of the usual 0.1x.

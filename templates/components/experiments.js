@@ -272,8 +272,9 @@
     const label = T['m_' + r.key] || r.key;
     const behaviour = r.group === 'behaviour';
     // A behaviour row that cannot be judged (too few events, zero
-    // baseline) keeps its values but withholds change, CI and p.
-    const na = behaviour && !r.comparable;
+    // baseline), or any other row with too few events (supported false),
+    // keeps its values but withholds change, CI and p.
+    const na = (behaviour && !r.comparable) || r.supported === false;
     const hasChg = r.change != null && isFinite(r.change);
     const sig = behaviour && !na && cx.judged && hasChg
       && Math.abs(r.change) >= cx.rel && r.p != null && r.p < cx.alpha;
@@ -429,7 +430,9 @@
     const vals = {
       n: String(th.min_changed_metrics != null ? th.min_changed_metrics : 2),
       pct: String(Math.round(rel * 100)),
-      alpha: String(alpha),
+      // Locale decimal separator ("p < 0,05" in German), as many digits
+      // as the threshold has.
+      alpha: num(alpha, Math.min(6, (String(alpha).split('.')[1] || '').length)),
       min: num(th.min_replies != null ? th.min_replies : 200, 0),
       sessions: num(th.min_sessions != null ? th.min_sessions : 5, 0),
       days: String(th.late_cutoff_days != null ? th.late_cutoff_days : 7),

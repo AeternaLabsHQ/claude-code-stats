@@ -171,7 +171,8 @@ class EmptyAndShapeTest(unittest.TestCase):
         for r in c["rows"]:
             self.assertEqual(set(r), {"key", "group", "kind", "base",
                                       "value", "change", "lo", "hi", "p",
-                                      "n", "base_n", "comparable"})
+                                      "n", "base_n", "supported",
+                                      "comparable"})
 
 
 class RowsTest(unittest.TestCase):
@@ -410,6 +411,64 @@ class SupportFloorTest(unittest.TestCase):
         self.assertAlmostEqual(row(c, "multi_tool_share")["value"], 0.02, 4)
         self.assertIsNotNone(row(c, "median_bash_chars")["value"])
         self.assertEqual(c["verdict"], "no_effect")
+
+    def test_context_and_quality_rows_need_events(self):
+        # Rate rows need MIN_SUPPORT events in the larger numerator and in
+        # the smaller denominator; cost rows only in the denominator.
+        # Withheld rows keep their values but no change, CI or p.
+        def qb(n, errors, calls, prompts, interrupts):
+            b = bucket(n, 0.2, 0.2)
+            b["tool_calls"], b["tool_errors"] = calls, errors
+            b["prompts"], b["interrupts"] = prompts, interrupts
+            return b
+        base = [qb(40, i % 2, 40, 10, 1 + i % 2) for i in range(6)]
+        ids = [qb(40, 2 + i % 2, 40, 4 + i % 2, 3) for i in range(6)]
+        c = card(build_experiment_summary(corpus(ids, base), {}))
+        err = row(c, "tool_error_rate")      # 3 vs 15 errors: too few
+        self.assertEqual((err["n"], err["base_n"]), (240, 240))
+        self.assertFalse(err["supported"])
+        self.assertAlmostEqual(err["base"], 0.0125, 4)
+        self.assertAlmostEqual(err["value"], 0.0625, 4)
+        for k in ("change", "lo", "hi", "p"):
+            self.assertIsNone(err[k], k)
+        intr = row(c, "interrupt_rate")      # 9 vs 18 interrupts: too few
+        self.assertFalse(intr["supported"])
+        self.assertIsNone(intr["p"])
+        cpp = row(c, "cost_per_prompt")      # 27 prompts on the ID side
+        self.assertEqual((cpp["n"], cpp["base_n"]), (27, 60))
+        self.assertFalse(cpp["supported"])
+        self.assertIsNone(cpp["change"])
+        self.assertIsNotNone(cpp["value"])
+        cpr = row(c, "cost_per_reply")       # 240 replies each: enough
+        self.assertTrue(cpr["supported"])
+        self.assertIsNotNone(cpr["change"])
+        self.assertFalse(cpr["comparable"])
+        # Per-session medians have no event floor.
+        self.assertTrue(row(c, "session_replies")["supported"])
+
+    def test_rate_row_with_enough_events_keeps_change(self):
+        def qb(n, errors, prompts):
+            b = bucket(n, 0.2, 0.2)
+            b["tool_calls"], b["tool_errors"] = n, errors
+            b["prompts"] = prompts
+            return b
+        base = [qb(40, 1 + i % 2, 6) for i in range(6)]
+        ids = [qb(40, 5 + i % 2, 5) for i in range(6)]
+        c = card(build_experiment_summary(corpus(ids, base), {}))
+        err = row(c, "tool_error_rate")      # 33 vs 9 errors, 240 calls
+        self.assertTrue(err["supported"])
+        self.assertIsNotNone(err["change"])
+        self.assertIsNotNone(err["p"])
+        cpp = row(c, "cost_per_prompt")      # 30 vs 36 prompts
+        self.assertTrue(cpp["supported"])
+        self.assertIsNotNone(cpp["p"])
+
+    def test_behaviour_rows_report_support(self):
+        c = card(build_experiment_summary(self.sparse_corpus(), {}))
+        self.assertFalse(row(c, "median_bash_chars")["supported"])
+        self.assertTrue(row(c, "median_output_tokens")["supported"])
+        # Behaviour rows keep change and p; the UI hides them.
+        self.assertIsNotNone(row(c, "median_bash_chars")["change"])
 
     def test_insufficient_when_too_few_metrics_can_be_judged(self):
         # Mostly text-only replies: only the output-token median can be

@@ -273,6 +273,16 @@ def _supported(k: str, s: dict, bs: dict) -> bool:
     return True  # median_output_tokens: the MIN_REPLIES gate is enough
 
 
+def _enough_events(kind: str, a: dict, b: dict) -> bool:
+    """Whether a context, quality or cost-per-prompt row (ratio_stat
+    results a and b) has events enough for its change to mean anything:
+    MIN_SUPPORT in the smaller denominator and, for rates, in the larger
+    numerator (a cost total is not a count of events)."""
+    if min(a["x"], b["x"]) < MIN_SUPPORT:
+        return False
+    return kind == "usd" or max(a["y"], b["y"]) >= MIN_SUPPORT
+
+
 def _merged(buckets: list) -> dict:
     """One bucket for a list of buckets; a single one is returned as is
     (callers only read it), several are merged into a fresh bucket."""
@@ -369,22 +379,31 @@ def _metric_row(m: dict, id_side: dict, base_side: dict) -> dict:
         a = median_stat(_hist_units(id_r, field), steps=HIST_STEPS)
         b = median_stat(_hist_units(base_r, field), w, steps=HIST_STEPS)
         cmp, n, base_n = compare(a, b, "median"), a["n"], b["n"]
+    if m["group"] == "behaviour":
+        supported = _supported(m["key"], _support_totals(id_r),
+                               _support_totals(base_r))
+    elif stat[0] == "ratio":
+        # Context, quality and cost-per-prompt rows: with too few events
+        # a change, CI and p would be noise, so only the values are shown.
+        supported = _enough_events(m["kind"], a, b)
+        if not supported:
+            cmp = {"change": None, "lo": None, "hi": None, "p": None}
+    else:
+        supported = True  # per-session medians: one value per session
     nd = _DECIMALS[m["kind"]]
     row = {"key": m["key"], "group": m["group"], "kind": m["kind"],
            "base": _round(b["est"], nd), "value": _round(a["est"], nd),
            "change": _round(cmp["change"], 4), "lo": _round(cmp["lo"], 4),
            "hi": _round(cmp["hi"], 4), "p": _round_p(cmp["p"]),
-           "n": n, "base_n": base_n, "comparable": False}
+           "n": n, "base_n": base_n, "supported": supported,
+           "comparable": False}
     if m["group"] == "behaviour":
         # Judged only with enough events in the strata the row kept, and
         # a non-zero baseline (a move away from zero has no relative
         # change).
         row["comparable"] = (row["value"] is not None
                              and row["base"] is not None
-                             and row["base"] > 0
-                             and _supported(m["key"],
-                                            _support_totals(id_r),
-                                            _support_totals(base_r)))
+                             and row["base"] > 0 and supported)
     return row
 
 

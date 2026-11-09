@@ -33,6 +33,7 @@ eval(fs.readFileSync(process.argv[2], 'utf8'));
 const cases = JSON.parse(fs.readFileSync(0, 'utf8'));
 const out = {};
 for (const [name, c] of Object.entries(cases)) {
+  window.__LOCALE__.locale_code = c.locale_code || 'en-US';
   const opts = c.anon ? { anon: true, anonSource: n => 'Source ' + (n.length) } : undefined;
   out[name] = window.VCExperiments.html(c.exp, c.L, opts);
 }
@@ -182,6 +183,16 @@ class ExperimentsHtmlTest(unittest.TestCase):
         # raised above the 20-reply card cutoff).
         mixed = summary("changed")
         mixed["ids"][0]["models"][1]["replies"] = 50
+        # A quality row and cost per prompt withheld for too few events
+        # (backend nulls change, CI and p and sets supported false); a
+        # zero-baseline quality row keeps its plain dash.
+        floor = summary("changed")
+        for r in floor["ids"][0]["models"][0]["rows"]:
+            if r["key"] in ("tool_error_rate", "cost_per_prompt"):
+                r.update(change=None, lo=None, hi=None, p=None,
+                         supported=False)
+            elif r["key"] == "rejected_rate":
+                r.update(base=0.0, change=None, supported=True)
         cases = {
             "null": {"exp": None, "L": cls.L},
             "nodata": {"exp": {"has_data": False, "ids": [], "current": []},
@@ -207,6 +218,11 @@ class ExperimentsHtmlTest(unittest.TestCase):
             "null_change_no_locale": {"exp": summary(text_change=None),
                                       "L": {}},
             "mixed": {"exp": mixed, "L": cls.L},
+            "floor": {"exp": floor, "L": cls.L},
+            "floor_no_locale": {"exp": floor, "L": {}},
+            "de": {"exp": summary("changed"),
+                   "L": load_locale("de").get("experiments", {}),
+                   "locale_code": "de-DE"},
         }
         res = subprocess.run(
             ["node", "-e", NODE_HARNESS, str(COMPONENTS / "shared_helpers.js"),
@@ -314,6 +330,34 @@ class ExperimentsHtmlTest(unittest.TestCase):
         self.assertIn("20.0%", h)
         self.assertIn("too few events",
                       self.out["null_change_no_locale"])
+
+    def test_floor_rows_show_too_few_events(self):
+        for name in ("floor", "floor_no_locale"):
+            h = self.out[name]
+            card = h[h.index("<article"):h.index("</article>")]
+            self.assertEqual(card.count("exp-chg na"), 2, name)
+            for label in ("Tool calls ending in an error", "Cost per prompt"):
+                tr = card[card.rindex("<tr", 0, card.index(label)):]
+                tr = tr[:tr.index("</tr>")]
+                self.assertIn("too few events", tr, name)
+                self.assertEqual(tr.count(">-<"), 2, name)  # CI and p
+            # Values stay visible.
+            tr = card[card.index("Tool calls ending in an error"):]
+            tr = tr[:tr.index("</tr>")]
+            self.assertIn("2.00%", tr)
+            self.assertIn("5.00%", tr)
+            # A zero-baseline row is not "too few events".
+            tr = card[card.index("Tool calls rejected by the user"):]
+            tr = tr[:tr.index("</tr>")]
+            self.assertNotIn("exp-chg na", tr)
+
+    def test_rule_alpha_localized(self):
+        h = self.out["de"]
+        foot = h[h.index('class="exp-rule"'):]
+        foot = foot[:foot.index("</p>")]
+        self.assertIn("p &lt; 0,05", foot)
+        self.assertNotIn("0.05", foot)
+        self.assertIn("p &lt; 0.05", self.out["changed"])
 
     def test_cost_row_keeps_dash(self):
         h = self.out["null_change"]

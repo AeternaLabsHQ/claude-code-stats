@@ -21,7 +21,7 @@ function grab(name) {
   const end = src.indexOf('\n}\n', start);
   return src.slice(start, end + 3);
 }
-const helpers = grab('tierLabel');
+const helpers = src.match(/function tierLabel\([^\n]*\n/)[0];
 const tierMap = src.match(/const TIER_LABEL = [^\n]*\n/)[0];
 const els = {};
 global.document = { getElementById: (id) => (els[id] = els[id] || { innerHTML: '' }) };
@@ -96,12 +96,13 @@ class PlanRecLabelsJsTest(unittest.TestCase):
         # notes
         self.assertIn("Max was called Max 5x and Ultra was called Max 20x until 2026-10-30.", v["plan"])
         self.assertIn("Since 2026-10-30, Ultra has no 5-hour limit for verified accounts", v["plan"])
-        self.assertIn("Ultra's weekly allowance is 10x Pro.", v["plan"])
+        self.assertEqual(v["plan"].count("Ultra's weekly allowance is 10x Pro since then."), 1)
         self.assertIn("weekly 1:5:10 since Ultra", v["plan"])
         self.assertNotIn("—", v["plan"])
         # unverified: rename note stays, ultra note goes
         u = out["unverified"]
         self.assertIn("until 2026-10-30.", u["plan"])
+        self.assertIn("Ultra's weekly allowance is 10x Pro since then.", u["plan"])
         self.assertNotIn("has no 5-hour limit", u["plan"])
         # recommendation card for a switch shows the new names
         p = out["pro_rec"]
@@ -119,6 +120,8 @@ class PlanRecLabelsJsTest(unittest.TestCase):
             L = json.loads((ROOT / "locales" / f"{lang}.json").read_text(encoding="utf-8"))["planRec"]
             self.assertIn("{date}", L["renameNote"])
             self.assertIn("{date}", L["ultraNote"])
+            self.assertIn("10x", L["renameNote"])
+            self.assertNotIn("10x", L["ultraNote"])
             self.assertIn("1:5:10", L["disclaimer"])
             for k in ("renameNote", "ultraNote"):
                 self.assertNotIn("—", L[k])

@@ -223,7 +223,7 @@ Each entry in `plan_history` represents a subscription period:
 }
 ```
 
-- `plan` accepts `"Pro"`, `"Max"` (formerly Max 5x) and `"Ultra"` (formerly Max 20x); the old names `"Max 5x"` and `"Max 20x"` keep working. Since 2026-10-30 Ultra has no 5-hour limit for verified accounts and a weekly allowance of 10x Pro (see `ultra_no_5h_limit_from`)
+- `plan` accepts `"Pro"`, `"Max"` (formerly Max 5x) and `"Ultra"` (formerly Max 20x); the old names `"Max 5x"` and `"Max 20x"` keep working. Since 2026-10-30 Ultra has no 5-hour limit for verified accounts (see `ultra_no_5h_limit_from`). Independent of that key, Ultra's weekly allowance counts as 10x Pro from 2026-10-30 on
 - `end: null` means the plan is currently active
 - `cost_local` + `currency_symbol` are display values (what you actually pay, in any currency). The legacy field `cost_eur` is still accepted as a fallback
 - `cost_usd` drives the savings / ROI math against API-equivalent value

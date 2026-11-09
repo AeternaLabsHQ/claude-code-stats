@@ -2229,8 +2229,8 @@ function renderPlanRecommendation() {
     anchors:      L.anchors      || 'anchor windows',
     recBasis:     L.recBasis     || 'Basis: last {n} cycles ({w} 5h-windows) - tolerance: ≤{q}% of 5h-windows, ≤{a} weeks over cap',
     calFloor:     L.calFloor     || 'floored at the most expensive limit-free window',
-    renameNote:   L.renameNote   || 'Max was called Max 5x and Ultra was called Max 20x until {date}.',
-    ultraNote:    L.ultraNote    || "Since {date}, Ultra has no 5-hour limit for verified accounts: 5h-windows from that date never count as Ultra hits, and 5h fingerprints during Ultra time are ignored. Ultra's weekly allowance is 10x Pro.",
+    renameNote:   L.renameNote   || 'Max was called Max 5x and Ultra was called Max 20x until {date}. Ultra\'s weekly allowance is 10x Pro since then.',
+    ultraNote:    L.ultraNote    || "Since {date}, Ultra has no 5-hour limit for verified accounts: 5h-windows from that date never count as Ultra hits, and 5h fingerprints during Ultra time are ignored.",
     disclaimer:   L.disclaimer   || "Hit counts use empirical caps derived from windows that contained a limit event, floored at the most expensive limit-free window (USD is a rough proxy for Anthropic's limit units). Duplicate events from parallel sessions are merged. Anthropic does not publish exact token limits - the 1:5:20 tier ratio (weekly 1:5:10 since Ultra) is approximate. Weekly cap is estimated as 7 x the 5h cap until a dedicated weekly-limit detector is added.",
   };
 

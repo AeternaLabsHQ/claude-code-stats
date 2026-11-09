@@ -394,8 +394,8 @@
     "calDerived": "derived from 5h cap",
     "capPerWindow": "per 5h-window",
     "capPerWeek": "per week",
-    "renameNote": "Max was called Max 5x and Ultra was called Max 20x until {date}.",
-    "ultraNote": "Since {date}, Ultra has no 5-hour limit for verified accounts: 5h-windows from that date never count as Ultra hits, and 5h fingerprints during Ultra time are ignored. Ultra's weekly allowance is 10x Pro.",
+    "renameNote": "Max was called Max 5x and Ultra was called Max 20x until {date}. Ultra's weekly allowance is 10x Pro since then.",
+    "ultraNote": "Since {date}, Ultra has no 5-hour limit for verified accounts: 5h-windows from that date never count as Ultra hits, and 5h fingerprints during Ultra time are ignored.",
     "anchors": "anchor windows"
   },
   "dialogs": {

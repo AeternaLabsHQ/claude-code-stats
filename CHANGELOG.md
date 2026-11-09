@@ -4,6 +4,23 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+The Experiments comparison is stricter and fairer: it compares like with like (interactive use, same effort level) and tells you how sure it is.
+
+### Changed
+- **The baseline is interactive use only.** SDK-driven runs (entrypoints starting with `sdk`) no longer enter the baseline, because they behave very differently from a person working in a terminal, an app or an editor. The card shows how many SDK replies were left out. Verdicts can change, see [MIGRATION.md](MIGRATION.md).
+- **The baseline is matched to the ID side's effort level.** Each row reweights the baseline to the effort mix of the replies under the ID, over the effort levels both sides have. Replies at an effort level the baseline lacks are not compared; the card says how many.
+- **Significance counts sessions, not replies.** Every row shows a 95% interval and a p-value that treat the session as the unit. The verdict "Behaviour changed" now needs at least 2 of the 4 behaviour measures with a change of 40% or more and p < 0.05, plus at least 200 replies and at least 5 sessions on each side (fewer sessions read "Too little data").
+- **Replies more than 7 days after the session start are dropped.** A session carries the ID it started with, which can change on the server later. The card shows how many replies this removed.
+- **Medians of single replies are now within about 2%** (the histogram is finer than before; the old text said about 10%).
+
+### Added
+- **"Per session" rows** on the comparison card: median cost, replies, prompts, tool calls and active minutes per session, plus cost per prompt.
+- **"Quality proxies" rows:** tool calls ending in an error, repeated identical tool calls, tool calls you rejected, prompts that interrupted a reply, prompts that look like corrections, and edits of a file already edited. They are hints, not a quality verdict, and do not enter the verdict.
+- **`experiments.correction_words` in `config.json`** sets the words that mark a short prompt as a correction (default: a short list of English and German words, an empty list switches correction counting off).
+- **Thinking tokens per effort level** as a table under the cards, per ID and model.
+- **Caveats and the verdict rule on the card.** Every card prints its rule, the entrypoints and effort mix of both sides, and the caveats of the method.
+- In the F2 screenshot mode the Experiments section shows only shortened IDs, without tooltips that carry the full ID.
+
 ## [1.4.2] - 2026-11-09
 
 A switch for cleaner experiment screenshots, and an up-to-date README.

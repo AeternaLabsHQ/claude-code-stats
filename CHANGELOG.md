@@ -26,6 +26,7 @@ The Experiments comparison is stricter and fairer: it compares like with like (i
 ### Fixed
 - **Sonnet 5.5 cache reads cost $0.10 / MTok, not $0.20.** Like Opus 5.5, Sonnet 5.5 bills cache hits at 0.05x the base input price. Costs for Sonnet 5.5 sessions with a lot of cache reads go down accordingly.
 - **Experiments comparison cards no longer cut off their table.** On wide screens three cards sat side by side and the 95% interval and p columns were hidden behind a scrollbar. Desktop screens now show two cards per row, wide enough for all six columns.
+- **Steadier number columns in the Experiments section.** The two bounds of the 95% interval sit in fixed slots, so the ".." lines up from row to row. The thinking-token table is now one table for all models with the same effort columns throughout, and shows the mean on top with the reply count small below it.
 
 ## [1.4.2] - 2026-11-09
 

@@ -194,9 +194,17 @@
 .vc .exp-method { margin: 0; padding: 0 22px; max-width: 980px; }
 .vc .exp-think h3 { margin-bottom: 4px; }
 .vc .exp-think .exp-table-wrap { margin-top: 12px; }
-.vc .exp-think-table { min-width: 0; width: auto; }
-.vc .exp-think-table th,
-.vc .exp-think-table td { padding-right: 18px; }
+.vc .exp-think-table { min-width: 500px; width: 100%; max-width: 760px; table-layout: fixed; }
+.vc .exp-think-table th:first-child,
+.vc .exp-think-table td:first-child { width: 90px; min-width: 0; }
+.vc .exp-think-table td { vertical-align: top; }
+.vc .exp-think-table td.exp-think-empty { color: var(--vc-fg-3); }
+.vc .exp-think-m,
+.vc .exp-think-n { display: block; }
+.vc .exp-think-n { font-size: 10.5px; color: var(--vc-fg-3); margin-top: 1px; }
+.vc .exp-table td.exp-ci { white-space: nowrap; }
+.vc .exp-ci-v { display: inline-block; min-width: 5.5ch; text-align: right; }
+.vc .exp-ci-sep { color: var(--vc-fg-3); white-space: pre; }
 .vc .exp-caveats-box { padding: 0 22px; max-width: 980px; }
 .vc .exp-caveats-h {
   font-family: var(--vc-font-sans); font-size: 12px; font-weight: 600;

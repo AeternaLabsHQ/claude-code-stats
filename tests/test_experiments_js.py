@@ -455,8 +455,8 @@ class ExperimentsHtmlTest(unittest.TestCase):
         h = self.out["changed"]
         for k in ("col_ci", "col_p"):
             self.assertIn(self.L[k], h, k)
-        self.assertIn("+50% .. +160%", h)     # multi_tool CI
-        self.assertIn("-80% .. -20%", h)      # text_before CI
+        self.assertIn('>+50%</span><span class="exp-ci-sep"> .. </span><span class="exp-ci-v">+160%<', h)     # multi_tool CI
+        self.assertIn('>-80%</span><span class="exp-ci-sep"> .. </span><span class="exp-ci-v">-20%<', h)      # text_before CI
         self.assertIn("&lt;0.001", h)         # p 0.0004
         self.assertIn("0.030", h)             # p 0.03, three decimals
         self.assertIn("0.300", h)
@@ -529,12 +529,12 @@ class ExperimentsHtmlTest(unittest.TestCase):
         self.assertIn(self.L["thinking_no_id"], box)
         self.assertIn("xhigh", box)
         # mean is the primary value, with n
-        self.assertIn(">812 (n=500)<", box)
-        self.assertIn(">1,650 (n=120)<", box)
-        self.assertIn(">450 (n=80)<", box)
-        self.assertNotIn(">0 (n=500)<", box)
+        self.assertIn('>812</span><span class="exp-think-n">n=500<', box)
+        self.assertIn('>1,650</span><span class="exp-think-n">n=120<', box)
+        self.assertIn('>450</span><span class="exp-think-n">n=80<', box)
+        self.assertNotIn('>0</span><span class="exp-think-n">n=500<', box)
         self.assertIn("claude-opus-5", box)
-        self.assertGreater(box.index("812 (n=500)"), box.index("thinking"))
+        self.assertGreater(box.index(">812</span>"), box.index("thinking"))
         # after the cards
         self.assertGreater(h.index("exp-think"), h.index("</article>"))
 

@@ -137,6 +137,16 @@
     return fmtChange(lo) + ' .. ' + fmtChange(hi);
   }
 
+  // The two bounds sit in fixed-width, right-aligned slots so the ".."
+  // lines up from row to row instead of drifting with the digit count.
+  function ciCell(lo, hi) {
+    const t = fmtCI(lo, hi);
+    if (t === DASH) return esc(DASH);
+    return '<span class="exp-ci-v">' + esc(fmtChange(lo)) + '</span>'
+      + '<span class="exp-ci-sep"> .. </span>'
+      + '<span class="exp-ci-v">' + esc(fmtChange(hi)) + '</span>';
+  }
+
   function fmtP(p) {
     if (p == null || !isFinite(p)) return DASH;
     return p < 0.001 ? '<0.001' : num(p, 3);
@@ -287,7 +297,7 @@
       + '<td class="num">' + esc(fmtValue(r.base, r.kind)) + '</td>'
       + '<td class="num">' + esc(fmtValue(r.value, r.kind)) + '</td>'
       + '<td class="num">' + chg + '</td>'
-      + '<td class="num exp-ci">' + esc(na ? DASH : fmtCI(r.lo, r.hi)) + '</td>'
+      + '<td class="num exp-ci">' + (na ? esc(DASH) : ciCell(r.lo, r.hi)) + '</td>'
       + '<td class="num exp-p">' + esc(na ? DASH : fmtP(r.p)) + '</td></tr>';
   }
 
@@ -369,33 +379,42 @@
       + '</article>';
   }
 
-  // One table per model: rows "No ID" + IDs, one column per effort level
-  // that has a cell, "median (n)" in each.
+  // One table for all models so the effort columns line up: a header row
+  // per model, then "No ID" and the IDs. Mean on top, n small below.
   function thinkingBox(thinking, T, th) {
     if (!Array.isArray(thinking) || !thinking.length) return '';
-    const tables = thinking.map(function(t) {
-      const rows = t.rows || [];
-      const levels = EFFORT_ORDER.filter(function(l) {
-        return rows.some(function(r) { return r.cells && r.cells[l]; });
+    const models = thinking.filter(function(t) {
+      return (t.rows || []).some(function(r) { return r.cells && Object.keys(r.cells).length; });
+    });
+    const levels = EFFORT_ORDER.filter(function(l) {
+      return models.some(function(t) {
+        return t.rows.some(function(r) { return r.cells && r.cells[l]; });
       });
-      if (!levels.length) return '';
-      const head = '<tr><th>' + esc(t.model) + '</th>' + levels.map(function(l) {
+    });
+    let tables = '';
+    if (models.length && levels.length) {
+      const head = '<tr><th></th>' + levels.map(function(l) {
         return '<th class="num">' + esc(l) + '</th>';
       }).join('') + '</tr>';
-      const body = rows.map(function(r) {
-        return '<tr><td>' + esc(r.id ? r.short : T.thinking_no_id) + '</td>' + levels.map(function(l) {
-          const c = r.cells && r.cells[l];
-          if (!c) return '<td class="num">' + DASH + '</td>';
-          // Mean is the headline (most replies report 0 thinking tokens, so
-          // the median is mostly 0); median and share go into the tooltip.
-          const tip = c.nonzero_share == null ? '' : ' title="' + esc(fill(T.thinking_cell, {
-            median: num(c.median, 0), share: String(Math.round(c.nonzero_share * 100)) })) + '"';
-          return '<td class="num"' + tip + '>' + esc(num(c.mean, 0) + ' (n=' + num(c.replies, 0) + ')') + '</td>';
-        }).join('') + '</tr>';
+      const body = models.map(function(t) {
+        const rows = t.rows.map(function(r) {
+          return '<tr><td>' + esc(r.id ? r.short : T.thinking_no_id) + '</td>' + levels.map(function(l) {
+            const c = r.cells && r.cells[l];
+            if (!c) return '<td class="num exp-think-empty">' + DASH + '</td>';
+            // Mean is the headline (most replies report 0 thinking tokens, so
+            // the median is mostly 0); median and share go into the tooltip.
+            const tip = c.nonzero_share == null ? '' : ' title="' + esc(fill(T.thinking_cell, {
+              median: num(c.median, 0), share: String(Math.round(c.nonzero_share * 100)) })) + '"';
+            return '<td class="num"' + tip + '><span class="exp-think-m">' + esc(num(c.mean, 0))
+              + '</span><span class="exp-think-n">n=' + esc(num(c.replies, 0)) + '</span></td>';
+          }).join('') + '</tr>';
+        }).join('');
+        return '<tbody><tr class="exp-group-h"><th colspan="' + (levels.length + 1) + '">'
+          + esc(t.model) + '</th></tr>' + rows + '</tbody>';
       }).join('');
-      return '<div class="exp-table-wrap"><table class="exp-table exp-think-table"><thead>' + head
-        + '</thead><tbody>' + body + '</tbody></table></div>';
-    }).join('');
+      tables = '<div class="exp-table-wrap"><table class="exp-table exp-think-table"><thead>' + head
+        + '</thead>' + body + '</table></div>';
+    }
     if (!tables) return '';
     return '<div class="chart-box exp-think">'
       + '<h3>' + esc(T.thinking_title) + '</h3>'

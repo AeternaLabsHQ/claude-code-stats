@@ -107,7 +107,9 @@
 .vc .exp--hide-insufficient .exp-card--insufficient { display: none; }
 .vc .exp-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  /* 620px: the six-column table needs about 570px plus card padding, so
+     narrower cards would cut off the CI and p columns. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 620px), 1fr));
   gap: 16px;
 }
 .vc .exp-card { min-width: 0; }

@@ -4,6 +4,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-13
+
 The Experiments comparison is stricter and fairer: it compares like with like (interactive use, same effort level) and tells you how sure it is. The pricing table also knows Fable 5.2 and the Mythos models.
 
 ### Changed

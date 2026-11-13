@@ -1,4 +1,4 @@
-# Upgrading the Experiments comparison (after 1.4.2)
+# Upgrading the Experiments comparison (1.5.0)
 
 Nothing is required of you. `python3 extract_stats.py` rescans your logs once (the new per-reply details are part of the scan cache key) and writes the new comparison cards. Verdicts can change, because the comparison is stricter and fairer than before:
 

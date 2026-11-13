@@ -107,7 +107,9 @@
 .vc .exp--hide-insufficient .exp-card--insufficient { display: none; }
 .vc .exp-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  /* 620px: the six-column table needs about 570px plus card padding, so
+     narrower cards would cut off the CI and p columns. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 620px), 1fr));
   gap: 16px;
 }
 .vc .exp-card { min-width: 0; }
@@ -131,8 +133,16 @@
   font-family: var(--vc-font-sans); font-size: 12px; color: var(--vc-fg-3);
   margin: 6px 0 12px;
 }
+/* The six-column table scrolls inside its own wrapper on narrow screens
+   instead of widening the page. */
+.vc .exp-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vc-grid) transparent;
+}
 .vc .exp-table {
-  width: 100%; border-collapse: collapse;
+  width: 100%; min-width: 540px; border-collapse: collapse;
   font-family: var(--vc-font-sans); font-size: 12.5px;
   font-variant-numeric: tabular-nums;
 }
@@ -151,12 +161,29 @@
 .vc .exp-table td:last-child { padding-right: 0; }
 .vc .exp-table .num { text-align: right; white-space: nowrap; font-family: var(--vc-font-mono); }
 .vc .exp-table th.num { font-family: var(--vc-font-sans); }
-.vc .exp-table tr.exp-cost td { color: var(--vc-fg-2); border-bottom: none; }
+.vc .exp-table tr.exp-cost td { color: var(--vc-fg-2); }
+.vc .exp-table tbody:last-of-type tr:last-child td { border-bottom: none; }
+.vc .exp-table tr.exp-group-h th {
+  padding: 14px 0 6px; font-size: 11px; letter-spacing: 0.04em;
+  text-transform: none; color: var(--vc-fg); white-space: normal;
+}
+.vc .exp-table thead + tbody tr.exp-group-h th { padding-top: 10px; }
+.vc .exp-table td:first-child { min-width: 150px; }
+.vc .exp-table td.exp-ci,
+.vc .exp-table td.exp-p { color: var(--vc-fg-2); }
+.vc .exp-table th.exp-p { text-transform: none; }
+.vc .exp-think-table td:first-child,
+.vc .exp-think-table th:first-child { white-space: nowrap; }
 .vc .exp-chg { color: var(--vc-fg-3); }
 .vc .exp-chg.na { font-family: var(--vc-font-sans); font-size: 11px; font-style: italic; }
 .vc .exp-chg.sig {
   color: var(--vc-neg); background: var(--vc-neg-soft); font-weight: 600;
   padding: 1px 6px; border-radius: var(--vc-radius-pill);
+}
+.vc .exp-card-foot p { margin: 0 0 4px; }
+.vc .exp-card-foot .exp-rule {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--vc-grid);
+  color: var(--vc-fg-2);
 }
 .vc .exp-card-foot,
 .vc .exp-method,
@@ -165,6 +192,31 @@
   color: var(--vc-fg-3); margin: 10px 0 0;
 }
 .vc .exp-method { margin: 0; padding: 0 22px; max-width: 980px; }
+.vc .exp-think h3 { margin-bottom: 4px; }
+.vc .exp-think .exp-table-wrap { margin-top: 12px; }
+.vc .exp-think-table { min-width: 500px; width: 100%; max-width: 760px; table-layout: fixed; }
+.vc .exp-think-table th:first-child,
+.vc .exp-think-table td:first-child { width: 90px; min-width: 0; }
+.vc .exp-think-table td { vertical-align: top; }
+.vc .exp-think-table td.exp-think-empty { color: var(--vc-fg-3); }
+.vc .exp-think-m,
+.vc .exp-think-n { display: block; }
+.vc .exp-think-n { font-size: 10.5px; color: var(--vc-fg-3); margin-top: 1px; }
+.vc .exp-table td.exp-ci { white-space: nowrap; }
+.vc .exp-ci-v { display: inline-block; min-width: 5.5ch; text-align: right; }
+.vc .exp-ci-sep { color: var(--vc-fg-3); white-space: pre; }
+.vc .exp-caveats-box { padding: 0 22px; max-width: 980px; }
+.vc .exp-caveats-h {
+  font-family: var(--vc-font-sans); font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--vc-fg-2);
+  margin: 0 0 6px;
+}
+.vc .exp-caveats {
+  margin: 0; padding-left: 18px;
+  font-family: var(--vc-font-sans); font-size: 11.5px; line-height: 1.5;
+  color: var(--vc-fg-3);
+}
+.vc .exp-caveats li { margin: 0 0 3px; }
 .vc .exp-none { margin: 0; font-size: 12.5px; }
 
 @media (max-width: 700px) {

@@ -202,9 +202,30 @@ class PricingForDisplayTest(unittest.TestCase):
         self.assertIs(resolve_pricing("claude-sonnet-5-5[1m]"), entry)
         self.assertEqual(build_pricing_warnings(["claude-sonnet-5-5"]), [])
         self.assertEqual((entry["input"], entry["output"]), (2.00, 10.00))
-        self.assertEqual(entry["cache_read"], 0.20)
+        # Cache reads are 0.05x base input on Sonnet 5.5, not the usual 0.1x.
+        self.assertEqual(entry["cache_read"], 0.10)
         self.assertEqual(entry["cache_write_1h"], 4.00)
         self.assertIsNot(entry, PRICING["claude-sonnet-5"])
+
+    def test_fable_5_2_and_mythos_are_priced_not_defaulted(self):
+        cases = {
+            # id: (display, input, output, cache_read, write_5m, write_1h)
+            "claude-fable-5-2": ("Fable 5.2", 8.00, 40.00, 0.20, 10.00, 16.00),
+            "claude-mythos-5-2": ("Mythos 5.2", 8.00, 40.00, 0.20, 10.00, 16.00),
+            "claude-mythos-5-1": ("Mythos 5.1", 10.00, 50.00, 0.25, 12.50, 20.00),
+            "claude-mythos-5": ("Mythos 5", 10.00, 50.00, 1.00, 12.50, 20.00),
+        }
+        for mid, (display, *rates) in cases.items():
+            with self.subTest(mid):
+                entry = PRICING[mid]
+                self.assertEqual(get_model_display(mid), display)
+                self.assertIs(pricing_for_display(display), entry)
+                self.assertIs(resolve_pricing(mid + "[1m]"), entry)
+                self.assertEqual(build_pricing_warnings([mid]), [])
+                self.assertEqual(
+                    [entry[k] for k in ("input", "output", "cache_read",
+                                        "cache_write_5m", "cache_write_1h")],
+                    rates)
 
     def test_haiku_5_5_is_priced_not_defaulted(self):
         # claude-haiku-5-5 must have its own entry, not fall through to

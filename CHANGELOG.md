@@ -4,6 +4,32 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-13
+
+The Experiments comparison is stricter and fairer: it compares like with like (interactive use, same effort level) and tells you how sure it is. The pricing table also knows Fable 5.2 and the Mythos models.
+
+### Changed
+- **The baseline is interactive use only.** SDK-driven runs (entrypoints starting with `sdk`) no longer enter the baseline, because they behave very differently from a person working in a terminal, an app or an editor. The card shows how many SDK replies were left out. Verdicts can change, see [MIGRATION.md](MIGRATION.md).
+- **The baseline is matched to the ID side's effort level.** Each row reweights the baseline to the ID side's mix of that row's own base (for example tool replies, Bash commands or prompts) over the effort levels both sides have. The per-session rows are not reweighted. Replies at an effort level the baseline lacks are not compared; the card says how many.
+- **Significance counts sessions, not replies.** Every row shows a 95% interval and a p-value that treat the session as the unit. The verdict "Behaviour changed" now needs at least 2 of the 4 behaviour measures with a change of 40% or more and p < 0.05, plus at least 200 replies and at least 5 sessions on each side (fewer sessions, or fewer than 2 behaviour measures with enough events to compare, read "Too little data").
+- **Replies more than 7 days after the session start are dropped.** A session carries the ID it started with, which can change on the server later. The card shows how many replies this removed.
+- **Medians of single replies are now within about 2%** (the histogram is finer than before).
+
+### Added
+- **"Per session" rows** on the comparison card: median cost, replies, prompts, tool calls and active minutes per session, plus cost per prompt.
+- **"Quality proxies" rows:** tool calls ending in an error, repeated identical tool calls, tool calls you rejected, prompts that interrupted a reply, prompts that look like corrections, and edits of a file already edited. They are hints, not a quality verdict, and do not enter the verdict. Like cost per reply and cost per prompt, they show a change only with a base of at least 30 on each side (for example 30 tool calls) and, for a rate, at least 30 counted events on one side (for example 30 tool errors); otherwise the change reads "too few events".
+- **`experiments.correction_words` in `config.json`** sets the words that mark a short prompt as a correction (default: a short list of English and German words, an empty list switches correction counting off).
+- **Thinking tokens per effort level** as a table under the cards, per ID and model.
+- **Caveats and the verdict rule on the card.** Every card prints its rule, the entrypoints and effort mix of both sides, and the caveats of the method.
+- In the F2 screenshot mode the Experiments section shows only shortened IDs, without tooltips that carry the full ID.
+- **Fable 5.2 and Mythos 5.2** in the pricing table: $8 / $40, cache reads $0.20 / MTok, cache writes $10 (5m) and $16 (1h).
+- **Mythos 5.1 and Mythos 5** in the pricing table, at the same rates as Fable 5.1 and Fable 5. Mythos models have limited availability. Until now they fell through to the default estimate ($3 / $15). In the charts they show in the neutral colour for now, as Mythos has no colour family of its own yet.
+
+### Fixed
+- **Sonnet 5.5 cache reads cost $0.10 / MTok, not $0.20.** Like Opus 5.5, Sonnet 5.5 bills cache hits at 0.05x the base input price. Costs for Sonnet 5.5 sessions with a lot of cache reads go down accordingly.
+- **Experiments comparison cards no longer cut off their table.** On wide screens three cards sat side by side and the 95% interval and p columns were hidden behind a scrollbar. Desktop screens now show two cards per row, wide enough for all six columns.
+- **Steadier number columns in the Experiments section.** The two bounds of the 95% interval sit in fixed slots, so the ".." lines up from row to row. The thinking-token table is now one table for all models with the same effort columns throughout, and shows the mean on top with the reply count small below it.
+
 ## [1.4.2] - 2026-11-09
 
 A switch for cleaner experiment screenshots, and an up-to-date README.
